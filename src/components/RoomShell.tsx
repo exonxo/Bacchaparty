@@ -1,6 +1,6 @@
 "use client";
 import { Volume2, VolumeX, WifiOff } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { playerColor } from "@/lib/colors";
 import { isMuted, setMuted, unlockAudioOnFirstTap } from "@/lib/sfx";
 import type { Player } from "@/lib/types";
@@ -40,6 +40,7 @@ export function RoomShell({
   title,
   children,
   away,
+  menu,
 }: {
   me: Player | null;
   code: string;
@@ -48,13 +49,50 @@ export function RoomShell({
   title?: ReactNode;
   children: ReactNode;
   away?: boolean;
+  /** When set, tapping your icon opens a dropdown with this content. */
+  menu?: (close: () => void) => ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
   return (
     <div className="min-h-dvh" style={{ ["--me" as string]: playerColor(me?.avatar) }}>
       <header className="sticky top-0 z-30 border-b-[1.5px] border-line bg-bg pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 py-2">
-          <div className="flex min-w-0 items-center gap-2.5">
-            {me && <Sticker id={me.avatar} size={38} />}
+          <div ref={wrap} className="relative flex min-w-0 items-center gap-2.5">
+            {me &&
+              (menu ? (
+                <button
+                  aria-label="Profile and test mode"
+                  aria-haspopup="dialog"
+                  aria-expanded={open}
+                  onClick={() => setOpen((o) => !o)}
+                  className="press -m-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+                >
+                  <Sticker id={me.avatar} size={38} />
+                </button>
+              ) : (
+                <Sticker id={me.avatar} size={38} />
+              ))}
+            {menu && open && (
+              <div role="dialog" aria-label="Profile" className="rise-in cut absolute left-0 top-full z-50 mt-2 w-[min(18rem,calc(100vw-2rem))] rounded-soft bg-card p-4">
+                {menu(() => setOpen(false))}
+              </div>
+            )}
             <div className="min-w-0">
               <div className="font-display truncate text-p-body font-extrabold leading-tight">{me?.name ?? "Big screen"}</div>
               <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-p-note font-semibold text-muted">

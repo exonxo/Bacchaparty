@@ -17,6 +17,7 @@ import {
 } from "./room";
 import { deriveShared, generateExchangeKeys, generateSigningKeys, importSigner, open, seal, serialQueue, sign, type StoredKeyPair } from "./secure";
 import { HOST_ID, type GameAction, type Player } from "./types";
+import { BOTS, botActions, isBot } from "./testBots";
 import type { Identity } from "./usePlayerRoom";
 import { AVATARS, randomId } from "./util";
 
@@ -113,7 +114,7 @@ async function registerKey(code: string, key: string) {
  * Runs a room on the host's device. The host is also a player (`me`), so the
  * host's phone can play while it runs the game.
  */
-export function useHostRoom(code: string, me: Identity | null) {
+export function useHostRoom(code: string, me: Identity | null, testMode = false) {
   const stateRef = useRef<HostState>(empty);
   const [state, setStateRaw] = useState<HostState>(empty);
   const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
@@ -372,7 +373,7 @@ export function useHostRoom(code: string, me: Identity | null) {
       const players = s.players.map((p) => {
         // A phone that joined a moment ago may not have shown up in presence yet.
         const fresh = nowMs - (joinedAt.get(p.id) ?? 0) < 6000;
-        const c = p.id === hostId || online.has(p.id) || (fresh && p.connected);
+        const c = p.id === hostId || isBot(p.id) || online.has(p.id) || (fresh && p.connected);
         if (c === p.connected) return p;
         changed = true;
         const next = { ...p, connected: c };
@@ -395,7 +396,7 @@ export function useHostRoom(code: string, me: Identity | null) {
         if (roleRef.current !== "active" || !keys) return;
         if (!m || typeof m.id !== "string" || !m.id || m.id.length > 24 || typeof m.pk !== "string" || m.pk.length > 200 || !isSealed(m, 600)) return;
         const s = stateRef.current;
-        if (m.id === meRef.current?.id || m.id === HOST_ID || s.kicked.includes(m.id)) return;
+        if (m.id === meRef.current?.id || m.id === HOST_ID || isBot(m.id) || s.kicked.includes(m.id)) return;
         const isNew = !s.players.some((p) => p.id === m.id);
         if (isNew) {
           const now = Date.now();
@@ -511,6 +512,33 @@ export function useHostRoom(code: string, me: Identity | null) {
       api.current = { flush: () => {}, save: () => {}, takeOver: () => {} };
     };
   }, [code, commit, applyAction, upsertPlayer, gameNow]);
+
+  // Test mode: add or remove the simulated players. Switching it off mid-game ends the game first.
+  useEffect(() => {
+    if (testMode) {
+      for (const b of BOTS) upsertPlayer(b.id, b.name, b.avatar);
+      return;
+    }
+    const s = stateRef.current;
+    if (!s.players.some((p) => isBot(p.id))) return;
+    const players = s.players.filter((p) => !isBot(p.id));
+    commit(s.phase === "playing" ? { ...s, players, phase: "lobby", gameId: null, gameState: null } : { ...s, players });
+  }, [testMode, upsertPlayer, commit]);
+
+  // Test mode: simulated players make moves while a supported game runs.
+  useEffect(() => {
+    if (!testMode) return;
+    const id = setInterval(() => {
+      const s = stateRef.current;
+      if (roleRef.current !== "active" || s.phase !== "playing" || !s.gameId) return;
+      const mod = getGameModule(s.gameId);
+      if (!mod) return;
+      const bots = s.players.filter((p) => isBot(p.id) && p.connected).map((p) => p.id);
+      if (!bots.length) return;
+      for (const a of botActions(s.gameId, s.gameState, mod.publicView(s.gameState), bots)) applyAction(a);
+    }, 900);
+    return () => clearInterval(id);
+  }, [testMode, applyAction]);
 
   const startGame = useCallback(
     (gameId: string, options: unknown) => {

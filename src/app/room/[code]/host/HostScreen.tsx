@@ -1,7 +1,7 @@
 "use client";
 import { Check, Home, Info, MapPin, MonitorSmartphone, Play, QrCode, Share2, Tv, Users, X } from "lucide-react";
 import QRCode from "qrcode";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { GameIcon } from "@/components/GameIcon";
 import { GameStage } from "@/components/GameStage";
 import { GameTable, GameTile } from "@/components/paper/GameTile";
@@ -9,6 +9,7 @@ import { gameLook } from "@/components/paper/gameLook";
 import { PaperButton, PaperSheet, Sticker } from "@/components/paper/Paper";
 import { ProfileFields } from "@/components/ProfileForm";
 import { RoomShell, iconButtonClass } from "@/components/RoomShell";
+import { ProfileMenu, TestBanner } from "@/components/ProfileMenu";
 import { GAMES, getGameInfo } from "@/games/catalog";
 import { getGameModule } from "@/games/modules";
 import { playSfx } from "@/lib/sfx";
@@ -82,8 +83,28 @@ export function HostScreen({ code, defaultName }: { code: string; defaultName: s
   return <HostRoom code={code} me={me} />;
 }
 
+const TEST_KEY = "bacchaparty-testmode";
+
+function useTestMode(): [boolean, (on: boolean) => void] {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    try {
+      setOn(localStorage.getItem(TEST_KEY) === "1");
+    } catch {}
+  }, []);
+  const set = useCallback((next: boolean) => {
+    setOn(next);
+    try {
+      localStorage.setItem(TEST_KEY, next ? "1" : "0");
+    } catch {}
+  }, []);
+  return [on, set];
+}
+
 function HostRoom({ code, me }: { code: string; me: Identity }) {
-  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, removePlayer, setTogether, takeOver, act, sendAsMe } = useHostRoom(code, me);
+  const [testMode, setTestMode] = useTestMode();
+  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, removePlayer, setTogether, takeOver, act, sendAsMe } = useHostRoom(code, me, testMode);
+  const profileMenu = (close: () => void) => <ProfileMenu name={me.name} avatar={me.avatar} testMode={testMode} onTestMode={setTestMode} onClose={close} />;
   const now = useNow(clockOffset, 250);
   useWakeLock(true);
   const { url, qr } = useInvite(code);
@@ -179,12 +200,14 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
         code={code}
         status={status}
         title={playingInfo?.name}
+        menu={profileMenu}
         right={
           <button onClick={() => setSheet("end")} aria-label="Back to lobby" className={iconButtonClass}>
             <Home className="h-5 w-5" />
           </button>
         }
       >
+        <TestBanner on={testMode} />
         <GameStage mod={playingMod} view={view} priv={myPriv} me={mePlayer} players={state.players} send={sendAsMe} now={now} isHost hostAct={act} together={state.together} />
         {endSheet}
       </RoomShell>
@@ -240,7 +263,8 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
   );
 
   return (
-    <RoomShell me={mePlayer} code={code} status={status} title="Host">
+    <RoomShell me={mePlayer} code={code} status={status} title="Host" menu={profileMenu}>
+      <TestBanner on={testMode} />
       {invite}
 
       {/* Players */}
