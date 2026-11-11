@@ -1,7 +1,8 @@
 "use client";
-import { Check, Home, Info, MapPin, MonitorSmartphone, Play, QrCode, Share2, Tv, Users, X } from "lucide-react";
+import { Check, DoorClosed, Home, Info, MapPin, MonitorSmartphone, Play, QrCode, Share2, Tv, Users, X } from "lucide-react";
 import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
+import { PartyEnded } from "@/components/PartyEnded";
 import { GameIcon } from "@/components/GameIcon";
 import { GameStage } from "@/components/GameStage";
 import { GameTable, GameTile } from "@/components/paper/GameTile";
@@ -83,12 +84,13 @@ export function HostScreen({ code, defaultName }: { code: string; defaultName: s
 }
 
 function HostRoom({ code, me }: { code: string; me: Identity }) {
-  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, removePlayer, setTogether, takeOver, act, sendAsMe } = useHostRoom(code, me);
+  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, endParty, removePlayer, setTogether, takeOver, act, sendAsMe } = useHostRoom(code, me);
   const now = useNow(clockOffset, 250);
   useWakeLock(true);
   const { url, qr } = useInvite(code);
   const [selected, setSelected] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<"qr" | "end" | null>(null);
+  const [sheet, setSheet] = useState<"qr" | "end" | "endParty" | null>(null);
+  const [partyEnded, setPartyEnded] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [optionsByGame, setOptionsByGame] = useState<Record<string, unknown>>({});
@@ -103,11 +105,30 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
     const t = setTimeout(() => setToast(null), 2600);
     return () => clearTimeout(t);
   }, [toast]);
+  useEffect(() => {
+    if (state.phase === "closed") setPartyEnded(true);
+  }, [state.phase]);
+
+  const hostEndParty = () => {
+    endParty();
+    setSheet(null);
+    setPartyEnded(true);
+  };
+
+  const endPartyControls = (
+    <button type="button" aria-label="End party for everyone" onClick={() => setSheet("endParty")} className={iconButtonClass} title="End party">
+      <DoorClosed className="h-5 w-5" />
+    </button>
+  );
 
   const playingMod = state.gameId ? getGameModule(state.gameId) : null;
   const playingInfo = state.gameId ? getGameInfo(state.gameId) : null;
   const tvUrl = useMemo(() => (url ? url.replace(/\/join\?code=.*/, `/room/${code}/tv`) : ""), [url, code]);
   const games = useMemo(() => ORDER.map((id) => GAMES.find((g) => g.id === id)!).filter(Boolean), []);
+
+  if (partyEnded) {
+    return <PartyEnded asHost />;
+  }
 
   async function copy(text: string, done: string) {
     try {
@@ -151,12 +172,12 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
     );
   }
 
-  const endSheet = (
-    <PaperSheet open={sheet === "end"} onClose={() => setSheet(null)} title="Game khatam karein?">
+  const endGameSheet = (
+    <PaperSheet open={sheet === "end"} onClose={() => setSheet(null)} title="End this game?">
       <p className="text-p-body text-muted">Everyone goes back to the lobby. This game’s scores are cleared.</p>
       <div className="mt-5 grid grid-cols-2 gap-3">
         <PaperButton tone="paper" size="lg" onClick={() => setSheet(null)}>
-          Khelte raho
+          Keep playing
         </PaperButton>
         <PaperButton
           tone="vermilion"
@@ -172,6 +193,20 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
     </PaperSheet>
   );
 
+  const endPartySheet = (
+    <PaperSheet open={sheet === "endParty"} onClose={() => setSheet(null)} title="End the party for everyone?">
+      <p className="text-p-body text-muted">All players will leave this room. They cannot join with this code again.</p>
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        <PaperButton tone="paper" size="lg" onClick={() => setSheet(null)}>
+          Keep party going
+        </PaperButton>
+        <PaperButton tone="vermilion" size="lg" onClick={hostEndParty}>
+          End party
+        </PaperButton>
+      </div>
+    </PaperSheet>
+  );
+
   if (state.phase === "playing" && playingMod && view) {
     return (
       <RoomShell
@@ -180,13 +215,17 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
         status={status}
         title={playingInfo?.name}
         right={
-          <button onClick={() => setSheet("end")} aria-label="Back to lobby" className={iconButtonClass}>
-            <Home className="h-5 w-5" />
-          </button>
+          <>
+            <button onClick={() => setSheet("end")} aria-label="Back to lobby" className={iconButtonClass}>
+              <Home className="h-5 w-5" />
+            </button>
+            {endPartyControls}
+          </>
         }
       >
         <GameStage mod={playingMod} view={view} priv={myPriv} me={mePlayer} players={state.players} send={sendAsMe} now={now} isHost hostAct={act} together={state.together} />
-        {endSheet}
+        {endGameSheet}
+        {endPartySheet}
       </RoomShell>
     );
   }
@@ -240,7 +279,13 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
   );
 
   return (
-    <RoomShell me={mePlayer} code={code} status={status} title="Host">
+    <RoomShell
+      me={mePlayer}
+      code={code}
+      status={status}
+      title="Host"
+      right={endPartyControls}
+    >
       {invite}
 
       {/* Players */}
@@ -399,6 +444,7 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
           </PaperButton>
         </div>
       </PaperSheet>
+      {endPartySheet}
       <Toast text={toast} />
     </RoomShell>
   );

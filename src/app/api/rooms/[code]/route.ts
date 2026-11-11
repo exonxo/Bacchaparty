@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isDemoPartyClosed } from "@/lib/demoParty";
 import { isSupabaseConfigured } from "@/lib/env";
 import { lookupRoom, setRoomKey } from "@/lib/rooms";
 import { getUser } from "@/lib/supabase/server";
@@ -8,8 +9,11 @@ const noStore = { "cache-control": "no-store" };
 /** Lets phones check a code is real and learn which signing key belongs to its host. */
 export async function GET(_req: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  if (!/^[A-Za-z]{4}$/.test(code)) return NextResponse.json({ exists: false, hostKey: null }, { headers: noStore });
-  if (!isSupabaseConfigured) return NextResponse.json({ exists: true, hostKey: null, demo: true }, { headers: noStore });
+  if (!/^[A-Za-z]{4}$/.test(code)) return NextResponse.json({ exists: false, hostKey: null, ended: false }, { headers: noStore });
+  if (!isSupabaseConfigured) {
+    if (isDemoPartyClosed(code)) return NextResponse.json({ exists: false, hostKey: null, ended: true, demo: true }, { headers: noStore });
+    return NextResponse.json({ exists: true, hostKey: null, demo: true, ended: false }, { headers: noStore });
+  }
   return NextResponse.json(await lookupRoom(code), { headers: noStore });
 }
 

@@ -1,14 +1,15 @@
 "use client";
-import { Check, EyeOff, MapPin, Timer as TimerIcon, Vote } from "lucide-react";
-import { Button, Label, LevelPicker, NumberPicker, Panel, PlayerChip, Scoreboard } from "@/components/ui";
-import { locationsFor, type ChorLocation } from "@/content/chor-kaun";
-import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player, type ScreenProps } from "@/lib/types";
+import { Check, EyeOff, Tag, Timer as TimerIcon, Vote } from "lucide-react";
+import { Button, Label, NumberPicker, Panel, PlayerChip, Scoreboard } from "@/components/ui";
+import { CHOR_TOPIC_ALL, resolveRoundTopic, topicById, topicLabel, type ChorTopic, type ChorTopicChoice } from "@/content/chor-kaun";
+import { HOST_ID, type ControllerProps, type GameModule, type Player, type ScreenProps } from "@/lib/types";
 import { fmt, nameOf, resultText } from "./helpers";
 import { Phone } from "./PaperPhone";
+import { TopicPickerLobby } from "./TopicPicker";
 import { pick, shuffle } from "@/lib/util";
 
 export interface Options {
-  level: Level;
+  topic: ChorTopicChoice;
   minutes: number;
 }
 
@@ -26,8 +27,10 @@ export interface State {
   options: Options;
   round: number;
   participants: string[];
-  location: ChorLocation;
-  roles: Record<string, string>;
+  topicId: string;
+  topicLabel: string;
+  majorityWord: string;
+  chorWord: string;
   chorId: string;
   firstAsker: string;
   votes: Record<string, string>;
@@ -35,7 +38,7 @@ export interface State {
   phase: "playing" | "reveal";
   result: Result | null;
   scores: Record<string, number>;
-  usedLocations: string[];
+  usedMajorityWords: string[];
 }
 
 export interface Pub {
@@ -46,19 +49,23 @@ export interface Pub {
   deadline: number;
   voteCounts: Record<string, number>;
   voted: string[];
-  locations: { name: string; emoji: string }[];
+  topicId: string;
+  topicLabel: string;
+  topicSetting: ChorTopicChoice;
+  wordChoices: string[];
   scores: Record<string, number>;
   reveal: null | {
-    location: { name: string; emoji: string };
+    topicLabel: string;
+    majorityWord: string;
+    chorWord: string;
     chorId: string;
-    roles: Record<string, string>;
     result: Result;
   };
 }
 
 export type Priv =
-  | { chor: true; myVote: string | null }
-  | { chor: false; location: string; emoji: string; role: string; myVote: string | null };
+  | { chor: true; word: string; myVote: string | null }
+  | { chor: false; word: string; myVote: string | null };
 
 /** mm:ss timer pill. */
 function TimerPill({ deadline, now, big = false }: { deadline: number; now: number; big?: boolean }) {
@@ -80,24 +87,33 @@ function activeIds(players: Player[], fallback: string[]): string[] {
   return online.length >= 3 ? online : fallback;
 }
 
-function deal(options: Options, participants: string[], now: number, scores: Record<string, number>, round: number, used: string[]): State {
-  const pool = locationsFor(options.level);
-  const fresh = pool.filter((l) => !used.includes(l.name));
-  const location = pick(fresh.length ? fresh : pool);
+function pickWords(topic: ChorTopic, used: string[]): { majorityWord: string; chorWord: string; usedMajorityWords: string[] } {
+  const pool = [...topic.words];
+  const fresh = pool.filter((w) => !used.includes(w));
+  const majorityWord = pick(fresh.length ? fresh : pool);
+  const others = pool.filter((w) => w !== majorityWord);
+  const chorWord = pick(others.length ? others : pool.filter((w) => w !== majorityWord)) ?? majorityWord;
+  return {
+    majorityWord,
+    chorWord,
+    usedMajorityWords: [...(fresh.length ? used : []), majorityWord],
+  };
+}
+
+function deal(options: Options, participants: string[], now: number, scores: Record<string, number>, round: number, usedMajorityWords: string[]): State {
+  const topic = resolveRoundTopic(options.topic);
+  const { majorityWord, chorWord, usedMajorityWords: nextUsed } = pickWords(topic, usedMajorityWords);
   const chorId = pick(participants);
-  const roleList = shuffle(location.roles);
-  const roles: Record<string, string> = {};
-  participants.forEach((id, i) => {
-    if (id !== chorId) roles[id] = roleList[i % roleList.length];
-  });
   const nextScores = { ...scores };
   participants.forEach((id) => (nextScores[id] ??= 0));
   return {
     options,
     round,
     participants,
-    location,
-    roles,
+    topicId: topic.id,
+    topicLabel: topic.label,
+    majorityWord,
+    chorWord,
     chorId,
     firstAsker: pick(participants),
     votes: {},
@@ -105,7 +121,7 @@ function deal(options: Options, participants: string[], now: number, scores: Rec
     phase: "playing",
     result: null,
     scores: nextScores,
-    usedLocations: [...(fresh.length ? used : []), location.name],
+    usedMajorityWords: nextUsed,
   };
 }
 
@@ -132,7 +148,7 @@ function finish(s: State, reason: Reason, chorGuess: string | null = null): Stat
   const scores = { ...s.scores };
   const others = s.participants.filter((id) => id !== s.chorId);
   if (reason === "guess") {
-    chorGuessCorrect = chorGuess === s.location.name;
+    chorGuessCorrect = chorGuess === s.majorityWord;
     if (chorGuessCorrect) scores[s.chorId] = (scores[s.chorId] ?? 0) + 3;
     else {
       caught = true;
@@ -167,6 +183,10 @@ function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
         {view.phase === "playing" ? (
           <Panel className="space-y-5 py-8 text-center">
             <Label>Round {view.round}</Label>
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-4 py-2 text-lg">
+              <Tag className="h-5 w-5 text-saffron" />
+              Topic: <span className="font-bold text-saffron">{view.topicLabel}</span>
+            </div>
             <div className="flex items-center justify-center gap-3 font-display text-4xl font-black">
               <EyeOff className="h-9 w-9 text-saffron" /> Check your phone secretly
             </div>
@@ -174,7 +194,7 @@ function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
               <span className="font-bold text-saffron">{nameOf(players, view.firstAsker)}</span> asks the first question.
             </div>
             <TimerPill deadline={view.deadline} now={now} big />
-            <div className="text-muted">Vote anytime on your phone. The Chor can guess the place anytime.</div>
+            <div className="text-muted">Vote anytime on your phone. The Chor can guess the real word anytime.</div>
             {!spectator && (
               <Button tone="ghost" onClick={() => confirm("Stop the round and count votes now?") && act("end")}>
                 Stop & count votes
@@ -184,9 +204,12 @@ function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
         ) : (
           view.reveal && (
             <Panel className="pop-in space-y-4 py-8 text-center">
-              <MapPin className="mx-auto h-12 w-12 text-saffron" />
-              <div className="text-xl text-muted">The place was</div>
-              <div className="font-display text-5xl font-black text-saffron">{view.reveal.location.name}</div>
+              <Tag className="mx-auto h-12 w-12 text-saffron" />
+              <div className="text-xl text-muted">
+                Topic: {view.reveal.topicLabel} · The word was
+              </div>
+              <div className="font-display text-5xl font-black text-saffron">{view.reveal.majorityWord}</div>
+              <div className="text-lg text-muted">Chor had: {view.reveal.chorWord}</div>
               <div className="text-2xl font-bold">{resultText(view.reveal.result, players, view.reveal.chorId)}</div>
               <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-2">
                 {parts.map((p) => (
@@ -194,7 +217,7 @@ function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
                     key={p.id}
                     player={p}
                     highlight={p.id === view.reveal!.chorId}
-                    extra={<span className="text-sm opacity-80">· {p.id === view.reveal!.chorId ? "Chor" : view.reveal!.roles[p.id]}</span>}
+                    extra={<span className="text-sm opacity-80">· {p.id === view.reveal!.chorId ? "Chor" : "In the know"}</span>}
                   />
                 ))}
               </div>
@@ -228,11 +251,11 @@ function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
           </div>
         </Panel>
         <Panel>
-          <Label className="mb-3">Possible places</Label>
+          <Label className="mb-3">Words this round</Label>
           <div className="flex flex-wrap gap-2">
-            {view.locations.map((l) => (
-              <span key={l.name} className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-3 py-1 text-sm">
-                <MapPin className="h-3.5 w-3.5 text-muted" /> {l.name}
+            {view.wordChoices.map((w) => (
+              <span key={w} className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-3 py-1 text-sm">
+                {w}
               </span>
             ))}
           </div>
@@ -245,7 +268,6 @@ function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
 
 const noop = () => {};
 
-/** Classic controller (used with a big screen) — same as the phone view without host controls. */
 function Controller(props: ControllerProps<Pub, Priv>) {
   return <Phone {...props} isHost={false} hostAct={noop} together />;
 }
@@ -253,8 +275,17 @@ function Controller(props: ControllerProps<Pub, Priv>) {
 function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Options) => void }) {
   return (
     <div className="space-y-4">
-      <LevelPicker value={value.level} onChange={(level) => onChange({ ...value, level })} />
+      <TopicOptionsField value={value} onChange={onChange} />
       <NumberPicker label="Round time" value={value.minutes} options={[5, 8, 10]} format={(n) => `${n} min`} onChange={(minutes) => onChange({ ...value, minutes })} />
+    </div>
+  );
+}
+
+function TopicOptionsField({ value, onChange }: { value: Options; onChange: (o: Options) => void }) {
+  return (
+    <div>
+      <div className="mb-2 text-sm font-semibold text-muted">Topic</div>
+      <TopicPickerLobby value={value.topic} onChange={(topic) => onChange({ ...value, topic })} />
     </div>
   );
 }
@@ -262,15 +293,19 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
 const chorKaun: GameModule<State, Pub, Priv, Options> = {
   id: "chor-kaun",
   paper: true,
-  defaultOptions: { level: "family", minutes: 8 },
+  defaultOptions: { topic: CHOR_TOPIC_ALL, minutes: 8 },
   OptionsForm,
   init({ players, options, now }) {
     return deal(options, players.map((p) => p.id), now, {}, 1, []);
   },
   reduce(s, a, { now, players }) {
     if (a.playerId === HOST_ID) {
+      if (a.type === "topic" && s.phase === "reveal" && typeof a.payload === "string") {
+        const topic = a.payload as ChorTopicChoice;
+        return { ...s, options: { ...s.options, topic } };
+      }
       if (a.type === "end" && s.phase === "playing") return finish(s, "host");
-      if (a.type === "next" && s.phase === "reveal") return deal(s.options, activeIds(players, s.participants), now, s.scores, s.round + 1, s.usedLocations);
+      if (a.type === "next" && s.phase === "reveal") return deal(s.options, activeIds(players, s.participants), now, s.scores, s.round + 1, s.usedMajorityWords);
       return s;
     }
     if (s.phase !== "playing" || !s.participants.includes(a.playerId)) return s;
@@ -294,28 +329,40 @@ const chorKaun: GameModule<State, Pub, Priv, Options> = {
   },
   publicView(s) {
     const { counts } = tally(s);
+    const pack = topicById(s.topicId);
+    const words = pack ? [...pack.words] : [];
+    const roundTopic =
+      s.options.topic === CHOR_TOPIC_ALL ? `${topicLabel(CHOR_TOPIC_ALL)} · ${s.topicLabel}` : s.topicLabel;
     return {
       round: s.round,
       phase: s.phase,
       participants: s.participants,
       firstAsker: s.firstAsker,
       deadline: s.deadline,
-      // Hidden during the round so nobody can see who is being suspected.
       voteCounts: s.phase === "reveal" ? counts : {},
       voted: Object.keys(s.votes),
-      locations: locationsFor(s.options.level).map((l) => ({ name: l.name, emoji: l.emoji })),
+      topicId: s.topicId,
+      topicLabel: roundTopic,
+      topicSetting: s.options.topic,
+      wordChoices: shuffle(words),
       scores: s.scores,
       reveal:
         s.phase === "reveal" && s.result
-          ? { location: { name: s.location.name, emoji: s.location.emoji }, chorId: s.chorId, roles: s.roles, result: s.result }
+          ? {
+              topicLabel: s.topicLabel,
+              majorityWord: s.majorityWord,
+              chorWord: s.chorWord,
+              chorId: s.chorId,
+              result: s.result,
+            }
           : null,
     };
   },
   privateView(s, id) {
     if (!s.participants.includes(id) || s.phase !== "playing") return undefined;
     const myVote = s.votes[id] ?? null;
-    if (id === s.chorId) return { chor: true, myVote };
-    return { chor: false, location: s.location.name, emoji: s.location.emoji, role: s.roles[id], myVote };
+    if (id === s.chorId) return { chor: true, word: s.chorWord, myVote };
+    return { chor: false, word: s.majorityWord, myVote };
   },
   Screen,
   Controller,

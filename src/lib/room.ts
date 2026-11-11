@@ -4,7 +4,7 @@ import type { Player } from "./types";
 /** The room state every device sees. Sent by the host, signed. */
 export interface RoomSnapshot {
   code: string;
-  phase: "lobby" | "playing";
+  phase: "lobby" | "playing" | "closed";
   gameId: string | null;
   players: Player[];
   /** Player id of the host's own phone. */
@@ -24,7 +24,7 @@ export interface RoomSnapshot {
 }
 
 /** Bumped whenever the messages below change shape. Devices on different versions can't play together. */
-export const PROTOCOL = 2;
+export const PROTOCOL = 3;
 
 /** "room" event: the snapshot as JSON text, its signature and the signing key. */
 export interface SignedRoom {

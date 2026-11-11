@@ -1,5 +1,6 @@
 "use client";
 import { LogOut, X } from "lucide-react";
+import { PartyEnded } from "@/components/PartyEnded";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -47,6 +48,10 @@ export function PlayerScreen({ code }: { code: string }) {
   const player = self ?? { id: me.id, name: me.name, avatar: me.avatar, connected: true };
   const away = !!room && lastRoomAt > 0 && Date.now() - lastRoomAt > 12000;
   const host = room?.players.find((p) => p.id === room.hostPlayerId);
+
+  if (room?.phase === "closed") {
+    return <PartyEnded />;
+  }
 
   if (kicked) {
     return (

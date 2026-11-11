@@ -34,6 +34,10 @@ export function JoinForm() {
     try {
       const res = await fetch(`/api/rooms/${joinedCode}`);
       const data = await res.json();
+      if (data.ended) {
+        setBusy(false);
+        return setError({ field: "code", text: "This party has ended." });
+      }
       if (!data.exists) {
         setBusy(false);
         return setError({ field: "code", text: "No party with that code. Ask the host to check it." });
