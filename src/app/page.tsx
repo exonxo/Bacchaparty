@@ -85,6 +85,18 @@ export default async function Home() {
           ))}
         </div>
       </section>
+
+      <footer className="mx-auto mt-20 flex max-w-6xl flex-wrap items-center justify-between gap-3 border-t border-white/10 px-4 pt-6 text-sm text-muted">
+        <span>🪅 Bacchaparty — desi party games for the whole family</span>
+        <nav className="flex gap-4">
+          <Link href="/games" className="hover:text-ink">
+            All games
+          </Link>
+          <Link href="/privacy" className="hover:text-ink">
+            Privacy Policy
+          </Link>
+        </nav>
+      </footer>
     </main>
   );
 }
