@@ -10,6 +10,7 @@ import { gameLook } from "@/components/paper/gameLook";
 import { BusyPaperButton, CassetteCue, GamesSkeleton, isMusicGameLoader, ShuffleDeal } from "@/components/loaders";
 import { PaperButton, PaperSheet, Sticker } from "@/components/paper/Paper";
 import { ProfileFields } from "@/components/ProfileForm";
+import { TestBanner } from "@/components/ProfileMenu";
 import { RoomShell, iconButtonClass } from "@/components/RoomShell";
 import { GAMES, getGameInfo } from "@/games/catalog";
 import { getGameModule } from "@/games/modules";
@@ -94,6 +95,24 @@ export function HostScreen({
   return <HostRoom code={code} me={me} ownerAuthId={ownerAuthId} accountEmail={accountEmail} />;
 }
 
+const TEST_KEY = "bacchaparty-testmode";
+
+function useTestMode(): [boolean, (on: boolean) => void] {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    try {
+      setOn(localStorage.getItem(TEST_KEY) === "1");
+    } catch {}
+  }, []);
+  const set = useCallback((next: boolean) => {
+    setOn(next);
+    try {
+      localStorage.setItem(TEST_KEY, next ? "1" : "0");
+    } catch {}
+  }, []);
+  return [on, set];
+}
+
 function HostRoom({
   code,
   me: initialMe,
@@ -106,7 +125,13 @@ function HostRoom({
   accountEmail: string | null;
 }) {
   const [me, setMe] = useState(initialMe);
-  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, endParty, removePlayer, setTogether, takeOver, act, sendAsMe } = useHostRoom(code, me, ownerAuthId);
+  const [testMode, setTestMode] = useTestMode();
+  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, endParty, removePlayer, setTogether, takeOver, act, sendAsMe } = useHostRoom(
+    code,
+    me,
+    ownerAuthId,
+    testMode,
+  );
   const onIdentityChange = useCallback((next: Identity) => {
     saveIdentity(next);
     setMe(next);
@@ -267,6 +292,8 @@ function HostRoom({
         title={playingInfo?.name}
         tvHref={tvHref}
         width="cozy"
+        testMode={testMode}
+        onTestMode={setTestMode}
         right={
           <>
             <button onClick={() => setSheet("end")} aria-label="Back to lobby" className={iconButtonClass}>
@@ -276,6 +303,7 @@ function HostRoom({
           </>
         }
       >
+        <TestBanner on={testMode} />
         <GameStage mod={playingMod} view={view} priv={myPriv} me={mePlayer} players={state.players} send={sendAsMe} now={now} isHost hostAct={act} together={state.together} />
         {endGameSheet}
         {endPartySheet}
@@ -345,8 +373,11 @@ function HostRoom({
       title="Host"
       tvHref={tvHref}
       width="wide"
+      testMode={testMode}
+      onTestMode={setTestMode}
       right={endPartyControls}
     >
+      <TestBanner on={testMode} />
       <div className="lg:grid lg:grid-cols-[minmax(0,22rem)_1fr] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,24rem)_1fr] xl:gap-10 min-[1440px]:grid-cols-[minmax(0,26rem)_1fr]">
         <aside className="space-y-6 lg:sticky lg:top-28">
           {invite}

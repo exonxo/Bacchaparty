@@ -55,6 +55,8 @@ export function RoomShell({
   away,
   tvHref,
   width = "cozy",
+  testMode,
+  onTestMode,
 }: {
   me: Player | null;
   identity?: Identity | null;
@@ -69,6 +71,8 @@ export function RoomShell({
   /** Opens the read-only big-screen display at /room/[code]/tv in a new tab. */
   tvHref?: string;
   width?: ShellWidth;
+  testMode?: boolean;
+  onTestMode?: (on: boolean) => void;
 }) {
   const shell = SHELL_WIDTH[width];
   const profileIdentity =
@@ -80,7 +84,14 @@ export function RoomShell({
         <div className={`mx-auto flex ${shell} items-center justify-between gap-3 px-4 py-2`}>
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
             {profileIdentity && onIdentityChange ? (
-              <ProfileMenu identity={profileIdentity} player={me} accountEmail={accountEmail} onChange={onIdentityChange} />
+              <ProfileMenu
+                identity={profileIdentity}
+                player={me}
+                accountEmail={accountEmail}
+                onChange={onIdentityChange}
+                testMode={testMode}
+                onTestMode={onTestMode}
+              />
             ) : me ? (
               <>
                 <Sticker id={me.avatar} size={38} />
