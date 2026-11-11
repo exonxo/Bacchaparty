@@ -1,0 +1,90 @@
+import type { Level } from "@/lib/types";
+
+export interface SoundPrompt {
+  /** What the Sound Maker sees. */
+  sound: string;
+  /** Accepted guesses (forgiving match). */
+  answers: string[];
+  /** Acting tip for the Sound Maker. */
+  tip: string;
+  level: Level;
+}
+
+export const SOUNDS: SoundPrompt[] = [
+  // Kids: animals & vehicles
+  { sound: "Cow", answers: ["cow", "gai", "gaay", "gaye"], tip: "A long, low 'mooo'", level: "kids" },
+  { sound: "Dog", answers: ["dog", "kutta", "puppy"], tip: "Bark like a dog", level: "kids" },
+  { sound: "Cat", answers: ["cat", "billi", "kitten"], tip: "Meow!", level: "kids" },
+  { sound: "Lion", answers: ["lion", "sher", "tiger"], tip: "A big roar", level: "kids" },
+  { sound: "Elephant", answers: ["elephant", "haathi", "hathi"], tip: "A trumpeting call", level: "kids" },
+  { sound: "Rooster", answers: ["rooster", "murga", "cock", "hen"], tip: "Cock-a-doodle-doo at sunrise", level: "kids" },
+  { sound: "Crow", answers: ["crow", "kauwa", "kaua"], tip: "Kaa kaa!", level: "kids" },
+  { sound: "Peacock", answers: ["peacock", "mor", "peahen"], tip: "A loud, high 'may-awe'", level: "kids" },
+  { sound: "Cuckoo / Koel", answers: ["koel", "cuckoo", "koyal"], tip: "Kuhu kuhu in summer", level: "kids" },
+  { sound: "Goat", answers: ["goat", "bakri", "bakra"], tip: "Mehhh!", level: "kids" },
+  { sound: "Donkey", answers: ["donkey", "gadha"], tip: "Hee-haw!", level: "kids" },
+  { sound: "Horse", answers: ["horse", "ghoda", "ghora"], tip: "Neigh and gallop clip-clop", level: "kids" },
+  { sound: "Frog", answers: ["frog", "mendak", "medhak", "toad"], tip: "Tarr tarr / croak croak", level: "kids" },
+  { sound: "Monkey", answers: ["monkey", "bandar"], tip: "Ooh ooh aah aah", level: "kids" },
+  { sound: "Snake", answers: ["snake", "saanp", "cobra", "naag"], tip: "A long hissss", level: "kids" },
+  { sound: "Bee", answers: ["bee", "honeybee", "madhumakhi", "mosquito"], tip: "Bzzzzz", level: "kids" },
+  { sound: "Mosquito", answers: ["mosquito", "machhar", "machar"], tip: "A thin, annoying 'eeeee' near your ear", level: "kids" },
+  { sound: "Duck", answers: ["duck", "batakh", "bathak"], tip: "Quack quack", level: "kids" },
+  { sound: "Owl", answers: ["owl", "ullu"], tip: "Hoo hoo at night", level: "kids" },
+  { sound: "Pigeon", answers: ["pigeon", "kabootar", "kabutar"], tip: "Gutur-goo", level: "kids" },
+  { sound: "Train", answers: ["train", "rail", "railgadi", "chhuk chhuk", "steam engine"], tip: "Chhuk chhuk and a whistle", level: "kids" },
+  { sound: "Car horn", answers: ["car horn", "horn", "car", "honk"], tip: "Pom pom! / beep beep", level: "kids" },
+  { sound: "Ambulance", answers: ["ambulance", "siren", "police siren"], tip: "Wee-woo wee-woo", level: "kids" },
+  { sound: "Aeroplane", answers: ["aeroplane", "airplane", "plane", "jet", "hawai jahaz"], tip: "A long whoosh / jet noise", level: "kids" },
+  { sound: "Motorbike", answers: ["motorbike", "bike", "motorcycle", "bullet", "scooter"], tip: "Vroom vroom / dug-dug-dug", level: "kids" },
+  { sound: "Clock", answers: ["clock", "ghadi", "watch", "tick tock"], tip: "Tick tock tick tock", level: "kids" },
+  { sound: "Baby crying", answers: ["baby", "baby crying", "crying baby", "baccha"], tip: "Waaah waaah", level: "kids" },
+  { sound: "Sneeze", answers: ["sneeze", "chheenk", "chheek", "achoo"], tip: "Aaa-aaa-CHOO!", level: "kids" },
+  { sound: "Ghost", answers: ["ghost", "bhoot", "bhut"], tip: "Spooky wooo-ooo", level: "kids" },
+  { sound: "Rain", answers: ["rain", "baarish", "barish", "thunderstorm"], tip: "Pitter-patter with your lips and fingers", level: "kids" },
+  // Family: everyday India
+  { sound: "Pressure cooker whistle", answers: ["pressure cooker", "cooker", "cooker whistle", "cooker ki seeti"], tip: "Pssssss-SHHHHEEE!", level: "family" },
+  { sound: "Chaiwala on a train", answers: ["chaiwala", "chai wala", "chai", "chai garam", "tea seller"], tip: "Chaaai, chai garam!", level: "family" },
+  { sound: "Railway station announcement", answers: ["railway announcement", "station announcement", "railway station", "announcement", "train announcement"], tip: "Ding-dong… Yatri kripya dhyan dein…", level: "family" },
+  { sound: "Auto-rickshaw", answers: ["auto", "auto rickshaw", "rickshaw", "tuk tuk"], tip: "Phat-phat-phat engine + a bulb horn", level: "family" },
+  { sound: "Temple bell", answers: ["temple bell", "bell", "mandir ki ghanti", "ghanti", "ghanta"], tip: "Tunnnng… tunnnng", level: "family" },
+  { sound: "Conch shell (shankh)", answers: ["shankh", "conch", "conch shell"], tip: "A long hollow 'Hoooooom'", level: "family" },
+  { sound: "Kulfi / ice-cream cart bell", answers: ["kulfi", "ice cream", "ice cream cart", "kulfiwala", "ice cream wala"], tip: "Ting-ting + 'Kulfiii!'", level: "family" },
+  { sound: "Sabziwala calling", answers: ["sabziwala", "sabzi wala", "vegetable seller", "vegetable vendor", "thelawala"], tip: "Aloo lo, pyaaz lo, tamatar lo!", level: "family" },
+  { sound: "Kabadiwala calling", answers: ["kabadiwala", "kabadi wala", "raddiwala", "raddi wala", "scrap dealer"], tip: "Raddi paper, purana saamaan!", level: "family" },
+  { sound: "Diwali firecracker", answers: ["firecracker", "cracker", "pataka", "patakha", "bomb", "diwali"], tip: "Sssss… BOOM!", level: "family" },
+  { sound: "Cricket commentary — SIX!", answers: ["cricket", "cricket commentary", "six", "commentary"], tip: "And that's gone… all the way… SIX!", level: "family" },
+  { sound: "Cricket stadium crowd", answers: ["stadium", "crowd", "cricket crowd", "india india", "cheering"], tip: "In-di-a! In-di-a! *clap clap clap*", level: "family" },
+  { sound: "Dhol at a baraat", answers: ["dhol", "baraat", "wedding band", "band baja", "drum"], tip: "Dhin-tak dhin-tak + dancing", level: "family" },
+  { sound: "Shehnai at a wedding", answers: ["shehnai", "shehnai", "wedding music", "nadaswaram"], tip: "A high, wavy wind instrument tune", level: "family" },
+  { sound: "Mixer grinder", answers: ["mixer", "mixie", "grinder", "mixer grinder", "blender"], tip: "Grrrrrr-RRRRR!", level: "family" },
+  { sound: "Tadka in hot oil", answers: ["tadka", "tadka", "frying", "chhaunk", "oil sizzling", "sizzle"], tip: "Chhhhhhhhh! (sizzle)", level: "family" },
+  { sound: "Doorbell", answers: ["doorbell", "door bell", "bell", "ding dong"], tip: "Ding-dong / bird-chirp doorbell", level: "family" },
+  { sound: "Old phone ringing", answers: ["phone", "telephone", "landline", "phone ringing", "trin trin"], tip: "Trin-trin… trin-trin", level: "family" },
+  { sound: "Nokia-style ringtone", answers: ["ringtone", "mobile", "phone ringtone", "mobile ringtone", "nokia"], tip: "Hum the famous old mobile tune", level: "family" },
+  { sound: "School bell", answers: ["school bell", "bell", "school", "chhutti"], tip: "Tan-tan-tan-tan — chhutti!", level: "family" },
+  { sound: "Ceiling fan with a wobble", answers: ["fan", "ceiling fan", "pankha"], tip: "Whum-tick-whum-tick", level: "family" },
+  { sound: "Gargling", answers: ["gargle", "gargling", "kulla", "mouthwash"], tip: "Grrrlllgrrrll", level: "family" },
+  { sound: "Slurping chai", answers: ["slurp", "slurping", "drinking tea", "sipping chai", "chai"], tip: "Ssssslurp… aaah!", level: "family" },
+  { sound: "Snoring uncle", answers: ["snore", "snoring", "kharrate", "sleeping"], tip: "Ghrrrr-phewww", level: "family" },
+  { sound: "Pani puri being eaten", answers: ["pani puri", "golgappa", "puchka", "gol gappa"], tip: "Crunch + slurp + 'ek aur bhaiya!'", level: "family" },
+  { sound: "Kids' cycle bell", answers: ["cycle bell", "bicycle bell", "cycle", "bicycle"], tip: "Tring tring!", level: "family" },
+  { sound: "Hand pump", answers: ["hand pump", "handpump", "water pump", "nal"], tip: "Creak-gush, creak-gush", level: "family" },
+  // Adults: trickier
+  { sound: "Dial-up internet", answers: ["dial up", "dialup", "modem", "internet modem"], tip: "Beeps, screeches and static", level: "adults" },
+  { sound: "Doordarshan opening tune", answers: ["doordarshan", "dd", "doordarshan tune", "dd national"], tip: "Hum the old TV logo tune", level: "adults" },
+  { sound: "Pressure horn of a truck", answers: ["truck", "truck horn", "lorry", "horn ok please"], tip: "A musical, tune-playing horn", level: "adults" },
+  { sound: "Azaan from far away", answers: ["azaan", "azan", "call to prayer"], tip: "A long, gentle call — very softly", level: "adults" },
+  { sound: "Morning aarti", answers: ["aarti", "arti", "pooja", "puja", "bhajan"], tip: "Bell + clapping + singing softly", level: "adults" },
+  { sound: "Tabla", answers: ["tabla", "drum"], tip: "Dha dhin dhin dha", level: "adults" },
+  { sound: "Sitar", answers: ["sitar", "veena", "string instrument"], tip: "Twangy, buzzy strings", level: "adults" },
+  { sound: "Mumbai local train door crowd", answers: ["mumbai local", "local train", "local"], tip: "Horn + 'aage chalo, aage!'", level: "adults" },
+  { sound: "Typewriter", answers: ["typewriter", "type writer", "typing"], tip: "Tak-tak-tak-ding!-zip", level: "adults" },
+  { sound: "Camera shutter", answers: ["camera", "camera click", "photo", "shutter"], tip: "Ch-chk!", level: "adults" },
+  { sound: "WhatsApp message tone", answers: ["whatsapp", "message", "notification", "text message"], tip: "A quick double pop", level: "adults" },
+  { sound: "Generator during power cut", answers: ["generator", "inverter", "power cut", "genset"], tip: "Dug-dug-dug-dug… steady rumble", level: "adults" },
+  { sound: "Kettle boiling", answers: ["kettle", "boiling water", "electric kettle"], tip: "Rising rumble then click", level: "adults" },
+  { sound: "Helicopter", answers: ["helicopter", "chopper"], tip: "Thup-thup-thup-thup", level: "adults" },
+  { sound: "Washing machine", answers: ["washing machine", "washer", "machine"], tip: "Slosh-slosh then a spin whirr", level: "adults" },
+  { sound: "Dentist's drill", answers: ["dentist", "drill", "dentist drill"], tip: "High-pitched 'zzzweeee'", level: "adults" },
+];
