@@ -13,8 +13,8 @@ const UPDATED = "11 November 2026";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-8">
-      <h2 className="text-2xl font-bold text-saffron">{title}</h2>
-      <div className="mt-2 space-y-3 text-lg leading-relaxed text-ink/90">{children}</div>
+      <h2 className="text-p-title font-extrabold">{title}</h2>
+      <div className="mt-2 space-y-3 text-lg leading-relaxed text-ink">{children}</div>
     </section>
   );
 }
@@ -24,7 +24,7 @@ export default function PrivacyPage() {
     <main className="pb-20">
       <Header />
       <article className="mx-auto max-w-3xl px-4">
-        <h1 className="mt-4 text-4xl font-extrabold">Privacy Policy</h1>
+        <h1 className="mt-4 text-p-show font-extrabold">Privacy Policy</h1>
         <p className="mt-2 text-muted">Last updated: {UPDATED}</p>
         <p className="mt-6 text-lg leading-relaxed">
           Bacchaparty is a set of party games you play on a big screen with everyone joining from their phones. We collect as little as we can.
@@ -94,7 +94,7 @@ export default function PrivacyPage() {
         <Section title="Contact">
           <p>
             Questions or requests? Email{" "}
-            <a href={`mailto:${CONTACT}`} className="inline-flex min-h-11 items-center font-semibold text-saffron underline">
+            <a href={`mailto:${CONTACT}`} className="inline-flex min-h-11 items-center font-semibold underline decoration-2 underline-offset-4">
               {CONTACT}
             </a>
             .
@@ -102,7 +102,7 @@ export default function PrivacyPage() {
         </Section>
 
         <p className="mt-12">
-          <Link href="/" className="-ml-2 inline-flex min-h-11 items-center rounded-lg px-2 font-semibold text-muted hover:text-ink">
+          <Link href="/" className="-ml-2 inline-flex min-h-11 items-center rounded-cut px-2 font-semibold text-muted hover:text-ink">
             ← Back to Bacchaparty
           </Link>
         </p>

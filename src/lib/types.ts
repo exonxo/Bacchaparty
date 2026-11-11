@@ -86,6 +86,8 @@ export interface GameModule<S = any, Pub = any, Priv = any, Opt = any> {
   Screen: ComponentType<ScreenProps<Pub>>;
   /** Legacy phone controller, used with a big screen. */
   Controller: ComponentType<ControllerProps<Pub, Priv>>;
+  /** Redesigned in the paper style. Other games render under the dark theme for now. */
+  paper?: boolean;
   /** Phone-first view. When present, phones (host included) show this instead. */
   Phone?: ComponentType<PhoneProps<Pub, Priv>>;
 }

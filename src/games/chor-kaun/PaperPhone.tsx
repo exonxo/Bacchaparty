@@ -4,7 +4,7 @@ import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { dur, ease, screenIn, spring, staggerDelay } from "@/components/paper/motion";
 import { Envelope, InkDefs, Magnifier, MaskGlyph, VerdictSlip } from "@/components/paper/objects";
-import { CountUp, PaperBackdrop, PaperButton, PaperSheet, Sticker, Tally, tornClip, usePaperTheme } from "@/components/paper/Paper";
+import { CountUp, PaperBackdrop, PaperButton, PaperSheet, Sticker, tornClip, usePaperTheme } from "@/components/paper/Paper";
 import { celebrate } from "@/lib/celebrate";
 import { useOnChange, useSfx } from "@/lib/roomAudio";
 import { vibrate } from "@/lib/sfx";
@@ -194,7 +194,7 @@ function SecretEnvelope({ priv, round, onPeek, above }: { priv: Priv; round: num
             </div>
             <div className="mt-1 text-p-body leading-snug">
               {priv.chor ? (
-                "Blend in. Work out the place."
+                "Ghul-mil jao. Work out the place."
               ) : (
                 <>
                   You are the <b>{priv.role}</b>
@@ -218,7 +218,7 @@ function SecretEnvelope({ priv, round, onPeek, above }: { priv: Priv; round: num
               initial={{ opacity: 0 }}
               animate={{ opacity: 1, transition: { duration: dur.select, ease: ease.out } }}
             >
-              <Hand className="h-4 w-4" strokeWidth={2.4} /> Press &amp; hold to peek
+              <Hand className="h-4 w-4" strokeWidth={2.4} /> Dabaake rakho — chupke se dekho
             </motion.div>
           )}
         </AnimatePresence>
@@ -297,7 +297,7 @@ function RevealScreen({ view, players, me, isHost, hostAct, onScores }: { view: 
         <p className="text-p-lead font-semibold text-balance">{resultText(reveal.result, players, reveal.chorId)}</p>
         {played && (
           <p className={`mt-1 text-p-body font-bold ${won ? "text-leaf" : "text-muted"}`}>
-            {won ? `You win this round · +${gains[me.id] ?? 0}` : wasChor ? "You were caught. Next time!" : "The Chor got away this time."}
+            {won ? `Shabash! You win this round · +${gains[me.id] ?? 0}` : wasChor ? "Pakde gaye! Agli baar." : "Chor bhaag gaya. Agli baar pakdenge!"}
           </p>
         )}
       </motion.div>
@@ -357,7 +357,7 @@ function RevealScreen({ view, players, me, isHost, hostAct, onScores }: { view: 
               <motion.span key={i} className="h-1.5 w-1.5 rounded-full bg-ink/50" animate={{ opacity: [0.25, 1, 0.25] }} transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.2, ease: "easeInOut" }} />
             ))}
           </span>
-          The host is dealing the next envelopes
+          Host agle lifafe baant raha hai…
         </p>
       )}
     </div>
@@ -412,8 +412,8 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
       <div className="flex items-center gap-2 bg-paper px-3 pb-3 pt-2 text-left leading-tight" style={{ clipPath: askerClip }}>
         <MessageCircleQuestion className="h-5 w-5 shrink-0 text-turmeric-ink" strokeWidth={2.2} />
         <span>
-          <span className="block text-p-body font-bold">{iAsk ? "You ask first" : `${nameOf(players, view.firstAsker)} asks first`}</span>
-          <span className="block text-p-note text-muted">then go around the room</span>
+          <span className="block text-p-body font-bold">{iAsk ? "Pehla sawaal aapka" : `Pehla sawaal: ${nameOf(players, view.firstAsker)}`}</span>
+          <span className="block text-p-note text-muted">then take turns asking questions</span>
         </span>
       </div>
     </div>
@@ -436,7 +436,7 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
           <Envelope open={false}>
             <span />
           </Envelope>
-          <p className="mt-2 text-center text-p-body font-semibold text-muted">Dealing the envelopes…</p>
+          <p className="mt-2 text-center text-p-body font-semibold text-muted">Lifafe bant rahe hain…</p>
         </div>
       ) : (
         <>
@@ -451,17 +451,16 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
                 {view.voted.length} of {parts.length} voted
               </div>
             </div>
-            <p className="text-p-body text-muted">{myVote ? "Tap again to take your vote back." : "Tap who you suspect. You can change it anytime."}</p>
+            <p className="text-p-body text-muted">{myVote ? "Tap again to take your vote back. Votes stay secret till the end." : "Tap who you suspect. Votes stay secret till the end."}</p>
             <div className="mt-3 grid grid-cols-2 gap-3">
               {others.map((p, i) => {
                 const selected = myVote === p.id;
-                const count = view.voteCounts[p.id] ?? 0;
                 const hasVoted = view.voted.includes(p.id);
                 return (
                   <motion.button
                     key={p.id}
                     aria-pressed={selected}
-                    aria-label={`Vote for ${p.name}${count ? `, ${count} vote${count > 1 ? "s" : ""} so far` : ""}`}
+                    aria-label={`Vote for ${p.name}`}
                     onClick={() => send("vote", selected ? null : p.id)}
                     whileTap={{ scale: 0.96, transition: { duration: dur.pressDown, ease: ease.out } }}
                     animate={{ rotate: selected ? (i % 2 ? 1.5 : -1.5) : 0, backgroundColor: selected ? "var(--me)" : "var(--paper)" }}
@@ -472,15 +471,7 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
                     <span className="min-w-0 flex-1 leading-tight">
                       <span className="block truncate text-p-lead font-bold">{p.name}</span>
                       <span className="mt-1 flex h-4 items-center gap-1.5 text-p-note font-semibold text-ink/70">
-                        {count > 0 ? (
-                          <>
-                            <Tally n={count} /> {count} {count === 1 ? "vote" : "votes"}
-                          </>
-                        ) : hasVoted ? (
-                          "has voted"
-                        ) : (
-                          "thinking…"
-                        )}
+                        {hasVoted ? "vote de diya" : "soch rahe hain…"}
                       </span>
                     </span>
                     <AnimatePresence>
@@ -504,13 +495,13 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
           {priv.chor ? (
             <div>
               <PaperButton tone="vermilion" size="lg" className="w-full" onClick={() => setSheet("guess")}>
-                <Magnifier size={26} /> I know the place
+                <Magnifier size={26} /> Mujhe pata hai jagah!
               </PaperButton>
               <p className="mt-2 text-center text-p-note text-muted">One guess only. Guess wrong and you’re caught.</p>
             </div>
           ) : (
             <button onClick={() => setSheet("places")} className="mx-auto flex min-h-11 items-center gap-1.5 rounded-cut px-3 text-p-body font-semibold underline decoration-ink/30 underline-offset-4">
-              <MapPin className="h-4 w-4" /> See all the places
+              <MapPin className="h-4 w-4" /> Saari jagah dekho
             </button>
           )}
         </>
@@ -519,7 +510,7 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
       {isHost && (
         <div className="border-t-[1.5px] border-dashed border-ink/25 pt-4">
           <div className="mb-2 text-p-note font-semibold uppercase tracking-[0.14em] text-muted">Host</div>
-          <ConfirmButton label="Stop & count the votes" confirmLabel="Tap again to stop the round" icon={<Gavel className="h-4 w-4" strokeWidth={2.4} />} now={now} onConfirm={() => hostAct("end")} />
+          <ConfirmButton label="Bas! Count the votes" confirmLabel="Tap again to stop the round" icon={<Gavel className="h-4 w-4" strokeWidth={2.4} />} now={now} onConfirm={() => hostAct("end")} />
         </div>
       )}
     </div>
@@ -549,7 +540,7 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
       <PaperSheet
         open={sheet === "guess" && !!priv?.chor}
         onClose={() => setSheet(null)}
-        title="Where are we?"
+        title="Hum kahan hain?"
         footer={
           <PaperButton
             tone="vermilion"
@@ -562,18 +553,18 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
               setSheet(null);
             }}
           >
-            {guessPick ? `Lock in: ${guessPick}` : "Pick a place first"}
+            {guessPick ? `Lock in: ${guessPick}` : "Pehle jagah chuno"}
           </PaperButton>
         }
       >
         <p className="mb-3 text-p-body text-muted">You get one guess. Right: you win 3 points. Wrong: you’re caught.</p>
         <PlacesGrid places={view.locations} picked={guessPick} onPick={setGuessPick} />
       </PaperSheet>
-      <PaperSheet open={sheet === "places"} onClose={() => setSheet(null)} title="All the places">
+      <PaperSheet open={sheet === "places"} onClose={() => setSheet(null)} title="Saari jagah">
         <p className="mb-3 text-p-body text-muted">The Chor sees this list too, and is trying to work out which one it is.</p>
         <PlacesGrid places={view.locations} />
       </PaperSheet>
-      <PaperSheet open={sheet === "scores"} onClose={() => setSheet(null)} title="Points so far">
+      <PaperSheet open={sheet === "scores"} onClose={() => setSheet(null)} title="Ab tak ke points">
         <ScoreList players={players} scores={view.scores} />
       </PaperSheet>
     </MotionConfig>

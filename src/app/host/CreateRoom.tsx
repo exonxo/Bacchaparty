@@ -25,7 +25,7 @@ export function CreateRoom() {
           {error}
         </PhoneMessage>
       ) : (
-        <PhoneMessage title="Setting up your party room…" />
+        <PhoneMessage title="Party room ban raha hai…" />
       )}
     </main>
   );

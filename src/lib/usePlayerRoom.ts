@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { openRoom, type RoomTransport } from "./transport";
-import { LEAVE_ACTION, type ActionBody, type ActionEnvelope, type JoinBody, type JoinEnvelope, type PrivateBody, type PrivateEnvelope, type RoomSnapshot, type SignedRoom } from "./room";
+import { LEAVE_ACTION, PROTOCOL, type ActionBody, type ActionEnvelope, type JoinBody, type JoinEnvelope, type PrivateBody, type PrivateEnvelope, type RoomSnapshot, type SignedRoom } from "./room";
 import { createClockSync, createRoomReceiver } from "./roomReceiver";
 import { deriveShared, generateExchangeKeys, open, seal, serialQueue, type StoredKeyPair } from "./secure";
 import type { Player } from "./types";
@@ -48,6 +48,8 @@ export function usePlayerRoom(code: string, me: Identity | null) {
   const [offset, setOffset] = useState(0);
   const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
   const [kicked, setKicked] = useState(false);
+  /** The host (or this phone) is running a different version of the app. */
+  const [mismatch, setMismatch] = useState(false);
   const [lastRoomAt, setLastRoomAt] = useState(0);
   const transportRef = useRef<RoomTransport | null>(null);
   const sharedRef = useRef<CryptoKey | null>(null);
@@ -66,6 +68,8 @@ export function usePlayerRoom(code: string, me: Identity | null) {
     let sharedWith = "";
     let lastJoin = 0;
     let gotRoom = false;
+    let playing = false;
+    let gotPriv = false;
     let privEpoch = 0;
     let privSeq = 0;
     let avatar = me.avatar;
@@ -86,7 +90,7 @@ export function usePlayerRoom(code: string, me: Identity | null) {
       lastJoin = Date.now();
       const key = await ensureShared(hostEcdh);
       const body: JoinBody = { name: me.name, avatar };
-      const msg: JoinEnvelope = { id: me.id, pk: keys!.publicKey, ...(await seal(key, body)) };
+      const msg: JoinEnvelope = { v: PROTOCOL, id: me.id, pk: keys!.publicKey, ...(await seal(key, body)) };
       t.send("join", msg);
     };
 
@@ -96,9 +100,16 @@ export function usePlayerRoom(code: string, me: Identity | null) {
 
     const offRoom = t.on("room", (msg: SignedRoom) =>
       queue(async () => {
+        if ((msg as { v?: number } | null)?.v !== PROTOCOL) {
+          setMismatch(true);
+          return;
+        }
         const snap = await receiver.accept(msg);
         if (!snap || closed) return;
+        setMismatch(false);
         gotRoom = true;
+        if (snap.phase !== "playing") gotPriv = false;
+        playing = snap.phase === "playing";
         setOffset(clock(snap.hostNow));
         setLastRoomAt(Date.now());
         setRoom(snap);
@@ -125,12 +136,14 @@ export function usePlayerRoom(code: string, me: Identity | null) {
         if (body.epoch === privEpoch && body.seq <= privSeq) return;
         privEpoch = body.epoch;
         privSeq = body.seq;
+        gotPriv = body.data !== null && body.data !== undefined;
         setPriv(body.data ?? undefined);
       }),
     );
-    // Keep asking until the host answers (it may still be opening the room).
+    // Keep asking until the host answers (it may still be opening the room),
+    // and ask again if a game is running but our private view never arrived.
     const retry = setInterval(() => {
-      if (!gotRoom) t.send("sync", { id: me.id });
+      if (!gotRoom || (playing && !gotPriv)) t.send("sync", { id: me.id });
     }, 3000);
     return () => {
       closed = true;
@@ -170,5 +183,5 @@ export function usePlayerRoom(code: string, me: Identity | null) {
 
   const self: Player | undefined = room?.players.find((p) => p.id === me?.id);
   /** lastRoomAt: local time of the last genuine message from the host (0 = never). */
-  return { room, priv, offset, status, send, leave, self, kicked, lastRoomAt };
+  return { room, priv, offset, status, send, leave, self, kicked, mismatch, lastRoomAt };
 }

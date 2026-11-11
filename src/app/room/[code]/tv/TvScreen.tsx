@@ -2,11 +2,10 @@
 import { Maximize } from "lucide-react";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
-import { Avatar } from "@/components/Avatar";
+import { Sticker } from "@/components/paper/Paper";
 import { GameIcon } from "@/components/GameIcon";
 import { Logo } from "@/components/Header";
-import { MuteButton } from "@/components/RoomShell";
-import { Label } from "@/components/ui";
+import { MuteButton, iconButtonClass } from "@/components/RoomShell";
 import { getGameInfo } from "@/games/catalog";
 import { getGameModule } from "@/games/modules";
 import { RoomAudioProvider } from "@/lib/roomAudio";
@@ -30,7 +29,7 @@ export function TvScreen({ code }: { code: string }) {
   useEffect(() => {
     const u = `${window.location.origin}/join?code=${code}`;
     setJoinUrl(u.replace(/^https?:\/\//, ""));
-    QRCode.toDataURL(u, { margin: 1, width: 300, color: { dark: "#0b0b10", light: "#ffffff" } }).then(setQr).catch(() => {});
+    QRCode.toDataURL(u, { margin: 1, width: 300, color: { dark: "#1e1a17", light: "#fffdf8" } }).then(setQr).catch(() => {});
     const t = openRoom(code);
     const id = `tv-${randomId(6)}`;
     t.track(id);
@@ -53,21 +52,30 @@ export function TvScreen({ code }: { code: string }) {
   }, [code]);
 
   const mod = room?.gameId ? getGameModule(room.gameId) : null;
+  // Big-screen game views still use the night palette.
+  const playing = room?.phase === "playing";
+  useEffect(() => {
+    if (!playing) return;
+    document.documentElement.dataset.theme = "dark";
+    return () => {
+      delete document.documentElement.dataset.theme;
+    };
+  }, [playing]);
   const info = room?.gameId ? getGameInfo(room.gameId) : null;
 
   return (
-    <main className="spotlight min-h-dvh px-6 pb-8 lg:px-10">
+    <main className="min-h-dvh px-6 pb-8 lg:px-10">
       <header className="flex items-center justify-between py-5">
         <Logo />
         <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-white/[0.06] px-4 py-2 text-lg">
-            Join at <b>{joinUrl.replace(/\?code=.*/, "")}</b> · code <b className="tracking-[0.2em] text-saffron">{code}</b>
+          <div className="rounded-cut border-[1.5px] border-line bg-card px-4 py-2 text-p-lead">
+            Join at <b>{joinUrl.replace(/\?code=.*/, "")}</b> · code <b className="tracking-[0.2em]">{code}</b>
           </div>
           <MuteButton />
           <button
             aria-label="Full screen"
             onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.07] text-muted hover:text-ink"
+            className={iconButtonClass}
           >
             <Maximize className="h-4 w-4" />
           </button>
@@ -77,7 +85,7 @@ export function TvScreen({ code }: { code: string }) {
         {room?.phase === "playing" && mod && room.view ? (
           <section>
             <div className="mb-5 flex items-center gap-3 font-display text-3xl font-black">
-              {info && <GameIcon id={info.id} className="h-8 w-8 text-saffron" />}
+              {info && <GameIcon id={info.id} className="h-8 w-8" />}
               {info?.name}
             </div>
             <mod.Screen view={room.view} players={room.players} act={noop} now={now} spectator />
@@ -85,19 +93,19 @@ export function TvScreen({ code }: { code: string }) {
         ) : (
           <section className="grid items-center gap-10 py-10 lg:grid-cols-2">
             <div>
-              <Label>Room code</Label>
-              <div className="font-display text-[9rem] font-black leading-none tracking-[0.12em] text-saffron">{code}</div>
+              <div className="text-p-lead font-bold uppercase tracking-[0.2em] text-turmeric-ink">Room code</div>
+              <div className="font-display text-[9rem] font-extrabold leading-none tracking-[0.12em]">{code}</div>
               <div className="mt-6 flex flex-wrap gap-3">
                 {(room?.players ?? []).map((p) => (
-                  <div key={p.id} className={`flex items-center gap-2 rounded-full bg-white/[0.07] py-2 pl-2 pr-4 text-xl font-semibold ${p.connected ? "" : "opacity-40"}`}>
-                    <Avatar id={p.avatar} /> {p.name}
+                  <div key={p.id} className={`land flex items-center gap-2 rounded-full border-[1.5px] border-line bg-card py-1.5 pl-1.5 pr-4 text-p-title font-bold ${p.connected ? "" : "opacity-40"}`}>
+                    <Sticker id={p.avatar} size={44} /> {p.name}
                   </div>
                 ))}
               </div>
               {!room && <p className="mt-6 text-xl text-muted">Waiting for the host’s phone…</p>}
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element -- QR is a generated data URL */}
-            {qr && <img src={qr} alt="QR code to join" className="mx-auto w-72 rounded-3xl" />}
+            {qr && <img src={qr} alt="QR code to join" className="cut mx-auto w-72 rounded-cut" />}
           </section>
         )}
       </RoomAudioProvider>

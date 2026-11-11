@@ -4,6 +4,7 @@ import { getGameModule } from "@/games/modules";
 import { openRoom, type RoomTransport } from "./transport";
 import {
   LEAVE_ACTION,
+  PROTOCOL,
   type ActionBody,
   type ActionEnvelope,
   type JoinBody,
@@ -197,6 +198,7 @@ export function useHostRoom(code: string, me: Identity | null) {
     const lastSyncAt = new Map<string, number>();
     const force = new Set<string>();
     const recentJoins: number[] = [];
+    const joinedAt = new Map<string, number>();
     const queue = serialQueue();
     let demo = false;
 
@@ -275,7 +277,7 @@ export function useHostRoom(code: string, me: Identity | null) {
             kicked: s.kicked,
           };
           const d = JSON.stringify(snap);
-          const msg: SignedRoom = { d, s: await sign(signer, d), k: keys.sign.publicKey };
+          const msg: SignedRoom = { v: PROTOCOL, d, s: await sign(signer, d), k: keys.sign.publicKey };
           t.send("room", msg);
           if (playing && mod.privateView) {
             for (const p of s.players) {
@@ -363,13 +365,25 @@ export function useHostRoom(code: string, me: Identity | null) {
       const s = stateRef.current;
       const online = new Set(ids);
       const hostId = meRef.current?.id;
+      const nowMs = Date.now();
       let changed = false;
+      const back: Player[] = [];
       const players = s.players.map((p) => {
-        const c = p.id === hostId || online.has(p.id);
-        if (c !== p.connected) changed = true;
-        return c === p.connected ? p : { ...p, connected: c };
+        // A phone that joined a moment ago may not have shown up in presence yet.
+        const fresh = nowMs - (joinedAt.get(p.id) ?? 0) < 6000;
+        const c = p.id === hostId || online.has(p.id) || (fresh && p.connected);
+        if (c === p.connected) return p;
+        changed = true;
+        const next = { ...p, connected: c };
+        if (c) back.push(next);
+        return next;
       });
-      if (changed) commit({ ...s, players });
+      if (!changed) return;
+      // Someone who was away when the game started gets dealt in when they're back.
+      let gameState = s.gameState;
+      const mod = s.gameId ? getGameModule(s.gameId) : null;
+      if (s.phase === "playing" && mod?.onPlayerJoin) for (const p of back) gameState = mod.onPlayerJoin(gameState, p);
+      commit({ ...s, players, gameState });
     });
 
     const isSealed = (m: { iv?: unknown; ct?: unknown }, max: number) =>
@@ -399,6 +413,7 @@ export function useHostRoom(code: string, me: Identity | null) {
         if (!body || typeof body.name !== "string" || typeof body.avatar !== "string") return;
         shared.set(m.id, { pk, key });
         if (isNew) recentJoins.push(Date.now());
+        joinedAt.set(m.id, Date.now());
         upsertPlayer(m.id, body.name, body.avatar, pk);
         lastPrivate.delete(m.id);
         flush(m.id);

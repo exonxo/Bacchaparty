@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from "react";
 import { RoomAudioProvider } from "@/lib/roomAudio";
 import type { GameModule, Player } from "@/lib/types";
 
@@ -29,13 +30,27 @@ export function GameStage({
   hostAct: (type: string, payload?: unknown) => void;
   together: boolean;
 }) {
+  // Games not yet redesigned keep their night look while they're on screen.
+  const dark = !mod.paper;
+  useEffect(() => {
+    if (!dark) return;
+    const root = document.documentElement;
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    const prevColor = meta?.content;
+    root.dataset.theme = "dark";
+    if (meta) meta.content = "#0b0b10";
+    return () => {
+      delete root.dataset.theme;
+      if (meta && prevColor) meta.content = prevColor;
+    };
+  }, [dark]);
   return (
     <RoomAudioProvider value={{ together, isStage: isHost }}>
       {mod.Phone ? (
         <mod.Phone view={view} priv={priv} me={me} players={players} send={send} now={now} isHost={isHost} hostAct={hostAct} together={together} />
       ) : isHost ? (
         <div className="space-y-6">
-          <div className="rounded-xl bg-white/[0.05] px-4 py-3 text-sm text-muted">
+          <div className="rounded-xl bg-tint px-4 py-3 text-sm text-muted">
             This game is still in classic mode: the shared view below is made for a big screen. Open the Big screen link on a TV or laptop for the
             best experience.
           </div>

@@ -261,6 +261,7 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
 
 const chorKaun: GameModule<State, Pub, Priv, Options> = {
   id: "chor-kaun",
+  paper: true,
   defaultOptions: { level: "family", minutes: 8 },
   OptionsForm,
   init({ players, options, now }) {
@@ -299,7 +300,8 @@ const chorKaun: GameModule<State, Pub, Priv, Options> = {
       participants: s.participants,
       firstAsker: s.firstAsker,
       deadline: s.deadline,
-      voteCounts: counts,
+      // Hidden during the round so nobody can see who is being suspected.
+      voteCounts: s.phase === "reveal" ? counts : {},
       voted: Object.keys(s.votes),
       locations: locationsFor(s.options.level).map((l) => ({ name: l.name, emoji: l.emoji })),
       scores: s.scores,

@@ -325,7 +325,7 @@ function Phone({ view, priv, me, players, send, now, isHost, hostAct }: PhonePro
           </div>
           <div className="min-w-0">
             <Label>{view.called.length ? `Number ${view.called.length} of 90` : "Get ready"}</Label>
-            <div className="mt-1 font-display text-lg font-bold leading-snug">{view.call ?? (isHost ? "Tap Next number to start" : "Waiting for the first number")}</div>
+            <div className="mt-1 font-display text-lg font-bold leading-snug">{view.call ?? (view.nextCallAt ? "Taiyaar? Pehla number aa raha hai" : isHost ? "Tap Next number to start" : "Waiting for the first number")}</div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {recent.map((n) => (
                 <span key={n} className="rounded-md bg-white/[0.08] px-2 py-0.5 text-sm font-bold tabular-nums text-ink/80">
@@ -335,15 +335,34 @@ function Phone({ view, priv, me, players, send, now, isHost, hostAct }: PhonePro
             </div>
           </div>
         </div>
+        {/* Countdown to the next number, for everyone */}
+        {view.autoCall > 0 && !view.done && (
+          <div className="mt-4" role="timer" aria-label={view.paused ? "Calling is paused" : `Next number in ${autoLeft ?? 0} seconds`}>
+            <div className="flex items-baseline justify-between text-sm font-bold">
+              <span className="text-muted">{view.paused ? "Host ne roka hai — paused" : view.called.length ? "Agla number" : "Pehla number"}</span>
+              {!view.paused && autoLeft !== null && <span className="font-display text-lg tabular-nums">{autoLeft}s</span>}
+            </div>
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/10">
+              <div
+                className={`h-full rounded-full ${autoLeft !== null && autoLeft <= 3 ? "bg-red" : "bg-saffron"}`}
+                style={{
+                  width: view.paused || !view.nextCallAt ? "100%" : `${Math.max(0, Math.min(100, ((view.nextCallAt - now) / (view.autoCall * 1000)) * 100))}%`,
+                  transition: "width 0.25s linear",
+                  opacity: view.paused ? 0.35 : 1,
+                }}
+              />
+            </div>
+          </div>
+        )}
         {isHost && !view.done && (
           <div className="mt-4 flex gap-2">
             <Button size="lg" className="flex flex-1 items-center justify-center gap-2" onClick={() => hostAct("next")}>
-              <SkipForward className="h-5 w-5" /> Next number
+              <SkipForward className="h-5 w-5" /> {view.autoCall > 0 ? "Call it now" : "Next number"}
             </Button>
             {view.autoCall > 0 && (
               <Button size="lg" tone="ghost" aria-label={view.paused ? "Resume auto-call" : "Pause auto-call"} onClick={() => hostAct("pause")} className="flex items-center gap-1.5">
                 {view.paused ? <PlayIcon className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
-                {!view.paused && autoLeft !== null && <span className="tabular-nums">{autoLeft}s</span>}
+                {view.paused ? "Resume" : "Pause"}
               </Button>
             )}
           </div>
@@ -462,9 +481,9 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
 
 export const housie: GameModule<State, Pub, Priv, Options> = {
   id: "housie",
-  defaultOptions: { autoCall: 0, autoMark: false },
+  defaultOptions: { autoCall: 10, autoMark: false },
   OptionsForm,
-  init({ players, options }) {
+  init({ players, options, now }) {
     const tickets: Record<string, Ticket> = {};
     const marks: Record<string, number[]> = {};
     const scores: Record<string, number> = {};
@@ -480,7 +499,8 @@ export const housie: GameModule<State, Pub, Priv, Options> = {
       scores,
       order: shuffle(Array.from({ length: 90 }, (_, i) => i + 1)),
       called: [],
-      nextCallAt: null,
+      // With auto-call on, the first number comes by itself after a short "get ready".
+      nextCallAt: options.autoCall ? now + 6000 : null,
       paused: false,
       winners: {},
       lastEvent: null,
@@ -528,7 +548,7 @@ export const housie: GameModule<State, Pub, Priv, Options> = {
   },
   tick(s, { now }) {
     if (!s.options.autoCall || s.paused || s.winners.full) return s;
-    if (s.nextCallAt === null) return s.called.length ? { ...s, nextCallAt: now + s.options.autoCall * 1000 } : s;
+    if (s.nextCallAt === null) return { ...s, nextCallAt: now + s.options.autoCall * 1000 };
     if (now >= s.nextCallAt) return callNext(s, now);
     return s;
   },

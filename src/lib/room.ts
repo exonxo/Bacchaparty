@@ -23,8 +23,12 @@ export interface RoomSnapshot {
   kicked: string[];
 }
 
+/** Bumped whenever the messages below change shape. Devices on different versions can't play together. */
+export const PROTOCOL = 2;
+
 /** "room" event: the snapshot as JSON text, its signature and the signing key. */
 export interface SignedRoom {
+  v?: number;
   d: string;
   s: string;
   k: string;
@@ -42,6 +46,7 @@ export interface PrivateBody {
 
 /** "join" event. `pk` is the phone's key-exchange public key; the rest is encrypted. Plaintext: JoinBody. */
 export interface JoinEnvelope extends Sealed {
+  v?: number;
   id: string;
   pk: string;
 }

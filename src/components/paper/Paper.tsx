@@ -12,33 +12,12 @@ import { dur, ease, spring } from "./motion";
 /* Theme scope                                                          */
 /* ------------------------------------------------------------------ */
 
-/** Switches the document to the paper theme while the calling view is mounted. */
-export function usePaperTheme() {
-  useEffect(() => {
-    const root = document.documentElement;
-    const prev = root.dataset.theme;
-    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-    const prevColor = meta?.content;
-    root.dataset.theme = "paper";
-    if (meta) meta.content = "#fbf6ee";
-    return () => {
-      if (prev) root.dataset.theme = prev;
-      else delete root.dataset.theme;
-      if (meta && prevColor) meta.content = prevColor;
-    };
-  }, []);
-}
+/** Paper is the app's default theme now; kept so existing views don't need to change. */
+export function usePaperTheme() {}
 
-const GRAIN =
-  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.12  0 0 0 0 0.1  0 0 0 0 0.09  0 0 0 0.9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
-
-/** Full-screen paper: covers the shell's dark background and adds a faint grain. */
+/** The page background already carries the paper grain. */
 export function PaperBackdrop() {
-  return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-0 bg-bg">
-      <div className="absolute inset-0 opacity-[0.045] mix-blend-multiply" style={{ backgroundImage: GRAIN }} />
-    </div>
-  );
+  return null;
 }
 
 /* ------------------------------------------------------------------ */
