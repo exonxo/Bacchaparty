@@ -1,19 +1,23 @@
 "use client";
 import { Avatar } from "@/components/Avatar";
-import { Button, LevelPicker, NumberPicker, Panel, PhoneMessage, Scoreboard, TextAnswer } from "@/components/ui";
+import { Button, LevelPicker, NumberPicker, Panel, Scoreboard } from "@/components/ui";
 import { SOUNDS, type SoundPrompt } from "@/content/sound-guru";
 import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player, type ScreenProps } from "@/lib/types";
 import { answerMatches, shuffle } from "@/lib/util";
+import { Phone } from "./PaperPhone";
 
-interface Options {
+export interface Options {
   level: Level;
   roundsPerPlayer: number;
+  /** Seconds per sound. */
+  seconds: number;
 }
 
-type Phase = "ready" | "making" | "reveal" | "over";
+export type Phase = "ready" | "making" | "reveal" | "over";
 
 interface State {
   level: Level;
+  seconds: number;
   deck: SoundPrompt[];
   makers: string[];
   turn: number;
@@ -21,30 +25,49 @@ interface State {
   phase: Phase;
   prompt: SoundPrompt | null;
   roundStart: number | null;
+  deadline: number | null;
+  revealUntil: number | null;
   correct: string[];
-  wrong: { playerId: string; text: string; at: number }[];
+  /** Wrong guesses per player — only ever shown to that player. */
+  wrong: Record<string, { text: string; at: number; tries: number }>;
   scores: Record<string, number>;
+  /** When the Sound Maker's phone went offline (null while connected). */
+  makerAwaySince: number | null;
+  /** Why the last turn ended early, for a short note. */
+  lastSkip: { name: string; at: number } | null;
 }
 
-interface Pub {
+export interface Pub {
   makerId: string | null;
   turn: number;
   totalTurns: number;
   phase: Phase;
+  seconds: number;
   roundStart: number | null;
+  deadline: number | null;
+  revealUntil: number | null;
+  /** Players who guessed right, in order (1st gets the most points). */
   correct: string[];
-  wrong: State["wrong"];
   scores: Record<string, number>;
-  /** Only revealed after the round. */
+  /** Only filled in after the round. */
   answer: string | null;
+  makerAwaySince: number | null;
+  lastSkip: State["lastSkip"];
 }
 
-interface Priv {
-  sound: string;
-  tip: string;
-}
+export type Priv =
+  | { role: "maker"; sound: string; tip: string }
+  | { role: "guesser"; tries: number; lastWrong: string | null; at: number };
 
-const POINTS = [3, 2];
+/** Points for the 1st, 2nd and later right guesses. The Sound Maker gets +1 per right guess. */
+export const POINTS = [3, 2];
+export function pointsFor(rank: number) {
+  return POINTS[rank] ?? 1;
+}
+/** How long a Sound Maker can be offline before the turn moves on. */
+export const AWAY_MS = 10_000;
+/** How long the answer stays on screen before the next maker's turn. */
+export const REVEAL_MS = 9_000;
 
 function deckFor(level: Level): SoundPrompt[] {
   const levels: Level[] = level === "kids" ? ["kids"] : level === "family" ? ["kids", "family"] : ["family", "adults"];
@@ -56,9 +79,25 @@ function makerOf(s: State): string | null {
 }
 
 function startTurn(s: State, turn: number): State {
-  if (turn >= s.totalTurns) return { ...s, turn, phase: "over", prompt: null };
+  if (turn >= s.totalTurns) return { ...s, turn, phase: "over", prompt: null, deadline: null, revealUntil: null, makerAwaySince: null };
   const deck = s.deck.length ? s.deck : deckFor(s.level);
-  return { ...s, turn, deck: deck.slice(1), prompt: deck[0], phase: "ready", roundStart: null, correct: [], wrong: [] };
+  return {
+    ...s,
+    turn,
+    deck: deck.slice(1),
+    prompt: deck[0],
+    phase: "ready",
+    roundStart: null,
+    deadline: null,
+    revealUntil: null,
+    correct: [],
+    wrong: {},
+    makerAwaySince: null,
+  };
+}
+
+function reveal(s: State, now: number): State {
+  return { ...s, phase: "reveal", deadline: null, revealUntil: now + REVEAL_MS };
 }
 
 function guessersLeft(s: State, players: Player[]): number {
@@ -66,142 +105,83 @@ function guessersLeft(s: State, players: Player[]): number {
   return players.filter((p) => p.connected && p.id !== maker && !s.correct.includes(p.id)).length;
 }
 
-function Screen({ view, players, act }: ScreenProps<Pub>) {
+/* ------------------------------------------------------------------ */
+/* Big screen (TV) — read-only when `spectator`                         */
+/* ------------------------------------------------------------------ */
+
+function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
   const maker = players.find((p) => p.id === view.makerId);
   if (view.phase === "over") {
     return (
       <div className="mx-auto max-w-xl space-y-6 text-center">
-        <div className="text-5xl font-extrabold">🏆 Sound Guru results</div>
+        <div className="text-5xl font-extrabold">Sound Guru results</div>
         <Scoreboard players={players} scores={view.scores} big title="Final scores" />
       </div>
     );
   }
+  const left = view.deadline ? Math.max(0, Math.ceil((view.deadline - now) / 1000)) : null;
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
       <Panel className="flex min-h-[26rem] flex-col items-center justify-center gap-4 text-center">
         <div className="text-muted">
-          Round {view.turn + 1} of {view.totalTurns}
+          Sound {view.turn + 1} of {view.totalTurns}
         </div>
-        {maker && <div className="text-8xl"><Avatar id={maker.avatar} /></div>}
+        {maker && (
+          <div className="text-8xl">
+            <Avatar id={maker.avatar} />
+          </div>
+        )}
         <div className="text-4xl font-extrabold">{maker?.name ?? "…"}</div>
-        {view.phase === "ready" && <div className="text-2xl text-muted">is the Sound Maker — check your phone!</div>}
+        {view.phase === "ready" && <div className="text-2xl text-muted">is the Sound Maker — getting ready…</div>}
         {view.phase === "making" && (
           <>
-            <div className="wiggle text-3xl font-bold text-gold">🔊 is making a sound… guess on your phones!</div>
-            <div className="flex flex-wrap justify-center gap-2">
-              {view.correct.map((id) => {
-                const p = players.find((x) => x.id === id);
-                return p ? (
-                  <span key={id} className="pop-in rounded-full bg-green px-3 py-1 font-bold text-bg">
-                    ✅ {p.name}
-                  </span>
-                ) : null;
-              })}
-            </div>
-            {view.wrong.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-2 text-lg text-muted">
-                {view.wrong.slice(-6).map((w, i) => (
-                  <span key={i} className="rounded-full bg-white/10 px-3 py-1 line-through">
-                    {w.text}
-                  </span>
-                ))}
-              </div>
-            )}
+            <div className="text-3xl font-bold">is making a sound — guess on your phones!</div>
+            {left !== null && <div className="text-5xl font-extrabold tabular-nums">{left}s</div>}
+            <div className="text-xl text-muted">{view.correct.length} guessed it</div>
           </>
         )}
         {view.phase === "reveal" && (
           <>
             <div className="text-xl text-muted">The sound was</div>
-            <div className="pop-in text-5xl font-extrabold text-gold">{view.answer}</div>
+            <div className="pop-in text-5xl font-extrabold">{view.answer}</div>
             <div className="text-lg">{view.correct.length} guessed it!</div>
           </>
         )}
-        <div className="mt-2 flex flex-wrap justify-center gap-3">
-          {view.phase === "ready" && (
-            <Button tone="ghost" onClick={() => act("skip")}>
-              🔁 Different sound
-            </Button>
-          )}
-          {view.phase === "making" && (
-            <Button tone="ghost" onClick={() => act("reveal")}>
-              👀 Reveal
-            </Button>
-          )}
-          {view.phase === "reveal" && (
-            <Button size="lg" onClick={() => act("next")}>
-              Next round ▶
-            </Button>
-          )}
-          {view.phase !== "reveal" && (
-            <Button tone="ghost" onClick={() => act("skipMaker")}>
-              ⏭ Skip this player
-            </Button>
-          )}
-        </div>
+        {!spectator && (
+          <div className="mt-2 flex flex-wrap justify-center gap-3">
+            {view.phase === "ready" && (
+              <Button tone="ghost" onClick={() => act("skip")}>
+                Different sound
+              </Button>
+            )}
+            {view.phase === "making" && (
+              <Button tone="ghost" onClick={() => act("reveal")}>
+                Reveal
+              </Button>
+            )}
+            {view.phase === "reveal" && (
+              <Button size="lg" onClick={() => act("next")}>
+                Next round
+              </Button>
+            )}
+            {view.phase !== "reveal" && (
+              <Button tone="ghost" onClick={() => act("skipMaker")}>
+                Skip this player
+              </Button>
+            )}
+          </div>
+        )}
       </Panel>
       <Scoreboard players={players} scores={view.scores} />
     </div>
   );
 }
 
-function Controller({ view, priv, me, players, send }: ControllerProps<Pub, Priv>) {
-  const isMaker = view.makerId === me.id;
-  const makerName = players.find((p) => p.id === view.makerId)?.name ?? "The Sound Maker";
-  const myScore = view.scores[me.id] ?? 0;
-  if (view.phase === "over") return <PhoneMessage emoji="🏆" title="Game over!">You scored {myScore} points. Look at the big screen.</PhoneMessage>;
-  if (view.phase === "reveal") {
-    const got = view.correct.includes(me.id);
-    return (
-      <div className="space-y-4">
-        <PhoneMessage emoji={isMaker ? "🎙️" : got ? "🎉" : "🙈"} title={`It was: ${view.answer}`}>
-          {isMaker ? `${view.correct.length} people guessed your sound!` : got ? "You got it!" : "Better luck next round."} · Your score: {myScore}
-        </PhoneMessage>
-        {isMaker && (
-          <Button size="lg" className="w-full" onClick={() => send("next")}>
-            Next round ▶
-          </Button>
-        )}
-      </div>
-    );
-  }
-  if (isMaker) {
-    if (view.phase === "ready" || !priv) {
-      return (
-        <div className="space-y-4">
-          <PhoneMessage emoji="🎙️" title="You're the Sound Maker!">
-            Hide your screen, then tap to see your secret sound.
-          </PhoneMessage>
-          <Button size="xl" className="w-full" onClick={() => send("start")}>
-            👀 Show my sound
-          </Button>
-        </div>
-      );
-    }
-    return (
-      <div className="space-y-4">
-        <Panel className="py-8 text-center">
-          <div className="text-sm font-bold uppercase tracking-widest text-muted">Make this sound</div>
-          <div className="mt-2 text-4xl font-extrabold text-gold">{priv.sound}</div>
-          <div className="mt-3 text-lg text-muted">💡 {priv.tip}</div>
-          <div className="mt-3 text-sm text-muted">No words that give it away!</div>
-        </Panel>
-        <div className="text-center text-lg">{view.correct.length} guessed so far</div>
-        <Button tone="ghost" size="lg" className="w-full" onClick={() => send("reveal")}>
-          Reveal the answer
-        </Button>
-      </div>
-    );
-  }
-  if (view.phase === "ready") return <PhoneMessage emoji="👂" title={`${makerName} is getting ready…`}>Listen carefully!</PhoneMessage>;
-  if (view.correct.includes(me.id)) return <PhoneMessage emoji="✅" title="You got it!">Shh — don&apos;t tell the others. Score: {myScore}</PhoneMessage>;
-  const myWrong = view.wrong.filter((w) => w.playerId === me.id).slice(-3);
-  return (
-    <div className="space-y-4">
-      <PhoneMessage emoji="👂" title={`What sound is ${makerName} making?`} />
-      <TextAnswer onSubmit={(t) => send("guess", t)} placeholder="e.g. pressure cooker" buttonLabel="Guess" />
-      {myWrong.length > 0 && <div className="text-center text-muted">Not quite: {myWrong.map((w) => w.text).join(", ")}</div>}
-    </div>
-  );
+const noop = () => {};
+
+/** Older "with a TV" controller: same phone view, without host controls. */
+function Controller(props: ControllerProps<Pub, Priv>) {
+  return <Phone {...props} isHost={false} hostAct={noop} together />;
 }
 
 function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Options) => void }) {
@@ -215,18 +195,21 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
         options={[1, 2, 3]}
         format={(n) => `${n} each`}
       />
+      <NumberPicker label="Time per sound" value={value.seconds ?? 60} onChange={(seconds) => onChange({ ...value, seconds })} options={[45, 60, 90]} format={(n) => `${n}s`} />
     </div>
   );
 }
 
 const soundGuru: GameModule<State, Pub, Priv, Options> = {
   id: "sound-guru",
-  defaultOptions: { level: "family", roundsPerPlayer: 1 },
+  paper: true,
+  defaultOptions: { level: "family", roundsPerPlayer: 1, seconds: 60 },
   OptionsForm,
   init({ players, options }) {
     const makers = shuffle(players.map((p) => p.id));
     const base: State = {
       level: options.level,
+      seconds: options.seconds ?? 60,
       deck: deckFor(options.level),
       makers,
       turn: 0,
@@ -234,9 +217,13 @@ const soundGuru: GameModule<State, Pub, Priv, Options> = {
       phase: "ready",
       prompt: null,
       roundStart: null,
+      deadline: null,
+      revealUntil: null,
       correct: [],
-      wrong: [],
+      wrong: {},
       scores: Object.fromEntries(players.map((p) => [p.id, 0])),
+      makerAwaySince: null,
+      lastSkip: null,
     };
     return startTurn(base, 0);
   },
@@ -251,7 +238,7 @@ const soundGuru: GameModule<State, Pub, Priv, Options> = {
     switch (a.type) {
       case "start":
         if ((!isHost && !isMaker) || s.phase !== "ready") return s;
-        return { ...s, phase: "making", roundStart: now };
+        return { ...s, phase: "making", roundStart: now, deadline: now + s.seconds * 1000 };
       case "skip":
         if (!isHost || s.phase !== "ready") return s;
         return startTurn(s, s.turn);
@@ -260,31 +247,38 @@ const soundGuru: GameModule<State, Pub, Priv, Options> = {
         return startTurn(s, s.turn + 1);
       case "reveal":
         if ((!isHost && !isMaker) || s.phase !== "making") return s;
-        return { ...s, phase: "reveal" };
+        return reveal(s, now);
       case "next":
         if ((!isHost && !isMaker) || s.phase !== "reveal") return s;
         return startTurn(s, s.turn + 1);
       case "guess": {
-        if (s.phase !== "making" || isHost || isMaker || !s.prompt || s.correct.includes(a.playerId)) return s;
+        if (s.phase !== "making" || isHost || isMaker || !s.prompt || s.correct.includes(a.playerId) || !(a.playerId in s.scores)) return s;
         const text = String(a.payload ?? "").slice(0, 40).trim();
         if (!text) return s;
         if (answerMatches(text, [s.prompt.sound, ...s.prompt.answers])) {
-          const pts = POINTS[s.correct.length] ?? 1;
-          const scores = { ...s.scores, [a.playerId]: (s.scores[a.playerId] ?? 0) + pts };
+          const scores = { ...s.scores, [a.playerId]: (s.scores[a.playerId] ?? 0) + pointsFor(s.correct.length) };
           if (maker) scores[maker] = (scores[maker] ?? 0) + 1;
           const next: State = { ...s, correct: [...s.correct, a.playerId], scores };
-          return guessersLeft(next, players) === 0 ? { ...next, phase: "reveal" } : next;
+          return guessersLeft(next, players) === 0 ? reveal(next, now) : next;
         }
-        return { ...s, wrong: [...s.wrong, { playerId: a.playerId, text, at: now }].slice(-20) };
+        const tries = (s.wrong[a.playerId]?.tries ?? 0) + 1;
+        return { ...s, wrong: { ...s.wrong, [a.playerId]: { text, at: now, tries } } };
       }
     }
     return s;
   },
-  tick(s, { players }) {
-    if (s.phase === "over" || s.phase === "reveal") return s;
+  tick(s, { players, now }) {
+    if (s.phase === "over") return s;
+    if (s.phase === "reveal") return s.revealUntil && now >= s.revealUntil ? startTurn(s, s.turn + 1) : s;
+    if (s.phase === "making" && s.deadline && now >= s.deadline) return reveal(s, now);
+    // Sound Maker left or their phone went quiet: give them a moment, then move on.
     const maker = makerOf(s);
-    // Sound Maker left the room: move on.
-    if (maker && !players.some((p) => p.id === maker)) return startTurn(s, s.turn + 1);
+    if (!maker) return s;
+    const p = players.find((x) => x.id === maker);
+    if (!p) return { ...startTurn(s, s.turn + 1), lastSkip: { name: "The Sound Maker", at: now } };
+    if (p.connected) return s.makerAwaySince ? { ...s, makerAwaySince: null } : s;
+    if (!s.makerAwaySince) return { ...s, makerAwaySince: now };
+    if (now - s.makerAwaySince >= AWAY_MS) return { ...startTurn(s, s.turn + 1), lastSkip: { name: p.name, at: now } };
     return s;
   },
   publicView(s) {
@@ -293,19 +287,26 @@ const soundGuru: GameModule<State, Pub, Priv, Options> = {
       turn: s.turn,
       totalTurns: s.totalTurns,
       phase: s.phase,
+      seconds: s.seconds,
       roundStart: s.roundStart,
+      deadline: s.deadline,
+      revealUntil: s.revealUntil,
       correct: s.correct,
-      wrong: s.wrong,
       scores: s.scores,
       answer: s.phase === "reveal" ? (s.prompt?.sound ?? null) : null,
+      makerAwaySince: s.makerAwaySince,
+      lastSkip: s.lastSkip,
     };
   },
   privateView(s, id) {
-    if (id !== makerOf(s) || s.phase !== "making" || !s.prompt) return undefined;
-    return { sound: s.prompt.sound, tip: s.prompt.tip };
+    if (s.phase === "over" || !s.prompt) return undefined;
+    if (id === makerOf(s)) return s.phase === "ready" || s.phase === "making" ? { role: "maker", sound: s.prompt.sound, tip: s.prompt.tip } : undefined;
+    const w = s.wrong[id];
+    return { role: "guesser", tries: w?.tries ?? 0, lastWrong: w?.text ?? null, at: w?.at ?? 0 };
   },
   Screen,
   Controller,
+  Phone,
 };
 
 export default soundGuru;
