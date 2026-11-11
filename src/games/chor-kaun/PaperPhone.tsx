@@ -1,5 +1,5 @@
 "use client";
-import { Check, Clock, Gavel, Hand, MapPin, MessageCircleQuestion, SkipForward, Trophy } from "lucide-react";
+import { Check, Clock, Gavel, Hand, MessageCircleQuestion, SkipForward, Tag, Trophy } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { dur, ease, screenIn, spring, staggerDelay } from "@/components/paper/motion";
@@ -10,7 +10,9 @@ import { useOnChange, useSfx } from "@/lib/roomAudio";
 import { vibrate } from "@/lib/sfx";
 import type { PhoneProps, Player } from "@/lib/types";
 import { chorWon, fmt, iWon, nameOf, resultText, roundGains } from "./helpers";
+import { CHOR_TOPIC_ALL, type ChorTopicChoice } from "@/content/chor-kaun";
 import type { Priv, Pub } from "./index";
+import { TopicPicker } from "./TopicPicker";
 
 const HINT_KEY = "bacchaparty-chor-peeked";
 
@@ -77,30 +79,25 @@ function ConfirmButton({ label, confirmLabel, onConfirm, icon, now }: { label: s
   );
 }
 
-function PlacesGrid({ places, picked, onPick }: { places: { name: string }[]; picked?: string | null; onPick?: (name: string) => void }) {
+function WordsGrid({ words, picked, onPick }: { words: string[]; picked?: string | null; onPick?: (word: string) => void }) {
   return (
     <ul className="grid grid-cols-2 gap-2">
-      {places.map((l) => {
-        const on = picked === l.name;
-        const inner = (
-          <>
-            <MapPin className="h-4 w-4 shrink-0 opacity-60" /> <span className="min-w-0">{l.name}</span>
-          </>
-        );
+      {words.map((w) => {
+        const on = picked === w;
         return (
-          <li key={l.name}>
+          <li key={w}>
             {onPick ? (
               <button
-                onClick={() => onPick(l.name)}
+                onClick={() => onPick(w)}
                 aria-pressed={on}
                 className={`flex min-h-12 w-full items-center gap-2 rounded-cut border-[1.5px] px-3 py-2 text-left text-p-body font-semibold leading-tight transition-colors duration-200 ${
                   on ? "border-ink bg-turmeric shadow-[2px_2px_0_0_var(--ink)]" : "border-ink/20 bg-paper"
                 }`}
               >
-                {inner}
+                <span className="min-w-0 text-balance">{w}</span>
               </button>
             ) : (
-              <div className="flex min-h-11 items-center gap-2 rounded-cut border-[1.5px] border-ink/15 bg-paper px-3 py-2 text-p-body font-medium leading-tight">{inner}</div>
+              <div className="flex min-h-11 items-center rounded-cut border-[1.5px] border-ink/15 bg-paper px-3 py-2 text-p-body font-medium leading-tight">{w}</div>
             )}
           </li>
         );
@@ -182,25 +179,17 @@ function SecretEnvelope({ priv, round, onPeek, above }: { priv: Priv; round: num
         >
           <Envelope open={open} seed={round * 7 + 3} above={above}>
             {/* Same three lines for everyone, so the chit's shape gives nothing away. */}
-            <div className="text-p-note font-semibold uppercase tracking-[0.14em] text-muted">{priv.chor ? "Shh… you are the" : "The place is"}</div>
+            <div className="text-p-note font-semibold uppercase tracking-[0.14em] text-muted">{priv.chor ? "Shh… you are the" : "Your word"}</div>
             <div className="mt-0.5 flex items-center justify-center gap-2 font-display text-p-title font-extrabold text-balance">
               {priv.chor ? (
                 <>
                   <MaskGlyph size={26} /> CHOR
                 </>
               ) : (
-                priv.location
+                priv.word
               )}
             </div>
-            <div className="mt-1 text-p-body leading-snug">
-              {priv.chor ? (
-                "Ghul-mil jao. Work out the place."
-              ) : (
-                <>
-                  You are the <b>{priv.role}</b>
-                </>
-              )}
-            </div>
+            <div className="mt-1 text-p-body leading-snug">{priv.chor ? "Blend in. Find the word everyone else got." : "Everyone else has this same word."}</div>
           </Envelope>
         </button>
       </div>
@@ -239,7 +228,25 @@ function SecretEnvelope({ priv, round, onPeek, above }: { priv: Priv; round: num
 /* Reveal                                                               */
 /* ------------------------------------------------------------------ */
 
-function RevealScreen({ view, players, me, isHost, hostAct, onScores }: { view: Pub; players: Player[]; me: Player; isHost: boolean; hostAct: (t: string) => void; onScores: () => void }) {
+function RevealScreen({
+  view,
+  players,
+  me,
+  isHost,
+  hostAct,
+  onScores,
+  hostTopic,
+  onHostTopic,
+}: {
+  view: Pub;
+  players: Player[];
+  me: Player;
+  isHost: boolean;
+  hostAct: (t: string, payload?: unknown) => void;
+  onScores: () => void;
+  hostTopic: ChorTopicChoice;
+  onHostTopic: (t: ChorTopicChoice) => void;
+}) {
   const reveal = view.reveal!;
   const parts = view.participants.map((id) => players.find((p) => p.id === id)).filter(Boolean) as Player[];
   const gains = useMemo(() => roundGains(reveal, view.participants), [reveal, view.participants]);
@@ -275,8 +282,11 @@ function RevealScreen({ view, players, me, isHost, hostAct, onScores }: { view: 
 
       <div className="relative">
         <Envelope open={open} sealed={false} seed={view.round * 11 + 5}>
-          <div className="text-p-note font-semibold uppercase tracking-[0.14em] text-muted">The place was</div>
-          <div className="mt-0.5 font-display text-p-title font-extrabold text-balance">{reveal.location.name}</div>
+          <div className="text-p-note font-semibold uppercase tracking-[0.14em] text-muted">
+            Topic: {reveal.topicLabel} · The word was
+          </div>
+          <div className="mt-0.5 font-display text-p-title font-extrabold text-balance">{reveal.majorityWord}</div>
+          <div className="mt-1 text-p-note text-muted">Chor had: {reveal.chorWord}</div>
           <div className="mt-1 flex items-center justify-center gap-1.5 text-p-body">
             <MaskGlyph size={20} className="text-vermilion" /> Chor: <b>{nameOf(players, reveal.chorId)}</b>
           </div>
@@ -325,7 +335,7 @@ function RevealScreen({ view, players, me, isHost, hostAct, onScores }: { view: 
                   </div>
                   <div className={`flex items-center gap-1.5 text-p-note ${isChor ? "font-bold text-vermilion" : "text-muted"}`}>
                     {isChor && <MaskGlyph size={16} />}
-                    {isChor ? "The Chor" : reveal.roles[p.id]}
+                    {isChor ? "The Chor" : "In the know"}
                   </div>
                 </div>
                 {gain > 0 && (
@@ -347,9 +357,12 @@ function RevealScreen({ view, players, me, isHost, hostAct, onScores }: { view: 
       </section>
 
       {isHost ? (
-        <PaperButton size="lg" className="w-full" onClick={() => hostAct("next")}>
-          <SkipForward className="h-5 w-5" strokeWidth={2.4} /> Chalo, next round
-        </PaperButton>
+        <div className="space-y-4">
+          <HostTopicPickerSection hostTopic={hostTopic} onHostTopic={onHostTopic} />
+          <PaperButton size="lg" className="w-full" onClick={() => hostAct("next")}>
+            <SkipForward className="h-5 w-5" strokeWidth={2.4} /> Next round
+          </PaperButton>
+        </div>
       ) : (
         <p className="flex items-center justify-center gap-2 text-p-body text-muted">
           <span className="flex gap-1" aria-hidden>
@@ -368,9 +381,19 @@ function RevealScreen({ view, players, me, isHost, hostAct, onScores }: { view: 
 /* Phone view                                                           */
 /* ------------------------------------------------------------------ */
 
+function HostTopicPickerSection({ hostTopic, onHostTopic }: { hostTopic: ChorTopicChoice; onHostTopic: (t: ChorTopicChoice) => void }) {
+  return (
+    <div className="border-t-[1.5px] border-dashed border-ink/25 pt-4">
+      <h3 className="mb-2 text-p-note font-semibold uppercase tracking-[0.14em] text-muted">Topic for next round</h3>
+      <TopicPicker value={hostTopic} onChange={onHostTopic} compact />
+    </div>
+  );
+}
+
 export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: PhoneProps<Pub, Priv>) {
   usePaperTheme();
-  const [sheet, setSheet] = useState<"guess" | "places" | "scores" | null>(null);
+  const [sheet, setSheet] = useState<"guess" | "words" | "scores" | null>(null);
+  const [hostTopic, setHostTopic] = useState<ChorTopicChoice>(CHOR_TOPIC_ALL);
   const [guessPick, setGuessPick] = useState<string | null>(null);
   const { shared, mine } = useSfx();
 
@@ -399,6 +422,7 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
     setSheet(null);
     setGuessPick(null);
   });
+  useOnChange(view.topicSetting, (t) => setHostTopic(t));
 
   const parts = view.participants.map((id) => players.find((p) => p.id === id)).filter(Boolean) as Player[];
   const myScore = view.scores[me.id] ?? 0;
@@ -421,15 +445,15 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
 
   const playing = (
     <div className="space-y-4">
-      <RoundBar round={view.round} score={myScore} onScores={() => setSheet("scores")} right={<TimerTag deadline={view.deadline} now={now} />} />
+      <RoundBar round={view.round} label={view.topicLabel} score={myScore} onScores={() => setSheet("scores")} right={<TimerTag deadline={view.deadline} now={now} />} />
 
       {!inRound ? (
         <div className="space-y-3">
           <div className="cut rounded-cut bg-paper p-4">
             <div className="font-display text-p-title font-extrabold">You’re in the next round</div>
-            <p className="mt-1 text-p-body text-muted">For now, listen to the questions and try to spot the Chor. The place is one of these:</p>
+            <p className="mt-1 text-p-body text-muted">Listen to the questions and try to spot the Chor. Words are from: {view.topicLabel}</p>
           </div>
-          <PlacesGrid places={view.locations} />
+          <WordsGrid words={view.wordChoices} />
         </div>
       ) : !priv ? (
         <div className="pointer-events-none">
@@ -495,13 +519,13 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
           {priv.chor ? (
             <div>
               <PaperButton tone="vermilion" size="lg" className="w-full" onClick={() => setSheet("guess")}>
-                <Magnifier size={26} /> Mujhe pata hai jagah!
+                <Magnifier size={26} /> I know the real word!
               </PaperButton>
-              <p className="mt-2 text-center text-p-note text-muted">One guess only. Guess wrong and you’re caught.</p>
+              <p className="mt-2 text-center text-p-note text-muted">One guess only. Wrong guess and you are caught.</p>
             </div>
           ) : (
-            <button onClick={() => setSheet("places")} className="mx-auto flex min-h-11 items-center gap-1.5 rounded-cut px-3 text-p-body font-semibold underline decoration-ink/30 underline-offset-4">
-              <MapPin className="h-4 w-4" /> Saari jagah dekho
+            <button onClick={() => setSheet("words")} className="mx-auto flex min-h-11 items-center gap-1.5 rounded-cut px-3 text-p-body font-semibold underline decoration-ink/30 underline-offset-4">
+              <Tag className="h-4 w-4" /> See all words
             </button>
           )}
         </>
@@ -527,7 +551,19 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
         <AnimatePresence mode="wait" initial={false}>
           {reveal ? (
             <motion.div key={`reveal-${view.round}`} {...screenIn}>
-              <RevealScreen view={view} players={players} me={me} isHost={isHost} hostAct={hostAct} onScores={() => setSheet("scores")} />
+              <RevealScreen
+                view={view}
+                players={players}
+                me={me}
+                isHost={isHost}
+                hostAct={hostAct}
+                onScores={() => setSheet("scores")}
+                hostTopic={hostTopic}
+                onHostTopic={(t) => {
+                  setHostTopic(t);
+                  hostAct("topic", t);
+                }}
+              />
             </motion.div>
           ) : (
             <motion.div key={`play-${view.round}`} {...screenIn}>
@@ -540,7 +576,7 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
       <PaperSheet
         open={sheet === "guess" && !!priv?.chor}
         onClose={() => setSheet(null)}
-        title="Hum kahan hain?"
+        title="Pick the real word"
         footer={
           <PaperButton
             tone="vermilion"
@@ -553,16 +589,16 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
               setSheet(null);
             }}
           >
-            {guessPick ? `Lock in: ${guessPick}` : "Pehle jagah chuno"}
+            {guessPick ? `Lock in: ${guessPick}` : "Pick a word first"}
           </PaperButton>
         }
       >
-        <p className="mb-3 text-p-body text-muted">You get one guess. Right: you win 3 points. Wrong: you’re caught.</p>
-        <PlacesGrid places={view.locations} picked={guessPick} onPick={setGuessPick} />
+        <p className="mb-3 text-p-body text-muted">You get one guess. Right: you win 3 points. Wrong: you are caught.</p>
+        <WordsGrid words={view.wordChoices} picked={guessPick} onPick={setGuessPick} />
       </PaperSheet>
-      <PaperSheet open={sheet === "places"} onClose={() => setSheet(null)} title="Saari jagah">
-        <p className="mb-3 text-p-body text-muted">The Chor sees this list too, and is trying to work out which one it is.</p>
-        <PlacesGrid places={view.locations} />
+      <PaperSheet open={sheet === "words"} onClose={() => setSheet(null)} title="All words">
+        <p className="mb-3 text-p-body text-muted">Topic: {view.topicLabel}. The Chor sees this list too.</p>
+        <WordsGrid words={view.wordChoices} />
       </PaperSheet>
       <PaperSheet open={sheet === "scores"} onClose={() => setSheet(null)} title="Ab tak ke points">
         <ScoreList players={players} scores={view.scores} />

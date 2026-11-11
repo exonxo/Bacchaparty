@@ -11,7 +11,8 @@ export function nameOf(players: Player[], id: string | null | undefined) {
 
 export function resultText(r: Result, players: Player[], chorId: string): string {
   const chor = nameOf(players, chorId);
-  if (r.reason === "guess") return r.chorGuessCorrect ? `${chor} guessed the place — the Chor wins!` : `${chor} guessed “${r.chorGuess}” — wrong! Chor caught!`;
+  if (r.reason === "guess")
+    return r.chorGuessCorrect ? `${chor} guessed the word — the Chor wins!` : `${chor} guessed “${r.chorGuess}” — wrong! Chor caught!`;
   if (r.caught) return `The Chor was caught — it was ${chor}!`;
   if (!r.accused) return `No clear vote — ${chor} the Chor escapes!`;
   return `${nameOf(players, r.accused)} was innocent! ${chor} the Chor escapes!`;
