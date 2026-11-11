@@ -12,7 +12,7 @@ export const GAMES: GameInfo[] = [
     category: "Acting & Guessing",
     ages: "7+",
     players: "4–20, in 2 teams",
-    minPlayers: 2,
+    minPlayers: 4,
     maxPlayers: 20,
     duration: "20–40 min",
     color: "#ff9933",

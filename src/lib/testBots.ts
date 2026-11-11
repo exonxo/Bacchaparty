@@ -16,6 +16,17 @@ export const BOTS = [
   { id: "bot-4", name: "Rani", avatar: "flower" },
 ] as const;
 
+import { botMoves as charadesBot } from "@/games/charades/bot";
+import { botMoves as drawGuessBot } from "@/games/draw-guess/bot";
+import { botMoves as kbcBot } from "@/games/kaun-banega-champion/bot";
+
+/** Games whose bot logic lives next to the game. */
+const GAME_BOTS: Record<string, (raw: unknown, view: unknown, bots: string[]) => BotAction[]> = {
+  charades: charadesBot,
+  "draw-guess": drawGuessBot,
+  "kaun-banega-champion": kbcBot,
+};
+
 export interface BotAction {
   playerId: string;
   type: string;
@@ -30,6 +41,8 @@ type Rec = Record<string, unknown>;
  * Uses the same action types a real phone sends, so the game logic is what's tested.
  */
 export function botActions(gameId: string, raw: unknown, view: unknown, bots: string[]): BotAction[] {
+  const own = GAME_BOTS[gameId];
+  if (own) return own(raw, view, bots);
   const out: BotAction[] = [];
   const s = (raw ?? {}) as Rec;
   const v = (view ?? {}) as Rec;
@@ -70,4 +83,4 @@ export function botActions(gameId: string, raw: unknown, view: unknown, bots: st
   return out;
 }
 
-export const BOT_GAMES = ["chor-kaun", "emoji-picture", "housie"] as const;
+export const BOT_GAMES = ["chor-kaun", "emoji-picture", "housie", ...Object.keys(GAME_BOTS)];

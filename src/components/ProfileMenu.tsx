@@ -108,7 +108,7 @@ export function ProfileMenu({
                 </button>
                 {testMode && (
                   <p className="mt-2 text-p-note text-muted">
-                    Simulated: {BOTS.map((b) => b.name).join(", ")}. They show up on every phone in this room, and in Chor Kaun?, Emoji Picture and Housie they play along.
+                    Simulated: {BOTS.map((b) => b.name).join(", ")}. They show up on every phone in this room and play along in most games.
                   </p>
                 )}
               </div>
