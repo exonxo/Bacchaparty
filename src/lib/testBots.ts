@@ -16,12 +16,14 @@ export const BOTS = [
   { id: "bot-4", name: "Rani", avatar: "flower" },
 ] as const;
 
+import { botMoves as antakshariBot } from "@/games/antakshari/bot";
 import { botMoves as charadesBot } from "@/games/charades/bot";
 import { botMoves as drawGuessBot } from "@/games/draw-guess/bot";
 import { botMoves as kbcBot } from "@/games/kaun-banega-champion/bot";
 
 /** Games whose bot logic lives next to the game. */
 const GAME_BOTS: Record<string, (raw: unknown, view: unknown, bots: string[]) => BotAction[]> = {
+  antakshari: antakshariBot,
   charades: charadesBot,
   "draw-guess": drawGuessBot,
   "kaun-banega-champion": kbcBot,

@@ -487,7 +487,8 @@ export function Phone({ view, me, players, send, now, isHost, hostAct }: PhonePr
   });
 
   const liveText = view.lastEvent?.text ?? "";
-  const showHint = view.hintsOn && view.phase === "singing" && (myTeam === view.turn || isHost);
+  // Only the singing team sees the hint — a host who is judging this turn must not.
+  const showHint = view.hintsOn && view.phase === "singing" && myTeam === view.turn;
   const hintSlot = showHint ? <SongSlip hint={view.hint} letter={view.letter} onAnother={isHost ? () => hostAct("hint") : undefined} /> : null;
   // The singing team sees the slip inside their card; a host on the other team sees it below.
   const hintBelow = showHint && myTeam !== view.turn;
