@@ -3,9 +3,12 @@ import { LogOut, X } from "lucide-react";
 import { PartyEnded } from "@/components/PartyEnded";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getBrowserSupabase } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/env";
 import { GameStage } from "@/components/GameStage";
 import { paperButtonClass } from "@/components/paper/classes";
+import { BusyPaperButton } from "@/components/loaders";
 import { PaperButton, PaperSheet, Sticker } from "@/components/paper/Paper";
 import { RoomShell, iconButtonClass } from "@/components/RoomShell";
 import { getGameInfo } from "@/games/catalog";
@@ -13,22 +16,34 @@ import { getGameModule } from "@/games/modules";
 import { playSfx } from "@/lib/sfx";
 import { useOnChange } from "@/lib/roomAudio";
 import { useNow } from "@/lib/useNow";
-import { loadIdentity, usePlayerRoom, type Identity } from "@/lib/usePlayerRoom";
+import { loadIdentity, saveIdentity, usePlayerRoom, type Identity } from "@/lib/usePlayerRoom";
 
 const noop = () => {};
 
 export function PlayerScreen({ code }: { code: string }) {
   const router = useRouter();
   const [me, setMe] = useState<Identity | null>(null);
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
   useEffect(() => {
     const id = loadIdentity();
     if (!id.name) router.replace(`/join?code=${code}`);
     else setMe(id);
   }, [code, router]);
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    void getBrowserSupabase()
+      ?.auth.getUser()
+      .then(({ data }) => setAccountEmail(data.user?.email ?? null));
+  }, []);
+  const onIdentityChange = useCallback((next: Identity) => {
+    saveIdentity(next);
+    setMe(next);
+  }, []);
 
   const { room, priv, offset, status, send, leave, self, kicked, mismatch, lastRoomAt } = usePlayerRoom(code, me);
   const now = useNow(offset, 250);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   // Joined while a game was already running: show a short welcome once.
   const [lateJoin, setLateJoin] = useState(false);
   const sawRoom = useRef(false);
@@ -68,10 +83,14 @@ export function PlayerScreen({ code }: { code: string }) {
   return (
     <RoomShell
       me={player}
+      identity={me}
+      onIdentityChange={onIdentityChange}
+      accountEmail={accountEmail}
       code={code}
       status={status}
       title={room?.phase === "playing" ? info?.name : undefined}
       away={away}
+      width={room?.phase === "playing" ? "cozy" : "wide"}
       right={
         <button
           aria-label="Leave party"
@@ -97,7 +116,7 @@ export function PlayerScreen({ code }: { code: string }) {
           <p className="mt-2 text-p-body text-muted">Make sure the host has room {code} open.</p>
         </div>
       ) : room.phase === "lobby" || !mod || !room.view ? (
-        <div className="rise-in flex min-h-[70vh] flex-col items-center justify-center text-center">
+        <div className="rise-in flex min-h-[50vh] flex-col items-center justify-center text-center lg:min-h-[60vh]">
           <span className="breathe inline-block">
             <Sticker id={player.avatar} size={96} tilt={-6} />
           </span>
@@ -150,16 +169,19 @@ export function PlayerScreen({ code }: { code: string }) {
           <PaperButton tone="paper" size="lg" onClick={() => setConfirmLeave(false)}>
             Ruko, khelte hain
           </PaperButton>
-          <PaperButton
+          <BusyPaperButton
             tone="vermilion"
             size="lg"
+            loading={leaving}
+            busyLabel="Leaving party…"
             onClick={() => {
+              setLeaving(true);
               leave();
               setTimeout(() => router.push("/"), 250);
             }}
           >
             Leave party
-          </PaperButton>
+          </BusyPaperButton>
         </div>
       </PaperSheet>
     </RoomShell>

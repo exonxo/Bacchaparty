@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../components/loaders/loaders.css";
 
 /*
  * "Chit & Envelope": warm paper, ink outlines, hard cut-paper shadows.

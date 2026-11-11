@@ -1,12 +1,13 @@
 "use client";
 import { Check, DoorClosed, Home, Info, MapPin, MonitorSmartphone, Play, QrCode, Share2, Tv, Users, X } from "lucide-react";
 import QRCode from "qrcode";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PartyEnded } from "@/components/PartyEnded";
 import { GameIcon } from "@/components/GameIcon";
 import { GameStage } from "@/components/GameStage";
 import { GameTable, GameTile } from "@/components/paper/GameTile";
 import { gameLook } from "@/components/paper/gameLook";
+import { BusyPaperButton, CassetteCue, GamesSkeleton, isMusicGameLoader, ShuffleDeal } from "@/components/loaders";
 import { PaperButton, PaperSheet, Sticker } from "@/components/paper/Paper";
 import { ProfileFields } from "@/components/ProfileForm";
 import { RoomShell, iconButtonClass } from "@/components/RoomShell";
@@ -45,7 +46,17 @@ function Toast({ text }: { text: string | null }) {
   );
 }
 
-export function HostScreen({ code, defaultName }: { code: string; defaultName: string }) {
+export function HostScreen({
+  code,
+  defaultName,
+  ownerAuthId,
+  accountEmail,
+}: {
+  code: string;
+  defaultName: string;
+  ownerAuthId: string | null;
+  accountEmail: string | null;
+}) {
   const [me, setMe] = useState<Identity | null>(null);
   const [draft, setDraft] = useState<Identity | null>(null);
   useEffect(() => {
@@ -58,7 +69,7 @@ export function HostScreen({ code, defaultName }: { code: string; defaultName: s
     return (
       <main className="min-h-dvh">
         <form
-          className="mx-auto max-w-md space-y-7 px-4 py-8"
+          className="mx-auto max-w-md space-y-7 px-4 py-8 sm:max-w-lg md:max-w-2xl md:px-8"
           onSubmit={(e) => {
             e.preventDefault();
             if (!draft?.name.trim()) return;
@@ -80,11 +91,26 @@ export function HostScreen({ code, defaultName }: { code: string; defaultName: s
       </main>
     );
   }
-  return <HostRoom code={code} me={me} />;
+  return <HostRoom code={code} me={me} ownerAuthId={ownerAuthId} accountEmail={accountEmail} />;
 }
 
-function HostRoom({ code, me }: { code: string; me: Identity }) {
-  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, endParty, removePlayer, setTogether, takeOver, act, sendAsMe } = useHostRoom(code, me);
+function HostRoom({
+  code,
+  me: initialMe,
+  ownerAuthId,
+  accountEmail,
+}: {
+  code: string;
+  me: Identity;
+  ownerAuthId: string | null;
+  accountEmail: string | null;
+}) {
+  const [me, setMe] = useState(initialMe);
+  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, endParty, removePlayer, setTogether, takeOver, act, sendAsMe } = useHostRoom(code, me, ownerAuthId);
+  const onIdentityChange = useCallback((next: Identity) => {
+    saveIdentity(next);
+    setMe(next);
+  }, []);
   const now = useNow(clockOffset, 250);
   useWakeLock(true);
   const { url, qr } = useInvite(code);
@@ -94,6 +120,9 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
   const [removing, setRemoving] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [optionsByGame, setOptionsByGame] = useState<Record<string, unknown>>({});
+  const [startingGameId, setStartingGameId] = useState<string | null>(null);
+  const [endingParty, setEndingParty] = useState(false);
+  const [takeoverBusy, setTakeoverBusy] = useState(false);
   const online = state.players.filter((p) => p.connected);
   const mePlayer = state.players.find((p) => p.id === me.id) ?? { ...me, connected: true };
 
@@ -108,12 +137,22 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
   useEffect(() => {
     if (state.phase === "closed") setPartyEnded(true);
   }, [state.phase]);
+  useEffect(() => {
+    if (role === "active") setTakeoverBusy(false);
+  }, [role]);
 
   const hostEndParty = () => {
+    setEndingParty(true);
     endParty();
     setSheet(null);
     setPartyEnded(true);
+    setEndingParty(false);
   };
+
+  useEffect(() => {
+    if (!startingGameId) return;
+    if (state.phase === "playing" && state.gameId === startingGameId) setStartingGameId(null);
+  }, [state.phase, state.gameId, startingGameId]);
 
   const endPartyControls = (
     <button type="button" aria-label="End party for everyone" onClick={() => setSheet("endParty")} className={iconButtonClass} title="End party">
@@ -123,7 +162,7 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
 
   const playingMod = state.gameId ? getGameModule(state.gameId) : null;
   const playingInfo = state.gameId ? getGameInfo(state.gameId) : null;
-  const tvUrl = useMemo(() => (url ? url.replace(/\/join\?code=.*/, `/room/${code}/tv`) : ""), [url, code]);
+  const tvHref = useMemo(() => `/room/${code}/tv`, [code]);
   const games = useMemo(() => ORDER.map((id) => GAMES.find((g) => g.id === id)!).filter(Boolean), []);
 
   if (partyEnded) {
@@ -163,9 +202,18 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
             <p className="mt-2 text-p-body text-muted">
               Only one device can run the room at a time. If you take over here, the game restarts from the lobby unless this device was hosting it before.
             </p>
-            <PaperButton size="lg" className="mt-6 w-full" onClick={takeOver}>
+            <BusyPaperButton
+              size="lg"
+              className="mt-6 w-full"
+              loading={takeoverBusy}
+              busyLabel="Taking over…"
+              onClick={() => {
+                setTakeoverBusy(true);
+                takeOver();
+              }}
+            >
               Host from this device
-            </PaperButton>
+            </BusyPaperButton>
           </div>
         )}
       </main>
@@ -200,9 +248,9 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
         <PaperButton tone="paper" size="lg" onClick={() => setSheet(null)}>
           Keep party going
         </PaperButton>
-        <PaperButton tone="vermilion" size="lg" onClick={hostEndParty}>
+        <BusyPaperButton tone="vermilion" size="lg" loading={endingParty} busyLabel="Ending party…" onClick={hostEndParty}>
           End party
-        </PaperButton>
+        </BusyPaperButton>
       </div>
     </PaperSheet>
   );
@@ -211,9 +259,14 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
     return (
       <RoomShell
         me={mePlayer}
+        identity={me}
+        onIdentityChange={onIdentityChange}
+        accountEmail={accountEmail}
         code={code}
         status={status}
         title={playingInfo?.name}
+        tvHref={tvHref}
+        width="cozy"
         right={
           <>
             <button onClick={() => setSheet("end")} aria-label="Back to lobby" className={iconButtonClass}>
@@ -279,75 +332,88 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
   );
 
   return (
+    <>
+      <ShuffleDeal open={!!startingGameId && !isMusicGameLoader(startingGameId)} />
+      <CassetteCue open={!!startingGameId && isMusicGameLoader(startingGameId)} gameId={startingGameId} />
     <RoomShell
       me={mePlayer}
+      identity={me}
+      onIdentityChange={onIdentityChange}
+      accountEmail={accountEmail}
       code={code}
       status={status}
       title="Host"
+      tvHref={tvHref}
+      width="wide"
       right={endPartyControls}
     >
-      {invite}
+      <div className="lg:grid lg:grid-cols-[minmax(0,22rem)_1fr] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,24rem)_1fr] xl:gap-10 min-[1440px]:grid-cols-[minmax(0,26rem)_1fr]">
+        <aside className="space-y-6 lg:sticky lg:top-28">
+          {invite}
 
-      {/* Players */}
-      <section className="mt-6">
-        <h2 className="text-p-lead font-extrabold">
-          {ready ? "Kaun kaun aaya" : "Waiting for friends…"} <span className="text-muted">· {online.length}</span>
-        </h2>
-        <ul className="mt-3 flex flex-wrap gap-x-2 gap-y-3">
-          {state.players.map((p) => (
-            <li key={p.id} className={`land flex items-center gap-2 rounded-full border-[1.5px] border-line bg-card py-1 pl-1 ${p.id === me.id ? "pr-3" : "pr-0"} ${p.connected ? "" : "opacity-45"}`}>
-              <Sticker id={p.avatar} size={34} />
-              <span className="max-w-[8rem] truncate text-p-body font-bold">{p.name}</span>
-              {p.id === me.id ? (
-                <span className="text-p-note font-bold uppercase tracking-wider text-turmeric-ink">Host</span>
-              ) : (
-                <button aria-label={`Remove ${p.name}`} className="-my-1 flex h-11 w-10 items-center justify-center rounded-full text-muted hover:text-vermilion" onClick={() => setRemoving(p.id)}>
-                  <X className="h-4 w-4" />
+          <section>
+            <h2 className="text-p-lead font-extrabold">
+              {ready ? "Kaun kaun aaya" : "Waiting for friends…"} <span className="text-muted">· {online.length}</span>
+            </h2>
+            <ul className="mt-3 flex flex-wrap gap-x-2 gap-y-3">
+              {state.players.map((p) => (
+                <li key={p.id} className={`land flex items-center gap-2 rounded-full border-[1.5px] border-line bg-card py-1 pl-1 ${p.id === me.id ? "pr-3" : "pr-0"} ${p.connected ? "" : "opacity-45"}`}>
+                  <Sticker id={p.avatar} size={34} />
+                  <span className="max-w-[8rem] truncate text-p-body font-bold sm:max-w-[10rem]">{p.name}</span>
+                  {p.id === me.id ? (
+                    <span className="text-p-note font-bold uppercase tracking-wider text-turmeric-ink">Host</span>
+                  ) : (
+                    <button aria-label={`Remove ${p.name}`} className="-my-1 flex h-11 w-10 items-center justify-center rounded-full text-muted hover:text-vermilion" onClick={() => setRemoving(p.id)}>
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <div role="radiogroup" aria-label="Where is everyone?" className="grid grid-cols-2 gap-0 rounded-cut border-[1.5px] border-ink p-1">
+              {[
+                { v: true, icon: Users, label: "Ek hi room mein" },
+                { v: false, icon: MapPin, label: "Alag alag jagah" },
+              ].map(({ v, icon: Icon, label }) => (
+                <button
+                  key={label}
+                  role="radio"
+                  aria-checked={state.together === v}
+                  onClick={() => setTogether(v)}
+                  className={`press flex min-h-11 items-center justify-center gap-2 rounded-[3px] text-p-body font-bold transition-colors duration-200 ${state.together === v ? "bg-ink text-bg" : "text-muted"}`}
+                >
+                  <Icon className="h-4 w-4" /> {label}
                 </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
+              ))}
+            </div>
+            <p className="mt-2 text-p-note text-muted">
+              {state.together
+                ? "Same room: shared sounds play only on your phone so it isn’t noisy."
+                : "Different places: everyone hears sounds on their own phone. For acting and singing games, start a video call too."}
+            </p>
+          </section>
+        </aside>
 
-      {/* Where is everyone */}
-      <section className="mt-6">
-        <div role="radiogroup" aria-label="Where is everyone?" className="grid grid-cols-2 gap-0 rounded-cut border-[1.5px] border-ink p-1">
-          {[
-            { v: true, icon: Users, label: "Ek hi room mein" },
-            { v: false, icon: MapPin, label: "Alag alag jagah" },
-          ].map(({ v, icon: Icon, label }) => (
-            <button
-              key={label}
-              role="radio"
-              aria-checked={state.together === v}
-              onClick={() => setTogether(v)}
-              className={`press flex min-h-11 items-center justify-center gap-2 rounded-[3px] text-p-body font-bold transition-colors duration-200 ${state.together === v ? "bg-ink text-bg" : "text-muted"}`}
-            >
-              <Icon className="h-4 w-4" /> {label}
-            </button>
-          ))}
-        </div>
-        <p className="mt-2 text-p-note text-muted">
-          {state.together
-            ? "Same room: shared sounds play only on your phone so it isn’t noisy."
-            : "Different places: everyone hears sounds on their own phone. For acting and singing games, start a video call too."}
-        </p>
-      </section>
-
-      {/* Games */}
-      <section className="mt-8">
-        <h2 className="text-p-title font-extrabold">Aaj kya khelein?</h2>
-        <p className="mb-4 mt-1 text-p-body text-muted">Tap a game to see the rules and start.</p>
-        <GameTable>
-          {games.map((g, i) => (
-            <GameTile key={g.id} game={g} index={i} onSelect={() => setSelected(g.id)} disabled={!getGameModule(g.id)} />
-          ))}
-        </GameTable>
-        <button onClick={() => copy(tvUrl, "Big-screen link copied — open it on a TV or laptop")} className="press mt-6 flex min-h-11 items-center gap-2 text-p-body font-semibold underline decoration-line decoration-2 underline-offset-4">
-          <Tv className="h-4 w-4" /> TV ya laptop hai? Copy the big-screen link
-        </button>
-      </section>
+        <section className="mt-8 lg:mt-0">
+          <h2 className="text-p-title font-extrabold">Aaj kya khelein?</h2>
+          <p className="mb-4 mt-1 text-p-body text-muted">Tap a game to see the rules and start.</p>
+          {status === "connecting" ? (
+            <GamesSkeleton count={12} />
+          ) : (
+            <GameTable>
+              {games.map((g, i) => (
+                <GameTile key={g.id} game={g} index={i} onSelect={() => setSelected(g.id)} disabled={!getGameModule(g.id)} />
+              ))}
+            </GameTable>
+          )}
+          <p className="mt-4 text-p-note text-muted">
+            Need a shared view for the room? Tap <b className="text-ink">TV mode</b> in the header to open the read-only big-screen page in a new tab.
+          </p>
+        </section>
+      </div>
 
       <PaperSheet
         open={!!info}
@@ -356,17 +422,20 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
         footer={
           info && (
             <>
-              <PaperButton
+              <BusyPaperButton
                 size="lg"
                 className="w-full"
                 disabled={!mod || tooFew || tooMany}
+                loading={!!startingGameId}
+                busyLabel="Starting game…"
                 onClick={() => {
+                  setStartingGameId(info.id);
                   startGame(info.id, options);
                   setSelected(null);
                 }}
               >
                 <Play className="h-5 w-5" fill="currentColor" /> Shuru karo · {online.length} {online.length === 1 ? "player" : "players"}
-              </PaperButton>
+              </BusyPaperButton>
               {(tooFew || tooMany || !mod) && (
                 <p className="mt-2 text-center text-p-note font-semibold text-vermilion">
                   {!mod ? "Coming soon" : tooFew ? `Needs at least ${info.minPlayers} players` : `Max ${info.maxPlayers} players`}
@@ -447,5 +516,6 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
       {endPartySheet}
       <Toast text={toast} />
     </RoomShell>
+    </>
   );
 }
