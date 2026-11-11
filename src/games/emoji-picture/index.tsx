@@ -1,16 +1,15 @@
 "use client";
 import {
-  CircleCheck, Crown, Eye, Film, Lightbulb, ListOrdered, MapPin, Music, Quote, Send, SkipForward, Sparkles, Timer, Trophy, Tv, UtensilsCrossed, X,
+  Crown, Eye, Film, Lightbulb, MapPin, Music, Quote, SkipForward, Sparkles, Trophy, Tv, UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
 import { Avatar } from "@/components/Avatar";
-import { Button, Countdown, LevelPicker, NumberPicker, Panel, PhoneMessage, Scoreboard, Sheet, TextAnswer } from "@/components/ui";
+import { Button, Countdown, LevelPicker, NumberPicker, Panel, PhoneMessage, Scoreboard, TextAnswer } from "@/components/ui";
 import { EMOJI_PUZZLES, type EmojiPuzzle } from "@/content/emoji-picture";
-import { celebrate } from "@/lib/celebrate";
-import { useOnChange, useSfx } from "@/lib/roomAudio";
-import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player, type PhoneProps, type ScreenProps } from "@/lib/types";
+import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player, type ScreenProps } from "@/lib/types";
 import { answerMatches, shuffle } from "@/lib/util";
+import { Phone } from "./PaperPhone";
+import { POINTS, type Phase, type Pub } from "./shared";
 
 interface Options {
   level: Level;
@@ -18,11 +17,8 @@ interface Options {
   seconds: number;
 }
 
-type Phase = "question" | "reveal" | "over";
-
 const HINT_AFTER = 20_000;
 const REVEAL_FOR = 7_000;
-const POINTS = [3, 2];
 
 interface State {
   puzzles: EmojiPuzzle[];
@@ -35,23 +31,6 @@ interface State {
   correct: string[];
   tries: Record<string, number>;
   scores: Record<string, number>;
-}
-
-interface Pub {
-  idx: number;
-  total: number;
-  phase: Phase;
-  emojis: string;
-  category: string;
-  hint: string;
-  hintAt: number;
-  seconds: number;
-  deadline: number;
-  revealUntil: number | null;
-  correct: string[];
-  tries: Record<string, number>;
-  scores: Record<string, number>;
-  answer: string | null;
 }
 
 function pickPuzzles(level: Level, count: number): EmojiPuzzle[] {
@@ -135,24 +114,6 @@ function Podium({ players, scores, meId }: { players: Player[]; scores: Record<s
   );
 }
 
-function TimeBar({ deadline, seconds, now }: { deadline: number; seconds: number; now: number }) {
-  const left = Math.max(0, deadline - now);
-  const pct = Math.max(0, Math.min(100, (left / (seconds * 1000)) * 100));
-  const secs = Math.ceil(left / 1000);
-  const low = secs <= 5;
-  return (
-    <div className="flex items-center gap-3">
-      <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
-        <div className={`h-full rounded-full transition-[width] duration-300 ease-linear ${low ? "bg-red" : "bg-saffron"}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className={`flex w-12 items-center justify-end gap-1 font-display text-lg font-black tabular-nums ${low ? "text-red" : "text-ink"}`}>
-        <Timer className="h-4 w-4" />
-        {secs}
-      </span>
-    </div>
-  );
-}
-
 function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
   if (view.phase === "over") {
     return (
@@ -223,202 +184,6 @@ function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
   );
 }
 
-function AnswerBox({ onSubmit, placeholder, shakeKey }: { onSubmit: (t: string) => void; placeholder: string; shakeKey: number }) {
-  const [value, setValue] = useState("");
-  return (
-    <form
-      key={shakeKey}
-      className={`flex gap-2 ${shakeKey > 0 ? "shake" : ""}`}
-      onSubmit={(e) => {
-        e.preventDefault();
-        const v = value.trim();
-        if (!v) return;
-        onSubmit(v);
-        setValue("");
-      }}
-    >
-      <input
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        autoComplete="off"
-        autoCapitalize="off"
-        autoCorrect="off"
-        enterKeyHint="send"
-        placeholder={placeholder}
-        className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-4 text-lg outline-none placeholder:text-muted/70 focus:border-me"
-      />
-      <Button type="submit" tone="me" aria-label="Send answer" className="px-5">
-        <Send className="h-5 w-5" />
-      </Button>
-    </form>
-  );
-}
-
-function Phone({ view, me, players, send, now, isHost, hostAct }: PhoneProps<Pub, undefined>) {
-  const { shared, mine } = useSfx();
-  const [showScores, setShowScores] = useState(false);
-  const score = view.scores[me.id] ?? 0;
-  const myRank = view.correct.indexOf(me.id);
-  const got = myRank >= 0;
-  const tries = view.tries[me.id] ?? 0;
-  const secsLeft = view.phase === "question" ? Math.ceil(Math.max(0, view.deadline - now) / 1000) : -1;
-
-  useOnChange(view.idx, () => {
-    if (view.phase === "question") shared("whoosh");
-  });
-  useOnChange(secsLeft, (n) => {
-    if (n > 0 && n <= 5) shared("tick");
-  });
-  useOnChange(got, (n) => {
-    if (n) {
-      mine("ding", [40]);
-      celebrate();
-    }
-  });
-  useOnChange(tries, (n, p) => {
-    if (n > p && !got) mine("buzz", [120]);
-  });
-  useOnChange(view.phase, (n) => {
-    if (n === "reveal") shared("reveal");
-    if (n === "over") {
-      const top = ranked(players, view.scores)[0];
-      if (top?.p.id === me.id) {
-        mine("fanfare", [60, 40, 120]);
-        celebrate();
-      } else shared("fanfare");
-    }
-  });
-
-  const scoresButton = (
-    <button onClick={() => setShowScores(true)} className="flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5 text-sm font-bold">
-      <ListOrdered className="h-4 w-4 text-muted" /> <span className="tabular-nums text-saffron">{score}</span>
-    </button>
-  );
-
-  if (view.phase === "over") {
-    const rows = ranked(players, view.scores);
-    const myPlace = rows.findIndex((r) => r.p.id === me.id) + 1;
-    return (
-      <div className="rise-in space-y-6 pt-4 text-center">
-        <Trophy className="mx-auto h-12 w-12 text-gold" />
-        <div>
-          <div className="font-display text-3xl font-black">That’s a wrap!</div>
-          <div className="mt-1 text-muted">
-            {myPlace === 1 ? "You won Emoji Picture!" : myPlace > 0 ? `You came #${myPlace} with ${score} points` : "Thanks for watching"}
-          </div>
-        </div>
-        <Podium players={players} scores={view.scores} meId={me.id} />
-        {isHost && <div className="text-sm text-muted">Tap “Lobby” at the top to pick the next game.</div>}
-      </div>
-    );
-  }
-
-  const showHint = view.phase === "question" && now >= view.hintAt;
-  const solvers = view.correct.map((id) => players.find((p) => p.id === id)).filter((p): p is Player => !!p);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <CategoryChip category={view.category} />
-          <span className="text-xs font-bold uppercase tracking-wider text-muted">
-            {view.idx + 1} / {view.total}
-          </span>
-        </div>
-        {scoresButton}
-      </div>
-
-      {view.phase === "question" && <TimeBar deadline={view.deadline} seconds={view.seconds} now={now} />}
-
-      <div
-        key={view.idx}
-        className={`pop-in flex min-h-44 items-center justify-center rounded-3xl border bg-card px-4 py-8 text-center text-7xl leading-tight tracking-widest ${
-          got ? "glow-me border-me/40" : "border-white/[0.08]"
-        }`}
-      >
-        {view.emojis}
-      </div>
-
-      {view.phase === "question" && (
-        <>
-          {showHint && (
-            <div className="rise-in flex items-center gap-2 rounded-xl bg-teal/10 px-4 py-3 text-teal">
-              <Lightbulb className="h-5 w-5 shrink-0" />
-              <span className="font-semibold">{view.hint}</span>
-            </div>
-          )}
-          {got ? (
-            <div className="pop-in flex items-center gap-3 rounded-2xl bg-me px-4 py-4 text-black">
-              <CircleCheck className="h-7 w-7 shrink-0" />
-              <div>
-                <div className="font-display text-xl font-black">You got it · +{POINTS[myRank] ?? 1}</div>
-                <div className="text-sm font-semibold opacity-80">Shh — waiting for the others…</div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <AnswerBox onSubmit={(t) => send("answer", t)} placeholder={`Which ${view.category.toLowerCase()}?`} shakeKey={tries} />
-              {tries > 0 && (
-                <div className="flex items-center justify-center gap-1.5 text-sm font-semibold text-red">
-                  <X className="h-4 w-4" /> Not quite — try again
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      {view.phase === "reveal" && (
-        <div className="rise-in rounded-2xl border border-white/[0.08] bg-card p-5 text-center">
-          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">The answer</div>
-          <div className="mt-1 font-display text-3xl font-black text-saffron">{view.answer}</div>
-          <div className="mt-2 text-sm text-muted">
-            {got ? `You got it · +${POINTS[myRank] ?? 1}` : view.correct.length ? `${view.correct.length} got it` : "Nobody got this one"}
-          </div>
-        </div>
-      )}
-
-      <div>
-        <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">Solved · {solvers.length}</div>
-        <div className="flex min-h-9 flex-wrap gap-2">
-          {solvers.length === 0 && <span className="text-sm text-muted">Nobody yet — be first for 3 points.</span>}
-          {solvers.map((p, i) => (
-            <span
-              key={p.id}
-              className={`pop-in flex items-center gap-1.5 rounded-full py-1 pl-1 pr-3 text-sm font-semibold ${p.id === me.id ? "bg-me text-black" : "bg-white/[0.07]"}`}
-            >
-              <span className={p.id === me.id ? "rounded-full bg-black/80" : ""}>
-                <Avatar id={p.avatar} />
-              </span>{" "}
-              {p.name}
-              <span className="opacity-70">+{POINTS[i] ?? 1}</span>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {isHost && (
-        <div className="grid gap-2 border-t border-white/[0.06] pt-4">
-          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">Host controls</div>
-          {view.phase === "question" ? (
-            <Button tone="ghost" onClick={() => hostAct("reveal")} className="flex items-center justify-center gap-2">
-              <Eye className="h-4 w-4" /> Reveal answer
-            </Button>
-          ) : (
-            <Button onClick={() => hostAct("next")} className="flex items-center justify-center gap-2">
-              Next puzzle <SkipForward className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      )}
-
-      <Sheet open={showScores} onClose={() => setShowScores(false)} title="Scores">
-        <Podium players={players} scores={view.scores} meId={me.id} />
-      </Sheet>
-    </div>
-  );
-}
-
 function Controller({ view, me, send, now }: ControllerProps<Pub, undefined>) {
   const score = view.scores[me.id] ?? 0;
   if (view.phase === "over") return <PhoneMessage title="That's all!">You scored {score} points.</PhoneMessage>;
@@ -462,6 +227,7 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
 
 const emojiPicture: GameModule<State, Pub, undefined, Options> = {
   id: "emoji-picture",
+  paper: true,
   defaultOptions: { level: "family", count: 10, seconds: 45 },
   OptionsForm,
   init({ players, options, now }) {
