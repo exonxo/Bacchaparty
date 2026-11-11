@@ -105,5 +105,9 @@ export interface GameInfo {
   howToPlay: string[];
   scoring: string;
   familyTip: string;
+  /** One line for players who join a game already in progress. */
+  quickTip: string;
+  /** Three-line summary shown at the top of dense rules pages. */
+  inShort?: string[];
   color: string;
 }

@@ -10,21 +10,21 @@ export default function GamesPage() {
   return (
     <main className="pb-16">
       <Header />
-      <div className="mx-auto max-w-6xl">
-        <h1 className="mt-2 px-4 font-display text-3xl font-black sm:text-4xl">All games</h1>
-        <p className="mt-1 px-4 text-muted">Tap a game to read how to play.</p>
-        {CATEGORIES.map((cat) => {
-          const list = GAMES.filter((g) => g.category === cat);
-          if (!list.length) return null;
-          return (
-            <PosterRow key={cat} title={cat}>
-              {list.map((g) => (
-                <GameCard key={g.id} game={g} playable={isPlayable(g.id)} />
-              ))}
-            </PosterRow>
-          );
-        })}
+      <div className="mx-auto max-w-6xl px-4">
+        <h1 className="mt-4 font-display text-3xl font-black sm:text-4xl">All games</h1>
+        <p className="mt-1 text-muted">Tap a game to read how to play.</p>
       </div>
+      {CATEGORIES.map((cat) => {
+        const list = GAMES.filter((g) => g.category === cat);
+        if (!list.length) return null;
+        return (
+          <PosterRow key={cat} title={cat} grid>
+            {list.map((g) => (
+              <GameCard key={g.id} game={g} playable={isPlayable(g.id)} grid />
+            ))}
+          </PosterRow>
+        );
+      })}
     </main>
   );
 }

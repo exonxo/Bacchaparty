@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 
-const body = Inter({ variable: "--font-body", subsets: ["latin"] });
-const display = Outfit({ variable: "--font-display", subsets: ["latin"], weight: ["500", "600", "700", "800", "900"] });
+const body = Inter({ variable: "--font-inter", subsets: ["latin"] });
+const display = Outfit({ variable: "--font-outfit", subsets: ["latin"], weight: ["500", "600", "700", "800", "900"] });
 
 export const metadata: Metadata = {
   title: "Bacchaparty — desi party games on your phone",

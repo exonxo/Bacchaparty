@@ -4,6 +4,8 @@ import type { GameInfo } from "@/lib/types";
 export const GAMES: GameInfo[] = [
   {
     id: "charades",
+    quickTip: "Your team is acting — shout out your guesses!",
+    inShort: ["Split into two teams.", "One person acts out a movie without speaking.", "Their team guesses. Got it? Point! Stuck? Pass."],
     name: "Dumb Charades",
     emoji: "🎬",
     tagline: "Act out the movie. No talking!",
@@ -15,19 +17,20 @@ export const GAMES: GameInfo[] = [
     duration: "20–40 min",
     color: "#ff9933",
     description:
-      "The all-time Indian party classic. One person secretly gets a film title on their phone and acts it out for their team — no words, no lip-syncing, just actions. There's no countdown, so nobody feels rushed; a stopwatch on the big screen just shows how long each turn takes.",
+      "The all-time Indian party classic. One person secretly gets a film title on their phone and acts it out for their team — no words, no lip-syncing, just actions. There's no countdown, so nobody feels rushed; a stopwatch on screen just shows how long each turn takes.",
     howToPlay: [
-      "Everyone is split into two teams on the big screen.",
+      "Everyone is split into two teams automatically.",
       "Each turn, the app picks an actor from the team whose turn it is. Only the actor sees the movie on their phone.",
       "Show the number of words with your fingers, tap your ear for 'sounds like', and act away. Speaking is not allowed!",
       "When the team guesses right, the actor taps 'Got it!'. Stuck? Tap 'Pass' to skip to a new movie.",
-      "Teams take turns. The host can end the game anytime from the big screen.",
+      "Teams take turns. The host can end the game anytime from their phone.",
     ],
     scoring: "1 point for every movie your team guesses. A pass scores nothing but costs nothing.",
     familyTip: "Choose 'Kids' level and the list switches to cartoons, animated films and super-famous movies.",
   },
   {
     id: "antakshari",
+    quickTip: "Sing a song that starts with the letter on screen.",
     name: "Antakshari Battle",
     emoji: "🎤",
     tagline: "Sing a song starting with the last letter.",
@@ -39,9 +42,9 @@ export const GAMES: GameInfo[] = [
     duration: "20–60 min",
     color: "#ff4fa3",
     description:
-      "The road-trip and wedding favourite, with a scoreboard. Teams take turns singing a song that starts with the letter shown on the big screen. The app doesn't judge your singing — the other team decides if your song counts.",
+      "The road-trip and wedding favourite, with a scoreboard. Teams take turns singing a song that starts with the letter shown on screen. The app doesn't judge your singing — the other team decides if your song counts.",
     howToPlay: [
-      "The big screen shows a letter and whose turn it is.",
+      "The screen shows a letter and whose turn it is.",
       "That team sings a song (at least one full line) starting with that letter.",
       "The other team taps 'Valid' or 'Challenge' on their phones. On a challenge, the host decides.",
       "The singing team types the last letter of their song — that becomes the next team's letter.",
@@ -52,6 +55,7 @@ export const GAMES: GameInfo[] = [
   },
   {
     id: "sound-guru",
+    quickTip: "Listen to the sound and type what it is.",
     name: "Sound Guru",
     emoji: "🔔",
     tagline: "Make the sound. Others guess it.",
@@ -76,6 +80,7 @@ export const GAMES: GameInfo[] = [
   },
   {
     id: "emoji-picture",
+    quickTip: "Read the emojis and type what they mean.",
     name: "Emoji Picture",
     emoji: "🧩",
     tagline: "Decode the emojis — movies, food, places.",
@@ -87,9 +92,9 @@ export const GAMES: GameInfo[] = [
     duration: "10–20 min",
     color: "#ffd23f",
     description:
-      "The big screen shows a row of emojis that stand for a movie, a dish, a festival or a famous place. For example 🦁👑 is The Lion King and 🍚🥛🍬 is Kheer. Everyone types their answer on their phone — fastest correct answer wins the most points.",
+      "Everyone's screen shows a row of emojis that stand for a movie, a dish, a festival or a famous place. For example 🦁👑 is The Lion King and 🍚🥛🍬 is Kheer. Everyone types their answer on their phone — fastest correct answer wins the most points.",
     howToPlay: [
-      "A puzzle appears on the big screen along with its category (Movie, Food, Place…).",
+      "A puzzle appears on everyone's phone along with its category (Movie, Food, Place…).",
       "Type your answer on your phone. Small spelling mistakes are fine.",
       "If nobody gets it, a hint appears after 20 seconds.",
       "When everyone has answered, or time runs out, the answer is revealed.",
@@ -100,6 +105,7 @@ export const GAMES: GameInfo[] = [
   },
   {
     id: "draw-guess",
+    quickTip: "Watch the drawing and type your guess.",
     name: "Draw & Guess",
     emoji: "🎨",
     tagline: "Desi Pictionary on your phone.",
@@ -111,7 +117,7 @@ export const GAMES: GameInfo[] = [
     duration: "15–30 min",
     color: "#4f9dff",
     description:
-      "One player draws a secret word with their finger on their phone, and the drawing appears live on the big screen. Everyone else guesses on their phones. Words are desi favourites like samosa, auto-rickshaw, rangoli and the Taj Mahal.",
+      "One player draws a secret word with their finger on their phone, and the drawing appears live on everyone's screen. Everyone else guesses on their phones. Words are desi favourites like samosa, auto-rickshaw, rangoli and the Taj Mahal.",
     howToPlay: [
       "The drawer picks one of three words shown only on their phone.",
       "They draw it on their phone — no letters or numbers allowed!",
@@ -124,6 +130,8 @@ export const GAMES: GameInfo[] = [
   },
   {
     id: "chor-kaun",
+    quickTip: "Check your secret card, ask questions, vote for the Chor.",
+    inShort: ["Everyone sees the same place on their phone — except one person, the Chor.", "Take turns asking each other questions about the place.", "Vote for who you think the Chor is. The Chor wins by escaping or guessing the place."],
     name: "Chor Kaun?",
     emoji: "🕵️",
     tagline: "Everyone knows the place — except the Chor.",
@@ -148,6 +156,7 @@ export const GAMES: GameInfo[] = [
   },
   {
     id: "raja-mantri",
+    quickTip: "Look at your secret role. The Mantri finds the Chor.",
     name: "Raja Mantri Chor Sipahi",
     emoji: "👑",
     tagline: "The classic chit game — no paper needed.",
@@ -172,6 +181,8 @@ export const GAMES: GameInfo[] = [
   },
   {
     id: "odd-word-out",
+    quickTip: "Say one clue for your word, then vote for the odd one out.",
+    inShort: ["Everyone gets a secret word; one person gets a slightly different one.", "Each person says one clue word out loud.", "Vote for who you think has the different word."],
     name: "Odd Word Out",
     emoji: "🤫",
     tagline: "One person has a slightly different word.",
@@ -196,11 +207,13 @@ export const GAMES: GameInfo[] = [
   },
   {
     id: "kaun-banega-champion",
+    quickTip: "Answer the question on your phone to climb the ladder.",
+    inShort: ["It’s like the TV quiz show, with help from your family.", "One player answers 10 questions that get harder.", "Stuck? Remove two wrong answers, or ask the family to vote."],
     name: "Kaun Banega Champion",
     emoji: "🏆",
     tagline: "Hot-seat quiz with lifelines.",
     category: "Quiz",
-    ages: "8+ (choose your level)",
+    ages: "8+ · pick a level",
     players: "2–20",
     minPlayers: 1,
     maxPlayers: 20,
@@ -210,7 +223,7 @@ export const GAMES: GameInfo[] = [
       "One player sits in the hot seat and climbs a ladder of 10 questions that get harder and harder. Each hot-seat player picks their own difficulty, so a 7-year-old and their grandfather get fair questions. Everyone else plays along on their phones for bonus points.",
     howToPlay: [
       "The host picks who's in the hot seat. That player chooses Kids, Family or Expert questions.",
-      "Questions and four options appear on the big screen. The hot-seat player locks an answer on their phone.",
+      "Questions and four options appear on screen. The hot-seat player locks an answer on their phone.",
       "Lifelines (each once): 50:50 removes two wrong options. 'Ask the Family' shows what everyone else voted.",
       "A wrong answer ends the run — but you keep the safe level you passed (question 5).",
       "Players in the audience answer silently on their phones and earn 1 bonus point for each right answer.",
@@ -220,9 +233,10 @@ export const GAMES: GameInfo[] = [
   },
   {
     id: "housie",
+    quickTip: "Tap a number on your ticket when you hear it called.",
     name: "Housie (Tambola)",
     emoji: "🎟️",
-    tagline: "Tickets on phones, numbers on the TV.",
+    tagline: "Tickets and number calls, all on phones.",
     category: "Board & Luck",
     ages: "6+",
     players: "2–50",
@@ -231,7 +245,7 @@ export const GAMES: GameInfo[] = [
     duration: "20–30 min",
     color: "#ff4fa3",
     description:
-      "Kitty-party and Diwali-night favourite. Every phone gets its own Housie ticket. The big screen calls out numbers one by one with traditional calls like 'Two little ducks — 22!'. Tap the numbers on your ticket and claim prizes. The app checks every claim, so no arguments!",
+      "Kitty-party and Diwali-night favourite. Every phone gets its own Housie ticket. The host's phone calls out numbers one by one with traditional calls like 'Two little ducks — 22!'. Tap the numbers on your ticket and claim prizes. The app checks every claim, so no arguments!",
     howToPlay: [
       "Each player gets a ticket with 15 numbers on their phone.",
       "The host taps 'Next number' (or turns on auto-call). The number is shown and read out loud.",
@@ -244,6 +258,7 @@ export const GAMES: GameInfo[] = [
   },
   {
     id: "ludo-yatra",
+    quickTip: "Tap Roll when it’s your turn, then pick a piece.",
     name: "Ludo Yatra",
     emoji: "🎲",
     tagline: "The board race — roll on your phone.",
@@ -255,7 +270,7 @@ export const GAMES: GameInfo[] = [
     duration: "20–40 min",
     color: "#36c96a",
     description:
-      "The cross-shaped board race everyone in India grew up with, on the big screen. Roll the dice on your phone and tap which piece to move. Get all four of your pieces home first to win.",
+      "The cross-shaped board race everyone in India grew up with, now on your phones. Roll the dice on your phone and tap which piece to move. Get all four of your pieces home first to win.",
     howToPlay: [
       "Each player gets a colour and four pieces in their yard.",
       "On your turn, tap 'Roll' on your phone. You need a 6 to bring a piece out of the yard.",
@@ -268,6 +283,7 @@ export const GAMES: GameInfo[] = [
   },
   {
     id: "jaldi-bolo",
+    quickTip: "Fill in each box with a word starting with the letter.",
     name: "Jaldi Bolo",
     emoji: "⚡",
     tagline: "Name, Place, Animal, Thing — desi style.",
@@ -279,11 +295,11 @@ export const GAMES: GameInfo[] = [
     duration: "10–20 min",
     color: "#4f9dff",
     description:
-      "The notebook game from school, now on phones. A letter appears on the big screen. Fill in a name, a city, an animal, a food and a film starting with that letter before time runs out. Unique answers score the most.",
+      "The notebook game from school, now on phones. A letter appears on everyone's phone. Fill in a name, a city, an animal, a food and a film starting with that letter before time runs out. Unique answers score the most.",
     howToPlay: [
-      "A random letter appears on the big screen.",
+      "A random letter appears on everyone's phone.",
       "Type one answer for each category on your phone within 60 seconds.",
-      "When time is up, all answers are shown on the big screen.",
+      "When time is up, everyone's answers are shown side by side.",
       "The host can strike out any answer that doesn't count.",
       "Play 5 letters — highest total wins.",
     ],

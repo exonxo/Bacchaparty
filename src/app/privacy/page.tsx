@@ -94,7 +94,7 @@ export default function PrivacyPage() {
         <Section title="Contact">
           <p>
             Questions or requests? Email{" "}
-            <a href={`mailto:${CONTACT}`} className="font-semibold text-saffron underline">
+            <a href={`mailto:${CONTACT}`} className="inline-flex min-h-11 items-center font-semibold text-saffron underline">
               {CONTACT}
             </a>
             .
@@ -102,7 +102,7 @@ export default function PrivacyPage() {
         </Section>
 
         <p className="mt-12">
-          <Link href="/" className="font-semibold text-muted hover:text-ink">
+          <Link href="/" className="-ml-2 inline-flex min-h-11 items-center rounded-lg px-2 font-semibold text-muted hover:text-ink">
             ← Back to Bacchaparty
           </Link>
         </p>
