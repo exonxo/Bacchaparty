@@ -3,6 +3,10 @@ import {
   Crown, Eye, Film, Lightbulb, MapPin, Music, Quote, SkipForward, Sparkles, Trophy, Tv, UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
+import { useParams } from "next/navigation";
+import { useState } from "react";
+import { SuggestPaperButton } from "@/components/suggest/SuggestPaperButton";
+import { requestSuggest } from "@/lib/suggest/client";
 import { Avatar } from "@/components/Avatar";
 import { Button, Countdown, LevelPicker, NumberPicker, Panel, PhoneMessage, Scoreboard, TextAnswer } from "@/components/ui";
 import { EMOJI_PUZZLES, type EmojiPuzzle } from "@/content/emoji-picture";
@@ -15,6 +19,7 @@ interface Options {
   level: Level;
   count: number;
   seconds: number;
+  extraPuzzles?: EmojiPuzzle[];
 }
 
 const HINT_AFTER = 20_000;
@@ -33,7 +38,8 @@ interface State {
   scores: Record<string, number>;
 }
 
-function pickPuzzles(level: Level, count: number): EmojiPuzzle[] {
+function pickPuzzles(level: Level, count: number, extra?: EmojiPuzzle[]): EmojiPuzzle[] {
+  if (extra && extra.length >= Math.min(3, count)) return extra.slice(0, count);
   const levels: Level[] = level === "kids" ? ["kids"] : level === "family" ? ["kids", "family"] : ["family", "adults"];
   return shuffle(EMOJI_PUZZLES.filter((p) => levels.includes(p.level))).slice(0, count);
 }
@@ -216,10 +222,32 @@ function Controller({ view, me, send, now }: ControllerProps<Pub, undefined>) {
 }
 
 function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Options) => void }) {
+  const params = useParams();
+  const roomCode = typeof params?.code === "string" ? params.code : undefined;
+  const [loading, setLoading] = useState(false);
+  const [hint, setHint] = useState<string | null>(null);
+
+  const newPuzzles = async () => {
+    setLoading(true);
+    try {
+      const { data } = await requestSuggest<EmojiPuzzle[]>("emoji-puzzle", { level: value.level, count: value.count }, roomCode);
+      onChange({ ...value, extraPuzzles: data });
+      setHint(`${data.length} custom puzzles ready`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <LevelPicker value={value.level} onChange={(level) => onChange({ ...value, level })} />
-      <NumberPicker label="Puzzles" value={value.count} onChange={(count) => onChange({ ...value, count })} options={[5, 10, 15]} />
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <SuggestPaperButton loading={loading} onClick={() => void newPuzzles()}>
+          ✨ New puzzles
+        </SuggestPaperButton>
+      </div>
+      {hint && <p className="text-p-note text-muted">{hint}</p>}
+      <LevelPicker value={value.level} onChange={(level) => onChange({ ...value, level, extraPuzzles: undefined })} />
+      <NumberPicker label="Puzzles" value={value.count} onChange={(count) => onChange({ ...value, count, extraPuzzles: undefined })} options={[5, 10, 15]} />
       <NumberPicker label="Time per puzzle" value={value.seconds} onChange={(seconds) => onChange({ ...value, seconds })} options={[30, 45, 60, 90]} format={(n) => `${n}s`} />
     </div>
   );
@@ -232,7 +260,7 @@ const emojiPicture: GameModule<State, Pub, undefined, Options> = {
   OptionsForm,
   init({ players, options, now }) {
     const base: State = {
-      puzzles: pickPuzzles(options.level, options.count),
+      puzzles: pickPuzzles(options.level, options.count, options.extraPuzzles),
       idx: 0,
       seconds: options.seconds,
       phase: "question",

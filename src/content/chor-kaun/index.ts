@@ -44,13 +44,19 @@ export function topicLabel(id: string): string {
 }
 
 /** Host setting: fixed pack or a random pack each round. */
-export function resolveRoundTopic(choice: ChorTopicChoice): ChorTopic {
+export function resolveRoundTopic(choice: ChorTopicChoice, extras?: readonly ChorTopic[]): ChorTopic {
   if (choice !== CHOR_TOPIC_ALL) {
-    const t = topicById(choice);
+    const t = topicById(choice) ?? extras?.find((e) => e.id === choice);
     if (t) return t;
   }
-  const i = Math.floor(Math.random() * CHOR_TOPICS.length);
-  return CHOR_TOPICS[i]!;
+  const pool = extras?.length ? [...CHOR_TOPICS, ...extras] : CHOR_TOPICS;
+  const i = Math.floor(Math.random() * pool.length);
+  return pool[i]!;
+}
+
+export function topicLabelWithExtras(id: string, extras?: readonly ChorTopic[]): string {
+  if (id === CHOR_TOPIC_ALL) return "All topics";
+  return topicById(id)?.label ?? extras?.find((e) => e.id === id)?.label ?? id;
 }
 
 export function wordCountSummary(): { label: string; count: number }[] {
