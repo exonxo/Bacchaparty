@@ -1,19 +1,26 @@
 "use client";
-import { Button, Panel, PhoneMessage, PlayerChip, Toggle } from "@/components/ui";
+import { Button, NumberPicker, Panel, PlayerChip, Toggle } from "@/components/ui";
 import { START_LETTERS, songsFor } from "@/content/antakshari";
-import { HOST_ID, type GameModule, type Player } from "@/lib/types";
+import { HOST_ID, type ControllerProps, type GameModule, type Player, type ScreenProps } from "@/lib/types";
 import { pick, shuffle } from "@/lib/util";
+import { Phone } from "./PaperPhone";
 
-interface Options {
+export interface Options {
   hints: boolean;
+  /** Seconds the singing team has to start; 0 = no timer. */
+  seconds: number;
 }
 
-type Team = 0 | 1;
-type Phase = "singing" | "judging" | "challenged" | "next-letter";
+export type Team = 0 | 1;
+export type Phase = "singing" | "judging" | "challenged" | "next-letter";
 
-const TEAM_NAMES = ["Team Laddoo 🟠", "Team Jalebi 🟡"];
-const TEAM_COLORS = ["text-saffron", "text-gold"];
-const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+export const TEAM_NAMES = ["Team Laddoo", "Team Jalebi"] as const;
+export const TEAM_SHORT = ["Laddoo", "Jalebi"] as const;
+export const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+/** A whole team offline this long and the turn moves on. */
+export const AWAY_MS = 10_000;
+
+export type EventKind = "valid" | "reject" | "giveup" | "timeout" | "skip";
 
 interface State {
   options: Options;
@@ -25,12 +32,18 @@ interface State {
   scores: [number, number];
   songsSung: number;
   hintSeed: number;
-  lastEvent: { text: string; at: number } | null;
+  lastEvent: { text: string; at: number; kind?: EventKind; team?: Team } | null;
+  /** Singing team must start before this (game clock). Null when there's no timer or it isn't running. */
+  deadline: number | null;
+  /** Host paused the timer: what was left, in ms. */
+  pausedLeft: number | null;
+  /** When the team whose turn it is was first seen with nobody online. */
+  awaySince: number | null;
 }
 
-interface Pub {
+export interface Pub {
   teams: [string[], string[]];
-  teamNames: string[];
+  teamNames: readonly string[];
   turn: Team;
   letter: string;
   phase: Phase;
@@ -40,35 +53,75 @@ interface Pub {
   hint: { title: string; source: string } | null;
   hintsOn: boolean;
   lastEvent: State["lastEvent"];
+  seconds: number;
+  deadline: number | null;
+  paused: boolean;
+  pausedLeft: number | null;
+  awaySince: number | null;
 }
 
-const other = (t: Team): Team => (t === 0 ? 1 : 0);
-const teamOf = (s: { teams: [string[], string[]] }, id: string): Team | null => (s.teams[0].includes(id) ? 0 : s.teams[1].includes(id) ? 1 : null);
+export const other = (t: Team): Team => (t === 0 ? 1 : 0);
+export const teamOf = (s: { teams: [string[], string[]] }, id: string): Team | null => (s.teams[0].includes(id) ? 0 : s.teams[1].includes(id) ? 1 : null);
+
+const secondsOf = (s: State) => (typeof s.options.seconds === "number" ? s.options.seconds : 30);
+
+/** A fresh singing turn: timer restarts unless the host has paused it. */
+function startTurn(s: State, now: number): State {
+  const secs = secondsOf(s);
+  if (!secs) return { ...s, phase: "singing", votes: {}, deadline: null, pausedLeft: null, awaySince: null };
+  if (s.pausedLeft !== null) return { ...s, phase: "singing", votes: {}, deadline: null, pausedLeft: secs * 1000, awaySince: null };
+  return { ...s, phase: "singing", votes: {}, deadline: now + secs * 1000, awaySince: null };
+}
 
 function accept(s: State, now: number): State {
   const scores: [number, number] = [...s.scores];
   scores[s.turn] += 1;
-  return { ...s, scores, phase: "next-letter", votes: {}, songsSung: s.songsSung + 1, lastEvent: { text: `✅ Valid song! +1 ${TEAM_NAMES[s.turn]}`, at: now } };
+  return {
+    ...s,
+    scores,
+    phase: "next-letter",
+    votes: {},
+    deadline: null,
+    awaySince: null,
+    songsSung: s.songsSung + 1,
+    lastEvent: { text: `Sahi gaana! +1 ${TEAM_NAMES[s.turn]}`, at: now, kind: "valid", team: s.turn },
+  };
 }
 
-function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act: (t: string, p?: unknown) => void; now: number }) {
+/** The other team gets the point and sings next (give up, or time ran out). */
+function concede(s: State, now: number, kind: "giveup" | "timeout"): State {
+  const scores: [number, number] = [...s.scores];
+  const winner = other(s.turn);
+  scores[winner] += 1;
+  const text = kind === "timeout" ? `Time up! +1 ${TEAM_NAMES[winner]}` : `${TEAM_NAMES[s.turn]} gave up — +1 ${TEAM_NAMES[winner]}`;
+  return startTurn({ ...s, scores, turn: winner, lastEvent: { text, at: now, kind, team: winner } }, now);
+}
+
+const connectedIds = (players: Player[]) => new Set(players.filter((p) => p.connected).map((p) => p.id));
+
+/* ------------------------------------------------------------------ */
+/* Big screen (TV) — still the night look                               */
+/* ------------------------------------------------------------------ */
+
+function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
   const singing = view.turn;
   const judging = other(singing);
   const find = (id: string) => players.find((p) => p.id === id);
   const judges = view.teams[judging].map(find).filter(Boolean) as Player[];
+  const left = view.deadline ? Math.max(0, Math.ceil((view.deadline - now) / 1000)) : null;
   return (
     <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2">
         {([0, 1] as Team[]).map((t) => (
           <Panel key={t} className={t === singing ? "border-gold/70" : ""}>
             <div className="flex items-center justify-between">
-              <div className={`text-2xl font-extrabold ${TEAM_COLORS[t]}`}>{view.teamNames[t]}</div>
+              <div className="text-2xl font-extrabold">{view.teamNames[t]}</div>
               <div className="text-5xl font-extrabold text-gold">{view.scores[t]}</div>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               {view.teams[t].map((id) => {
                 const p = find(id);
-                return p ? <PlayerChip key={id} player={p} extra={view.votes[id] ? <span>{view.votes[id] === "valid" ? "👍" : "✋"}</span> : null} /> : null;
+                return p ? <PlayerChip key={id} player={p} extra={view.votes[id] ? <span className="text-sm">{view.votes[id] === "valid" ? "valid" : "challenge"}</span> : null} /> : null;
               })}
             </div>
           </Panel>
@@ -76,154 +129,75 @@ function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act
       </div>
       <Panel className="space-y-5 py-8 text-center">
         <div className="text-2xl">
-          <b className={TEAM_COLORS[singing]}>{view.teamNames[singing]}</b>
+          <b>{view.teamNames[singing]}</b>
           {view.phase === "next-letter" ? ", tell us the last letter of your song!" : ", sing a song starting with…"}
         </div>
         <div key={view.letter} className="pop-in mx-auto flex h-44 w-44 items-center justify-center rounded-full bg-pink text-9xl font-extrabold text-white shadow-2xl">
           {view.letter}
         </div>
-        {view.phase === "singing" && <div className="text-xl text-muted">🎤 Sing at least one full line, then tap “We sang!” on your phone.</div>}
+        {view.phase === "singing" && left !== null && <div className={`text-4xl font-extrabold tabular-nums ${left <= 5 ? "text-red" : ""}`}>{left}s</div>}
+        {view.phase === "singing" && view.paused && <div className="text-xl text-muted">Timer paused</div>}
         {view.phase === "judging" && (
           <div className="text-xl">
-            🧑‍⚖️ <b className={TEAM_COLORS[judging]}>{view.teamNames[judging]}</b>, was it valid? Vote on your phones.
-            {judges.filter((p) => p.connected).length === 0 && <div className="text-muted">(No one on that team is connected — host decides.)</div>}
+            <b>{view.teamNames[judging]}</b>, was it valid? Vote on your phones.
+            {judges.filter((p) => p.connected).length === 0 && <div className="text-muted">(No one on that team is connected.)</div>}
           </div>
         )}
-        {view.phase === "challenged" && <div className="text-2xl font-bold text-red">✋ Challenge! Host, you decide:</div>}
-        {(view.phase === "judging" || view.phase === "challenged") && (
+        {view.phase === "challenged" && <div className="text-2xl font-bold text-red">Challenge! The host decides.</div>}
+        {!spectator && (view.phase === "judging" || view.phase === "challenged") && (
           <div className="flex justify-center gap-3">
             <Button tone="green" size="lg" onClick={() => act("accept")}>
-              👍 Valid
+              Valid
             </Button>
             <Button tone="red" size="lg" onClick={() => act("reject")}>
-              👎 Doesn’t count
+              Doesn’t count
             </Button>
-          </div>
-        )}
-        {view.phase === "next-letter" && (
-          <div className="mx-auto grid max-w-2xl grid-cols-9 gap-1.5">
-            {LETTERS.map((l) => (
-              <button key={l} onClick={() => act("letter", l)} className="rounded-lg bg-white/10 py-2 text-xl font-bold hover:bg-white/20">
-                {l}
-              </button>
-            ))}
           </div>
         )}
         {view.lastEvent && now - view.lastEvent.at < 6000 && <div className="pop-in inline-block rounded-2xl bg-teal px-5 py-2 text-xl font-bold text-bg">{view.lastEvent.text}</div>}
-        {view.hintsOn && view.phase === "singing" && (
-          <div className="mx-auto max-w-xl rounded-2xl bg-white/5 p-4">
-            <div className="text-sm font-bold uppercase tracking-widest text-muted">Hint</div>
-            {view.hint ? (
-              <div className="text-2xl font-bold">
-                🎵 {view.hint.title} <span className="text-base font-normal text-muted">({view.hint.source})</span>
-              </div>
-            ) : (
-              <div className="text-muted">No hint for this letter — you’re on your own!</div>
-            )}
-            <Button tone="ghost" size="sm" className="mt-2" onClick={() => act("hint")}>
-              Another hint
-            </Button>
+        {view.hintsOn && view.phase === "singing" && view.hint && (
+          <div className="mx-auto max-w-xl rounded-2xl bg-white/5 p-4 text-2xl font-bold">
+            {view.hint.title} <span className="text-base font-normal text-muted">({view.hint.source})</span>
           </div>
         )}
-        <div className="flex flex-wrap justify-center gap-3">
-          <Button tone="ghost" size="sm" onClick={() => act("toggleHints")}>
-            {view.hintsOn ? "Hide hints" : "Show hints"}
-          </Button>
-          {view.phase === "singing" && (
-            <Button tone="ghost" size="sm" onClick={() => act("newLetter")}>
-              🔀 Different letter
-            </Button>
-          )}
-        </div>
       </Panel>
     </div>
   );
 }
 
-function Controller({ view, me, send }: { view: Pub; me: Player; send: (t: string, p?: unknown) => void }) {
-  const myTeam = teamOf(view, me.id);
-  if (myTeam === null) return <PhoneMessage emoji="👀" title="Joining a team…" />;
-  const singing = myTeam === view.turn;
-  const header = (
-    <div className="mb-4 flex items-center justify-between">
-      <div className={`text-xl font-extrabold ${TEAM_COLORS[myTeam]}`}>{view.teamNames[myTeam]}</div>
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-pink text-3xl font-extrabold">{view.letter}</div>
-    </div>
-  );
-  if (singing) {
-    if (view.phase === "singing")
-      return (
-        <div className="space-y-4">
-          {header}
-          <PhoneMessage emoji="🎤" title={`Your team's turn — sing “${view.letter}”!`} />
-          <Button size="xl" tone="green" className="w-full" onClick={() => send("sang")}>
-            🎶 We sang!
-          </Button>
-          <Button tone="ghost" className="w-full" onClick={() => confirm("Give up? The other team gets a point.") && send("giveup")}>
-            🏳️ Give up
-          </Button>
-        </div>
-      );
-    if (view.phase === "next-letter")
-      return (
-        <div className="space-y-4">
-          {header}
-          <div className="text-center text-xl font-bold">What was the last letter of your song?</div>
-          <div className="grid grid-cols-6 gap-2">
-            {LETTERS.map((l) => (
-              <button key={l} onClick={() => send("letter", l)} className="aspect-square rounded-xl bg-white/10 text-2xl font-extrabold active:bg-gold active:text-bg">
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-    return (
-      <div>
-        {header}
-        <PhoneMessage emoji="🧑‍⚖️" title="The other team is judging…" />
-      </div>
-    );
-  }
-  // Judging team
-  if (view.phase === "judging") {
-    const mine = view.votes[me.id];
-    return (
-      <div className="space-y-4">
-        {header}
-        <div className="text-center text-xl font-bold">Did their song count?</div>
-        <Button size="xl" tone={mine === "valid" ? "green" : "ghost"} className="w-full" onClick={() => send("vote", "valid")}>
-          👍 Valid
-        </Button>
-        <Button size="xl" tone={mine === "challenge" ? "red" : "ghost"} className="w-full" onClick={() => send("vote", "challenge")}>
-          ✋ Challenge
-        </Button>
-      </div>
-    );
-  }
-  return (
-    <div>
-      {header}
-      <PhoneMessage emoji={view.phase === "challenged" ? "✋" : "👂"} title={view.phase === "challenged" ? "Challenged! Host is deciding…" : "Other team is singing"}>
-        {view.phase === "singing" ? "Listen carefully — you’ll judge if it counts. Get your next song ready!" : null}
-      </PhoneMessage>
-    </div>
-  );
+const noop = () => {};
+
+/** Older phones that ask for the classic controller get the phone view without host buttons. */
+function Controller(props: ControllerProps<Pub, undefined>) {
+  return <Phone {...props} isHost={false} hostAct={noop} together />;
 }
 
 function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Options) => void }) {
-  return <Toggle label="Show song hints on the big screen" value={value.hints} onChange={(hints) => onChange({ ...value, hints })} />;
+  const seconds = typeof value.seconds === "number" ? value.seconds : 30;
+  return (
+    <div className="space-y-4">
+      <NumberPicker
+        label="Time to start singing"
+        value={seconds}
+        onChange={(s) => onChange({ ...value, seconds: s })}
+        options={[20, 30, 45, 0]}
+        format={(n) => (n ? `${n}s` : "No timer")}
+      />
+      <Toggle label="Show song hints to the singing team" value={value.hints} onChange={(hints) => onChange({ ...value, hints })} />
+    </div>
+  );
 }
 
 const antakshari: GameModule<State, Pub, undefined, Options> = {
   id: "antakshari",
-  defaultOptions: { hints: false },
+  paper: true,
+  defaultOptions: { hints: false, seconds: 30 },
   OptionsForm,
-  init({ players, options }) {
+  init({ players, options, now }) {
     const ids = shuffle(players.map((p) => p.id));
     const teams: [string[], string[]] = [ids.filter((_, i) => i % 2 === 0), ids.filter((_, i) => i % 2 === 1)];
-    return {
-      options,
+    const base: State = {
+      options: { hints: !!options.hints, seconds: typeof options.seconds === "number" ? options.seconds : 30 },
       teams,
       turn: 0,
       letter: pick(START_LETTERS),
@@ -233,7 +207,11 @@ const antakshari: GameModule<State, Pub, undefined, Options> = {
       songsSung: 0,
       hintSeed: Math.floor(Math.random() * 100),
       lastEvent: null,
+      deadline: null,
+      pausedLeft: null,
+      awaySince: null,
     };
+    return startTurn(base, now);
   },
   onPlayerJoin(s, p) {
     if (teamOf(s, p.id) !== null) return s;
@@ -249,35 +227,56 @@ const antakshari: GameModule<State, Pub, undefined, Options> = {
           return s.phase === "judging" || s.phase === "challenged" ? accept(s, now) : s;
         case "reject":
           return s.phase === "judging" || s.phase === "challenged"
-            ? { ...s, phase: "singing", votes: {}, lastEvent: { text: "👎 Doesn’t count — try another song!", at: now } }
+            ? startTurn({ ...s, lastEvent: { text: "Nahi chalega — try another song!", at: now, kind: "reject", team: s.turn } }, now)
             : s;
         case "letter": {
           const l = String(a.payload ?? "").toUpperCase();
           if (s.phase !== "next-letter" || !LETTERS.includes(l)) return s;
-          return { ...s, letter: l, turn: other(s.turn), phase: "singing" };
+          return startTurn({ ...s, letter: l, turn: other(s.turn) }, now);
         }
         case "newLetter":
-          return s.phase === "singing" ? { ...s, letter: pick(START_LETTERS.filter((l) => l !== s.letter)) } : s;
+          return s.phase === "singing" ? startTurn({ ...s, letter: pick(START_LETTERS.filter((l) => l !== s.letter)) }, now) : s;
         case "hint":
           return { ...s, hintSeed: s.hintSeed + 1 };
         case "toggleHints":
           return { ...s, options: { ...s.options, hints: !s.options.hints } };
+        case "pause": {
+          if (!secondsOf(s)) return s;
+          if (s.pausedLeft !== null) {
+            // Resume
+            return s.phase === "singing" ? { ...s, deadline: now + s.pausedLeft, pausedLeft: null } : { ...s, pausedLeft: null };
+          }
+          const left = s.phase === "singing" && s.deadline ? Math.max(1000, s.deadline - now) : secondsOf(s) * 1000;
+          return { ...s, deadline: null, pausedLeft: left };
+        }
+        case "skipTurn":
+          // Hand the turn to the other team, no points, fresh letter.
+          return startTurn(
+            {
+              ...s,
+              turn: other(s.turn),
+              letter: pick(START_LETTERS.filter((l) => l !== s.letter)),
+              lastEvent: { text: `Turn skipped — ${TEAM_NAMES[other(s.turn)]} ki baari`, at: now, kind: "skip", team: other(s.turn) },
+            },
+            now,
+          );
       }
       return s;
     }
     const team = teamOf(s, a.playerId);
     if (team === null) return s;
     if (team === s.turn) {
-      if (a.type === "sang" && s.phase === "singing") return { ...s, phase: "judging", votes: {} };
-      if (a.type === "giveup" && s.phase === "singing") {
-        const scores: [number, number] = [...s.scores];
-        scores[other(s.turn)] += 1;
-        return { ...s, scores, turn: other(s.turn), votes: {}, lastEvent: { text: `🏳️ ${TEAM_NAMES[s.turn]} gave up — +1 ${TEAM_NAMES[other(s.turn)]}`, at: now } };
+      if (a.type === "sang" && s.phase === "singing") {
+        const judges = s.teams[other(s.turn)].filter((id) => connectedIds(players).has(id));
+        // Nobody on the other team to judge: the song counts.
+        if (judges.length === 0) return accept(s, now);
+        return { ...s, phase: "judging", votes: {}, deadline: null };
       }
+      if (a.type === "giveup" && s.phase === "singing") return concede(s, now, "giveup");
       if (a.type === "letter" && s.phase === "next-letter") {
         const l = String(a.payload ?? "").toUpperCase();
         if (!LETTERS.includes(l)) return s;
-        return { ...s, letter: l, turn: other(s.turn), phase: "singing" };
+        return startTurn({ ...s, letter: l, turn: other(s.turn) }, now);
       }
       return s;
     }
@@ -286,11 +285,38 @@ const antakshari: GameModule<State, Pub, undefined, Options> = {
       if (s.votes[a.playerId] === vote) return s;
       const votes: State["votes"] = { ...s.votes, [a.playerId]: vote };
       if (vote === "challenge") return { ...s, votes, phase: "challenged" };
-      const connected = new Set(players.filter((p) => p.connected).map((p) => p.id));
+      const connected = connectedIds(players);
       const judges = s.teams[team].filter((id) => connected.has(id));
       if (judges.every((id) => votes[id] === "valid")) return accept({ ...s, votes }, now);
       return { ...s, votes };
     }
+    return s;
+  },
+  tick(s, { now, players }) {
+    const connected = connectedIds(players);
+    // Judges who went offline don't hold up the vote.
+    if (s.phase === "judging") {
+      const judges = s.teams[other(s.turn)].filter((id) => connected.has(id));
+      if (judges.length === 0 || judges.every((id) => s.votes[id] === "valid")) return accept(s, now);
+    }
+    // The team whose turn it is has nobody online: move on after a while.
+    if (s.phase === "singing" || s.phase === "next-letter") {
+      const anyone = s.teams[s.turn].some((id) => connected.has(id));
+      if (anyone) {
+        if (s.awaySince !== null) return { ...s, awaySince: null };
+      } else if (s.awaySince === null) {
+        return { ...s, awaySince: now };
+      } else if (now - s.awaySince >= AWAY_MS) {
+        const next: State = {
+          ...s,
+          turn: other(s.turn),
+          letter: s.phase === "next-letter" ? pick(START_LETTERS) : s.letter,
+          lastEvent: { text: `${TEAM_NAMES[s.turn]} offline — ${TEAM_NAMES[other(s.turn)]} ki baari`, at: now, kind: "skip", team: other(s.turn) },
+        };
+        return startTurn(next, now);
+      }
+    }
+    if (s.phase === "singing" && s.deadline !== null && now >= s.deadline) return concede(s, now, "timeout");
     return s;
   },
   publicView(s) {
@@ -307,10 +333,16 @@ const antakshari: GameModule<State, Pub, undefined, Options> = {
       hintsOn: s.options.hints,
       hint: s.options.hints && songs.length ? songs[s.hintSeed % songs.length] : null,
       lastEvent: s.lastEvent,
+      seconds: secondsOf(s),
+      deadline: s.deadline ?? null,
+      paused: s.pausedLeft != null,
+      pausedLeft: s.pausedLeft ?? null,
+      awaySince: s.awaySince ?? null,
     };
   },
   Screen,
   Controller,
+  Phone,
 };
 
 export default antakshari;
