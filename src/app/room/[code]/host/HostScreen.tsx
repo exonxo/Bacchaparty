@@ -45,7 +45,7 @@ function Toast({ text }: { text: string | null }) {
   );
 }
 
-export function HostScreen({ code, defaultName }: { code: string; defaultName: string }) {
+export function HostScreen({ code, defaultName, ownerAuthId }: { code: string; defaultName: string; ownerAuthId: string | null }) {
   const [me, setMe] = useState<Identity | null>(null);
   const [draft, setDraft] = useState<Identity | null>(null);
   useEffect(() => {
@@ -80,11 +80,11 @@ export function HostScreen({ code, defaultName }: { code: string; defaultName: s
       </main>
     );
   }
-  return <HostRoom code={code} me={me} />;
+  return <HostRoom code={code} me={me} ownerAuthId={ownerAuthId} />;
 }
 
-function HostRoom({ code, me }: { code: string; me: Identity }) {
-  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, endParty, removePlayer, setTogether, takeOver, act, sendAsMe } = useHostRoom(code, me);
+function HostRoom({ code, me, ownerAuthId }: { code: string; me: Identity; ownerAuthId: string | null }) {
+  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, endParty, removePlayer, setTogether, takeOver, act, sendAsMe } = useHostRoom(code, me, ownerAuthId);
   const now = useNow(clockOffset, 250);
   useWakeLock(true);
   const { url, qr } = useInvite(code);

@@ -304,10 +304,11 @@ async function testSharedFlows(context, host, players, code) {
   await p.waitForURL(`**/room/${code}/play`, { timeout: 15000 });
   results.flows.push({ name: "player-rejoin", ok: true });
 
-  // Host refresh mid-lobby
+  // Host refresh mid-lobby must not show takeover (stale presence from same auth user)
   await host.reload();
   await host.getByText(/Kaun kaun|Waiting/).first().waitFor({ timeout: 20000 });
-  results.flows.push({ name: "host-refresh-lobby", ok: true });
+  const takeoverAfterRefresh = await host.getByText(/another device|take over/i).isVisible().catch(() => false);
+  results.flows.push({ name: "host-refresh-lobby", ok: !takeoverAfterRefresh });
 
   // Remove player
   await host.getByRole("button", { name: /Remove BotB/i }).click();

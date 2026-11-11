@@ -10,12 +10,14 @@ export default async function HostRoomPage({ params }: { params: Promise<{ code:
   const { code: raw } = await params;
   const code = raw.toUpperCase();
   let defaultName = "";
+  let ownerAuthId: string | null = null;
   if (isSupabaseConfigured) {
     const user = await getUser();
     if (!user) redirect(`/login?next=/room/${code}/host`);
     if (!(await findOwnRoom(code, user.id))) redirect("/host");
+    ownerAuthId = user.id;
     const full = (user.user_metadata?.full_name ?? user.user_metadata?.name ?? "") as string;
     defaultName = full.split(" ")[0]?.slice(0, 16) ?? "";
   }
-  return <HostScreen code={code} defaultName={defaultName} />;
+  return <HostScreen code={code} defaultName={defaultName} ownerAuthId={ownerAuthId} />;
 }
