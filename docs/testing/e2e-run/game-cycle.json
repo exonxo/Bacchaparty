@@ -1,0 +1,69 @@
+{
+  "chor-kaun": {
+    "status": "PASS",
+    "notes": [],
+    "errors": []
+  },
+  "housie": {
+    "status": "PASS",
+    "notes": [],
+    "errors": []
+  },
+  "emoji-picture": {
+    "status": "PASS",
+    "notes": [],
+    "errors": []
+  },
+  "charades": {
+    "status": "PASS",
+    "notes": [],
+    "errors": []
+  },
+  "antakshari": {
+    "status": "PASS",
+    "notes": [],
+    "errors": []
+  },
+  "draw-guess": {
+    "status": "PASS",
+    "notes": [],
+    "errors": []
+  },
+  "kaun-banega-champion": {
+    "status": "PASS",
+    "notes": [],
+    "errors": []
+  },
+  "raja-mantri": {
+    "status": "PARTIAL",
+    "notes": [
+      "Max 4 players"
+    ],
+    "errors": []
+  },
+  "odd-word-out": {
+    "status": "PASS",
+    "notes": [],
+    "errors": []
+  },
+  "ludo-yatra": {
+    "status": "PARTIAL",
+    "notes": [
+      "Max 4 players"
+    ],
+    "errors": []
+  },
+  "sound-guru": {
+    "status": "PASS",
+    "notes": [],
+    "errors": []
+  },
+  "jaldi-bolo": {
+    "status": "PASS",
+    "notes": [],
+    "errors": []
+  },
+  "_hostRefreshMidGame": {
+    "ok": true
+  }
+}
