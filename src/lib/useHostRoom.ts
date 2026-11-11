@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getGameInfo } from "@/games/catalog";
 import { getGameModule } from "@/games/modules";
+import { isSupabaseConfigured } from "./env";
 import { openRoom, type RoomTransport } from "./transport";
 import {
   LEAVE_ACTION,
@@ -23,7 +24,7 @@ import { AVATARS, randomId } from "./util";
 
 interface HostState {
   players: Player[];
-  phase: "lobby" | "playing";
+  phase: "lobby" | "playing" | "closed";
   gameId: string | null;
   gameState: unknown;
   together: boolean;
@@ -54,6 +55,34 @@ const STATE_PREFIX = "bacchaparty-host-";
 const KEYS_PREFIX = "bacchaparty-hostkeys-";
 const DAY = 24 * 60 * 60 * 1000;
 const MAX_PLAYERS = 50;
+const DEMO_OWNER_KEY = "bacchaparty-demo-host-owner";
+
+/** Presence id for an active host tab (auth user id + tab id, not socket ref). */
+export function hostPresenceId(ownerId: string, tabId: string) {
+  return `host:${ownerId}:${tabId}`;
+}
+
+export function parseHostPresence(id: string): { ownerId: string; tabId: string } | null {
+  if (!id.startsWith("host:")) return null;
+  const rest = id.slice(5);
+  const sep = rest.indexOf(":");
+  if (sep <= 0 || sep >= rest.length - 1) return null;
+  return { ownerId: rest.slice(0, sep), tabId: rest.slice(sep + 1) };
+}
+
+/** Demo mode has no auth user; one browser profile gets a stable owner id. */
+export function demoHostOwnerId(): string {
+  try {
+    let id = localStorage.getItem(DEMO_OWNER_KEY);
+    if (!id) {
+      id = randomId(16);
+      localStorage.setItem(DEMO_OWNER_KEY, id);
+    }
+    return id;
+  } catch {
+    return randomId(16);
+  }
+}
 
 function loadState(code: string): HostState | null {
   try {
@@ -114,7 +143,7 @@ async function registerKey(code: string, key: string) {
  * Runs a room on the host's device. The host is also a player (`me`), so the
  * host's phone can play while it runs the game.
  */
-export function useHostRoom(code: string, me: Identity | null, testMode = false) {
+export function useHostRoom(code: string, me: Identity | null, ownerAuthId: string | null = null, testMode = false) {
   const stateRef = useRef<HostState>(empty);
   const [state, setStateRaw] = useState<HostState>(empty);
   const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
@@ -222,6 +251,7 @@ export function useHostRoom(code: string, me: Identity | null, testMode = false)
     }
 
     const t: RoomTransport = openRoom(code);
+    const ownerId = ownerAuthId ?? (isSupabaseConfigured ? "" : demoHostOwnerId());
 
     // --- saving (at most once a second) ---
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -318,7 +348,7 @@ export function useHostRoom(code: string, me: Identity | null, testMode = false)
       if (!demo && info?.hostKey !== keys.sign.publicKey) await registerKey(code, keys.sign.publicKey);
       if (disposed) return;
       setRole("active");
-      t.track(`host:${tabId}`);
+      t.track(ownerId ? hostPresenceId(ownerId, tabId) : `host:${tabId}`);
       if (takeover) t.send("host", { t: "takeover", tab: tabId });
       lastPrivate.clear();
       flush();
@@ -353,14 +383,40 @@ export function useHostRoom(code: string, me: Identity | null, testMode = false)
 
     let presenceRounds = 0;
     let otherHost = false;
+    /** True once another tab is actively broadcasting room state (not mere stale presence). */
+    let seenRemoteRoom = false;
+
+    const presenceHostConflict = (ids: string[]) => {
+      if (!ownerId) return ids.some((id) => id.startsWith("host:"));
+      for (const id of ids) {
+        const who = parseHostPresence(id);
+        if (!who) continue;
+        if (who.ownerId !== ownerId) return true;
+        if (who.tabId !== tabId) return seenRemoteRoom;
+      }
+      return false;
+    };
+
     const decide = () => {
       if (roleRef.current !== "checking") return;
       if (otherHost) setRole("blocked");
       else void activate(false);
     };
     const decideTimer = setTimeout(decide, 3500);
+
+    const offRoomPeek = t.on("room", () => {
+      if (seenRemoteRoom) return;
+      seenRemoteRoom = true;
+      if (roleRef.current === "checking") {
+        otherHost = presenceHostConflict(latestPresence);
+        if (presenceRounds >= 1) decide();
+      }
+    });
+    let latestPresence: string[] = [];
+
     t.onPresence((ids) => {
-      otherHost = ids.some((id) => id.startsWith("host:") && id !== `host:${tabId}`);
+      latestPresence = ids;
+      otherHost = presenceHostConflict(ids);
       presenceRounds++;
       if (roleRef.current === "checking" && presenceRounds >= 2) decide();
       if (roleRef.current !== "active") return;
@@ -396,6 +452,7 @@ export function useHostRoom(code: string, me: Identity | null, testMode = false)
         if (roleRef.current !== "active" || !keys) return;
         if (!m || typeof m.id !== "string" || !m.id || m.id.length > 24 || typeof m.pk !== "string" || m.pk.length > 200 || !isSealed(m, 600)) return;
         const s = stateRef.current;
+        if (s.phase === "closed") return;
         if (m.id === meRef.current?.id || m.id === HOST_ID || isBot(m.id) || s.kicked.includes(m.id)) return;
         const isNew = !s.players.some((p) => p.id === m.id);
         if (isNew) {
@@ -499,6 +556,7 @@ export function useHostRoom(code: string, me: Identity | null, testMode = false)
       saveNow();
       if (saveTimer) clearTimeout(saveTimer);
       clearTimeout(decideTimer);
+      offRoomPeek();
       offJoin();
       offSync();
       offAction();
@@ -511,7 +569,7 @@ export function useHostRoom(code: string, me: Identity | null, testMode = false)
       t.close();
       api.current = { flush: () => {}, save: () => {}, takeOver: () => {} };
     };
-  }, [code, commit, applyAction, upsertPlayer, gameNow]);
+  }, [code, ownerAuthId, commit, applyAction, upsertPlayer, gameNow]);
 
   // Test mode: add or remove the simulated players. Switching it off mid-game ends the game first.
   useEffect(() => {
@@ -555,8 +613,21 @@ export function useHostRoom(code: string, me: Identity | null, testMode = false)
   );
 
   const endGame = useCallback(() => {
-    commit({ ...stateRef.current, phase: "lobby", gameState: null });
+    commit({ ...stateRef.current, phase: "lobby", gameId: null, gameState: null });
   }, [commit]);
+
+  const endParty = useCallback(() => {
+    if (roleRef.current !== "active") return;
+    const s = { ...stateRef.current, phase: "closed" as const, gameId: null, gameState: null };
+    stateRef.current = s;
+    setStateRaw(s);
+    api.current.flush();
+    try {
+      localStorage.removeItem(STATE_PREFIX + code);
+      localStorage.removeItem(KEYS_PREFIX + code);
+    } catch {}
+    void fetch(`/api/rooms/${code}/close`, { method: "POST" });
+  }, [code]);
 
   /** Removes a player for good: their phone is told and can't rejoin this room. */
   const removePlayer = useCallback(
@@ -584,5 +655,5 @@ export function useHostRoom(code: string, me: Identity | null, testMode = false)
   const view = playing ? mod.publicView(state.gameState) : null;
   const myPriv = playing && me && mod.privateView ? mod.privateView(state.gameState, me.id) : undefined;
 
-  return { state, status, role, view, myPriv, clockOffset: -state.pausedMs, startGame, endGame, removePlayer, setTogether, takeOver, act, sendAsMe };
+  return { state, status, role, view, myPriv, clockOffset: -state.pausedMs, startGame, endGame, endParty, removePlayer, setTogether, takeOver, act, sendAsMe };
 }

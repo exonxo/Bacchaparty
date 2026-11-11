@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { Header, navLinkClass } from "@/components/Header";
-import { GameTable, GameTile } from "@/components/paper/GameTile";
 import { paperButtonClass } from "@/components/paper/classes";
-import { GAMES } from "@/games/catalog";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getUser } from "@/lib/supabase/server";
+import { HomeGamesSection } from "./HomeGamesSection";
 
 const STEPS = [
   { t: "Ek host", d: "One person signs in with Google and gets a 4-letter code." },
@@ -12,12 +11,8 @@ const STEPS = [
   { t: "Khelo!", d: "Same room or different cities. For acting and singing games, add a video call." },
 ];
 
-/** Home order: mixes shapes and colours. */
-const ORDER = ["chor-kaun", "housie", "charades", "emoji-picture", "antakshari", "draw-guess", "kaun-banega-champion", "raja-mantri", "odd-word-out", "ludo-yatra", "sound-guru", "jaldi-bolo"];
-
 export default async function Home() {
   const user = await getUser();
-  const games = ORDER.map((id) => GAMES.find((g) => g.id === id)!).filter(Boolean);
   return (
     <main className="pb-16">
       <Header
@@ -70,17 +65,13 @@ export default async function Home() {
             </li>
           ))}
         </ol>
-        <p className="mt-4 text-p-note text-muted">TV ya laptop hai? Open the “Big screen” link from the lobby for a shared view. Phones alone work fine too.</p>
+        <p className="mt-4 text-p-note text-muted">TV ya laptop hai? In the host lobby, tap <b className="text-ink">TV mode</b> in the header for the read-only big-screen view. Phones alone work fine too.</p>
       </section>
 
       <section className="mx-auto mt-12 max-w-6xl px-4">
         <h2 className="text-p-title font-extrabold sm:text-4xl">Aaj kya khelein?</h2>
         <p className="mb-5 mt-1 text-p-body text-muted">Tap a game to see how it works.</p>
-        <GameTable>
-          {games.map((g, i) => (
-            <GameTile key={g.id} game={g} index={i} />
-          ))}
-        </GameTable>
+        <HomeGamesSection />
       </section>
 
       <footer className="mx-auto mt-16 flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t-[1.5px] border-line px-4 pt-4 text-p-note text-muted">

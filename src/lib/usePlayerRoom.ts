@@ -108,6 +108,11 @@ export function usePlayerRoom(code: string, me: Identity | null) {
         if (!snap || closed) return;
         setMismatch(false);
         gotRoom = true;
+        if (snap.phase === "closed") {
+          setPriv(undefined);
+          setRoom(snap);
+          return;
+        }
         if (snap.phase !== "playing") gotPriv = false;
         playing = snap.phase === "playing";
         setOffset(clock(snap.hostNow));
