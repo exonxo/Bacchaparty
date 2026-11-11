@@ -75,3 +75,103 @@ h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ------------------------------------------------------------------ */
+/* Paper theme — "Chit & Envelope". Scoped: only active while a view   */
+/* sets <html data-theme="paper"> (currently the Chor Kaun? phone).    */
+/* ------------------------------------------------------------------ */
+@theme {
+  /* Five type steps (size / line-height) */
+  --text-p-note: 0.8125rem;
+  --text-p-note--line-height: 1.35;
+  --text-p-body: 1rem;
+  --text-p-body--line-height: 1.45;
+  --text-p-lead: 1.1875rem;
+  --text-p-lead--line-height: 1.3;
+  --text-p-title: 1.625rem;
+  --text-p-title--line-height: 1.12;
+  --text-p-show: 2.75rem;
+  --text-p-show--line-height: 0.98;
+  /* Two radii: cut paper (barely rounded) and soft objects */
+  --radius-cut: 5px;
+  --radius-soft: 14px;
+}
+@theme inline {
+  --color-turmeric: var(--turmeric);
+  --color-turmeric-ink: var(--turmeric-ink);
+  --color-vermilion: var(--vermilion);
+  --color-leaf: var(--leaf);
+  --color-me-ink: var(--me-ink);
+  --color-paper: var(--paper);
+}
+
+:root {
+  --turmeric: #f2b632;
+  --turmeric-ink: #8a5a00;
+  --vermilion: #c23a22;
+  --leaf: #2f7d4f;
+  --paper: #fffdf8;
+}
+/* The player's colour darkened until it is readable as text on paper.
+   Declared on every element so it follows --me wherever that is set. */
+* {
+  --me-ink: color-mix(in srgb, var(--me) 38%, #1e1a17);
+}
+
+[data-theme="paper"] {
+  --bg: #fbf6ee;
+  --bg-2: #f3eadb;
+  --card: #fffdf8;
+  --card-2: #f3eadb;
+  --ink: #1e1a17;
+  --muted: #6b6258;
+  --saffron: #a85a08;
+  --red: #c23a22;
+  --green: #2f7d4f;
+  --gold: #8a5a00;
+  color-scheme: light;
+}
+[data-theme="paper"] body {
+  background: var(--bg);
+  font-family: var(--font-mukta), system-ui, sans-serif;
+}
+[data-theme="paper"] :is(h1, h2, h3, .font-display) {
+  font-family: var(--font-bricolage), var(--font-mukta), system-ui, sans-serif;
+  letter-spacing: -0.015em;
+}
+/* Shell chrome: flat paper, no glass. */
+[data-theme="paper"] header {
+  background: var(--bg);
+  backdrop-filter: none;
+  border-color: color-mix(in srgb, var(--ink) 14%, transparent);
+}
+[data-theme="paper"] header button {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink);
+}
+
+/* Cut paper: ink outline + hard offset shadow, never blurred. */
+.cut {
+  border: 1.5px solid var(--ink);
+  box-shadow: 2px 2px 0 0 var(--ink);
+}
+.cut-soft {
+  border: 1.5px solid color-mix(in srgb, var(--ink) 22%, transparent);
+}
+/* For clipped (torn) shapes, where box-shadow would be clipped away. */
+.cut-drop {
+  filter: drop-shadow(2px 2px 0 var(--ink));
+}
+.paper-rule {
+  background-image: repeating-linear-gradient(to bottom, transparent 0 27px, color-mix(in srgb, var(--ink) 9%, transparent) 27px 28px);
+}
+[data-theme="paper"] :focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+.no-callout {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}

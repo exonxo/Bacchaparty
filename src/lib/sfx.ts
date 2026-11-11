@@ -2,7 +2,7 @@
 /**
  * Tiny synthesized sound effects (Web Audio) — no audio files to license or load.
  */
-export type Sfx = "tick" | "ding" | "buzz" | "fanfare" | "whoosh" | "pop" | "reveal" | "turn";
+export type Sfx = "tick" | "ding" | "buzz" | "fanfare" | "whoosh" | "pop" | "reveal" | "turn" | "rustle";
 
 let ctx: AudioContext | null = null;
 const MUTE_KEY = "bacchaparty-muted";
@@ -106,6 +106,11 @@ export function playSfx(name: Sfx) {
     case "turn":
       tone(ac, 660, t, 0.12, "sine", 0.2);
       tone(ac, 990, t + 0.12, 0.2, "sine", 0.2);
+      break;
+    case "rustle":
+      // Soft paper sound: two short, quiet bursts of filtered noise.
+      noise(ac, t, 0.12, 0.035);
+      noise(ac, t + 0.09, 0.16, 0.025);
       break;
   }
 }
