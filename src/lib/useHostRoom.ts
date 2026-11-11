@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getGameInfo } from "@/games/catalog";
 import { getGameModule } from "@/games/modules";
 import { openRoom, type RoomTransport } from "./transport";
 import {
@@ -514,9 +515,11 @@ export function useHostRoom(code: string, me: Identity | null) {
   const startGame = useCallback(
     (gameId: string, options: unknown) => {
       const mod = getGameModule(gameId);
+      const info = getGameInfo(gameId);
       if (!mod || roleRef.current !== "active") return;
       const s = stateRef.current;
       const players = s.players.filter((p) => p.connected);
+      if (info && (players.length < info.minPlayers || players.length > info.maxPlayers)) return;
       const gameState = mod.init({ players, options: options ?? mod.defaultOptions, now: gameNow() });
       commit({ ...s, phase: "playing", gameId, gameState });
     },

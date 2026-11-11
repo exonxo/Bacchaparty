@@ -17,16 +17,22 @@ export function JoinForm() {
 
   useEffect(() => setMe(loadIdentity()), []);
 
+  function normalizeCode(raw: string) {
+    return raw.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 4);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!me) return;
     const name = me.name.trim();
-    if (code.length !== 4) return setError({ field: "code", text: "The room code has 4 letters." });
+    const joinedCode = normalizeCode(codeInput.current?.value ?? code);
+    if (joinedCode !== code) setCode(joinedCode);
+    if (joinedCode.length !== 4) return setError({ field: "code", text: "The room code has 4 letters." });
     if (!name) return setError({ field: "name", text: "Please type your name." });
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/rooms/${code}`);
+      const res = await fetch(`/api/rooms/${joinedCode}`);
       const data = await res.json();
       if (!data.exists) {
         setBusy(false);
@@ -36,7 +42,7 @@ export function JoinForm() {
       // Network hiccup: try connecting anyway.
     }
     saveIdentity({ ...me, name });
-    router.push(`/room/${code}/play`);
+    router.push(`/room/${joinedCode}/play`);
   }
 
   return (
