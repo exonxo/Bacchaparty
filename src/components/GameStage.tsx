@@ -51,8 +51,8 @@ export function GameStage({
       ) : isHost ? (
         <div className="space-y-6">
           <div className="rounded-xl bg-tint px-4 py-3 text-sm text-muted">
-            This game is still in classic mode: the shared view below is made for a big screen. Open the Big screen link on a TV or laptop for the
-            best experience.
+            This game is still in classic mode: the shared view below is made for a big screen. Use <b>TV mode</b> in the header (opens <code>/room/…/tv</code>)
+            on a TV or laptop for the best experience.
           </div>
           <div className="overflow-x-auto">
             <mod.Screen view={view} players={players} act={hostAct} now={now} />

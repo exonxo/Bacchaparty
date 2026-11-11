@@ -157,7 +157,11 @@ export function GameTile({
   );
 }
 
-/** A table of game objects: two columns on phones, more on wide screens. */
+/** A table of game objects: columns scale up by breakpoint (2 → 6). */
 export function GameTable({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{children}</div>;
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 min-[1440px]:grid-cols-5 min-[1600px]:grid-cols-6">
+      {children}
+    </div>
+  );
 }

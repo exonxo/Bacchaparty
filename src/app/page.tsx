@@ -70,7 +70,7 @@ export default async function Home() {
             </li>
           ))}
         </ol>
-        <p className="mt-4 text-p-note text-muted">TV ya laptop hai? Open the “Big screen” link from the lobby for a shared view. Phones alone work fine too.</p>
+        <p className="mt-4 text-p-note text-muted">TV ya laptop hai? In the host lobby, tap <b className="text-ink">TV mode</b> in the header for the read-only big-screen view. Phones alone work fine too.</p>
       </section>
 
       <section className="mx-auto mt-12 max-w-6xl px-4">
