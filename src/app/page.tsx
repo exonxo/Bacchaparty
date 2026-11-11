@@ -2,7 +2,7 @@ import Link from "next/link";
 import { GameCard } from "@/components/GameCard";
 import { Header } from "@/components/Header";
 import { GAMES } from "@/games/catalog";
-import { isPlayable } from "@/games/modules";
+import { isPlayable } from "@/games/playable";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getUser } from "@/lib/supabase/server";
 

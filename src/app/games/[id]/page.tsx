@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Header } from "@/components/Header";
 import { GAMES, getGameInfo } from "@/games/catalog";
-import { isPlayable } from "@/games/modules";
+import { isPlayable } from "@/games/playable";
 
 export function generateStaticParams() {
   return GAMES.map((g) => ({ id: g.id }));

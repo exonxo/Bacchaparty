@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { GameCard } from "@/components/GameCard";
 import { Header } from "@/components/Header";
 import { CATEGORIES, GAMES } from "@/games/catalog";
-import { isPlayable } from "@/games/modules";
+import { isPlayable } from "@/games/playable";
 
 export const metadata: Metadata = { title: "All games — Bacchaparty" };
 

@@ -12,17 +12,15 @@ import oddWordOut from "./odd-word-out";
 import rajaMantri from "./raja-mantri";
 import soundGuru from "./sound-guru";
 
-type Registered = GameModule & { ready?: boolean };
+import { isPlayable } from "./playable";
 
-/** Every game module, keyed by id. A module with `ready: false` shows as "Coming soon". */
-const ALL: Registered[] = [charades, antakshari, soundGuru, emojiPicture, drawGuess, chorKaun, rajaMantri, oddWordOut, kbc, housie, ludoYatra, jaldiBolo];
+/** Every game module (client-side only), keyed by id. Playability is listed in playable.ts. */
+const ALL: GameModule[] = [charades, antakshari, soundGuru, emojiPicture, drawGuess, chorKaun, rajaMantri, oddWordOut, kbc, housie, ludoYatra, jaldiBolo];
 
-const MODULES: Record<string, GameModule> = Object.fromEntries(ALL.filter((m) => m.ready !== false).map((m) => [m.id, m]));
+const MODULES: Record<string, GameModule> = Object.fromEntries(ALL.filter((m) => isPlayable(m.id)).map((m) => [m.id, m]));
 
 export function getGameModule(id: string): GameModule | undefined {
   return MODULES[id];
 }
 
-export function isPlayable(id: string): boolean {
-  return id in MODULES;
-}
+export { isPlayable };
