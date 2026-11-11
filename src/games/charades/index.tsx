@@ -1,4 +1,5 @@
 "use client";
+import { Avatar } from "@/components/Avatar";
 import { Button, LevelPicker, Panel, PhoneMessage, PlayerChip, Stopwatch } from "@/components/ui";
 import { CHARADES } from "@/content/charades";
 import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player, type ScreenProps } from "@/lib/types";
@@ -95,7 +96,7 @@ function Screen({ view, players, act, now }: ScreenProps<Pub>) {
         </div>
         {actor ? (
           <>
-            <div className="text-8xl">{actor.avatar}</div>
+            <div className="text-8xl"><Avatar id={actor.avatar} /></div>
             <div className="text-5xl font-extrabold">{actor.name}</div>
             {view.phase === "ready" ? (
               <div className="text-2xl text-muted">is getting ready… tap “Show my movie” on your phone!</div>

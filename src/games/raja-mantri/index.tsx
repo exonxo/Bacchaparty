@@ -1,4 +1,5 @@
 "use client";
+import { Avatar } from "@/components/Avatar";
 import { Button, Panel, PhoneMessage, PlayerChip, Scoreboard } from "@/components/ui";
 import { HOST_ID, type GameModule, type Player } from "@/lib/types";
 import { shuffle } from "@/lib/util";
@@ -68,7 +69,7 @@ function score(s: State, guess: string): State {
 const nameOf = (players: Player[], id: string | null) => players.find((p) => p.id === id)?.name ?? "?";
 
 function Screen({ view, players, act }: { view: Pub; players: Player[]; act: (t: string, p?: unknown) => void }) {
-  const seatPlayers = view.seats.map((id) => players.find((p) => p.id === id) ?? { id, name: "Left", avatar: "👋", connected: false });
+  const seatPlayers = view.seats.map((id) => players.find((p) => p.id === id) ?? { id, name: "Left", avatar: "", connected: false });
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
       <Panel className="space-y-6 py-8 text-center">
@@ -104,7 +105,7 @@ function Screen({ view, players, act }: { view: Pub; players: Player[]; act: (t:
                     <div className="text-5xl">{r.emoji}</div>
                     <div className="text-xl font-bold">{r.label}</div>
                     <div className="text-muted">
-                      {p.avatar} {p.name}
+                      <Avatar id={p.avatar} /> {p.name}
                     </div>
                     <div className="text-2xl font-extrabold text-gold">+{view.lastPoints[p.id] ?? 0}</div>
                   </div>
@@ -165,7 +166,7 @@ function Controller({ view, priv, me, players, send }: { view: Pub; priv: Priv |
               const p = players.find((x) => x.id === id);
               return (
                 <Button key={id} tone="teal" size="lg" className="w-full" onClick={() => confirm(`Is ${p?.name ?? "?"} the Chor?`) && send("guess", id)}>
-                  {p?.avatar} {p?.name ?? "?"}
+                  <Avatar id={p?.avatar} /> {p?.name ?? "?"}
                 </Button>
               );
             })}

@@ -1,18 +1,20 @@
 "use client";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import type { Level, Player } from "@/lib/types";
+import { Avatar } from "./Avatar";
 
 type Tone = "saffron" | "pink" | "teal" | "gold" | "green" | "red" | "blue" | "ghost";
 
-const toneClass: Record<Tone, string> = {
-  saffron: "bg-saffron text-bg",
-  pink: "bg-pink text-white",
-  teal: "bg-teal text-bg",
-  gold: "bg-gold text-bg",
-  green: "bg-green text-bg",
-  red: "bg-red text-white",
-  blue: "bg-blue text-white",
-  ghost: "bg-white/10 text-ink border border-white/15",
+const toneClass: Record<Tone | "me", string> = {
+  saffron: "bg-saffron text-black shadow-[0_8px_24px_-8px_var(--saffron)]",
+  pink: "bg-pink text-white shadow-[0_8px_24px_-8px_var(--pink)]",
+  teal: "bg-teal text-black shadow-[0_8px_24px_-8px_var(--teal)]",
+  gold: "bg-gold text-black shadow-[0_8px_24px_-8px_var(--gold)]",
+  green: "bg-green text-black shadow-[0_8px_24px_-8px_var(--green)]",
+  red: "bg-red text-white shadow-[0_8px_24px_-8px_var(--red)]",
+  blue: "bg-blue text-white shadow-[0_8px_24px_-8px_var(--blue)]",
+  me: "bg-me text-black shadow-[0_8px_24px_-8px_var(--me)]",
+  ghost: "bg-white/[0.07] text-ink border border-white/10 hover:bg-white/[0.12]",
 };
 
 export function Button({
@@ -20,18 +22,18 @@ export function Button({
   size = "md",
   className = "",
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { tone?: Tone; size?: "sm" | "md" | "lg" | "xl" }) {
-  const sizes = { sm: "px-3 py-1.5 text-sm", md: "px-5 py-2.5 text-base", lg: "px-6 py-3.5 text-xl", xl: "px-8 py-5 text-2xl" };
+}: ButtonHTMLAttributes<HTMLButtonElement> & { tone?: Tone | "me"; size?: "sm" | "md" | "lg" | "xl" }) {
+  const sizes = { sm: "px-3.5 py-2 text-sm", md: "px-5 py-3 text-base", lg: "px-6 py-4 text-lg", xl: "px-8 py-5 text-xl" };
   return (
     <button
       {...rest}
-      className={`${toneClass[tone]} ${sizes[size]} rounded-2xl font-bold shadow-[0_4px_0_rgba(0,0,0,0.35)] transition active:translate-y-[3px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
+      className={`${toneClass[tone]} ${sizes[size]} font-display rounded-xl font-bold transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-35 disabled:shadow-none ${className}`}
     />
   );
 }
 
 export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`rounded-3xl border border-white/10 bg-card/80 p-5 shadow-xl backdrop-blur ${className}`}>{children}</div>;
+  return <div className={`rounded-2xl border border-white/[0.08] bg-card p-4 sm:p-5 ${className}`}>{children}</div>;
 }
 
 export function Title({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -42,10 +44,10 @@ export function PlayerChip({ player, highlight, extra }: { player: Player; highl
   return (
     <div
       className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-base font-semibold ${
-        highlight ? "bg-gold text-bg" : "bg-white/10"
+        highlight ? "bg-saffron text-black" : "bg-white/[0.07]"
       } ${player.connected ? "" : "opacity-50"}`}
     >
-      <span className="text-xl">{player.avatar}</span>
+      <Avatar id={player.avatar} className="text-base" />
       <span className="max-w-[9rem] truncate">{player.name}</span>
       {extra}
     </div>
@@ -75,10 +77,10 @@ export function Scoreboard({
           <li key={p.id} className={`flex items-center justify-between gap-3 ${big ? "text-2xl" : "text-lg"}`}>
             <span className="flex min-w-0 items-center gap-2">
               <span className="w-6 text-muted">{i + 1}.</span>
-              <span>{p.avatar}</span>
+              <Avatar id={p.avatar} />
               <span className="truncate font-semibold">{p.name}</span>
             </span>
-            <span className="font-extrabold text-gold">{s}</span>
+            <span className="font-display font-extrabold text-saffron tabular-nums">{s}</span>
           </li>
         ))}
       </ol>
@@ -110,13 +112,13 @@ export function Stopwatch({ since, now }: { since: number | null | undefined; no
   );
 }
 
-/** Full-height centred message for phones. */
-export function PhoneMessage({ emoji, title, children }: { emoji?: string; title: string; children?: ReactNode }) {
+/** Full-height centred message for phones. `emoji` is accepted for older games but no longer shown. */
+export function PhoneMessage({ icon, title, children }: { icon?: ReactNode; emoji?: string; title: string; children?: ReactNode }) {
   return (
-    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 px-4 text-center">
-      {emoji && <div className="text-6xl">{emoji}</div>}
-      <div className="text-2xl font-extrabold">{title}</div>
-      {children && <div className="text-lg text-muted">{children}</div>}
+    <div className="rise-in flex min-h-[50vh] flex-col items-center justify-center gap-3 px-4 text-center">
+      {icon && <div className="text-saffron">{icon}</div>}
+      <div className="font-display text-2xl font-extrabold">{title}</div>
+      {children && <div className="text-base text-muted">{children}</div>}
     </div>
   );
 }
@@ -133,7 +135,7 @@ export function LevelPicker({ value, onChange }: { value: Level; onChange: (l: L
         <button
           key={o.v}
           onClick={() => onChange(o.v)}
-          className={`rounded-2xl border px-3 py-2 text-left ${value === o.v ? "border-gold bg-gold/15" : "border-white/10 bg-white/5"}`}
+          className={`rounded-xl border px-3 py-2 text-left ${value === o.v ? "border-saffron bg-saffron/15" : "border-white/10 bg-white/[0.04]"}`}
         >
           <div className="font-bold">{o.label}</div>
           <div className="text-xs text-muted">{o.hint}</div>
@@ -164,7 +166,7 @@ export function NumberPicker({
           <button
             key={n}
             onClick={() => onChange(n)}
-            className={`rounded-xl border px-3 py-1.5 font-bold ${value === n ? "border-gold bg-gold/15" : "border-white/10 bg-white/5"}`}
+            className={`rounded-lg border px-3 py-1.5 font-bold ${value === n ? "border-saffron bg-saffron/15" : "border-white/10 bg-white/[0.04]"}`}
           >
             {format(n)}
           </button>
@@ -214,11 +216,36 @@ export function TextAnswer({
         autoCapitalize="off"
         disabled={disabled}
         placeholder={placeholder}
-        className="min-w-0 flex-1 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-lg outline-none placeholder:text-muted/70 focus:border-gold"
+        className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-lg outline-none placeholder:text-muted/70 focus:border-saffron"
       />
       <Button type="submit" disabled={disabled}>
         {buttonLabel}
       </Button>
     </form>
   );
+}
+
+/** Slide-up panel for phones (game details, scores, settings). */
+export function Sheet({ open, onClose, children, title }: { open: boolean; onClose: () => void; children: ReactNode; title?: string }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
+      <button aria-label="Close" className="fade-in absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="rise-in relative max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-white/10 bg-bg-2 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-3xl">
+        <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-white/20 sm:hidden" />
+        <div className="mb-3 flex items-center justify-between gap-3">
+          {title && <div className="font-display text-xl font-bold">{title}</div>}
+          <button onClick={onClose} className="ml-auto rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-muted">
+            Close
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Small uppercase label above a section. */
+export function Label({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={`text-[11px] font-bold uppercase tracking-[0.18em] text-muted ${className}`}>{children}</div>;
 }

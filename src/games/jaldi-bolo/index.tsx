@@ -1,4 +1,5 @@
 "use client";
+import { Avatar } from "@/components/Avatar";
 import { useEffect, useRef, useState } from "react";
 import { Button, Countdown, NumberPicker, Panel, PhoneMessage, Scoreboard } from "@/components/ui";
 import { HOST_ID, type GameModule, type Player } from "@/lib/types";
@@ -111,7 +112,7 @@ function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act
           <div className="flex flex-wrap justify-center gap-2">
             {people.map((p) => (
               <span key={p.id} className={`rounded-full px-3 py-1 font-semibold ${view.done.includes(p.id) ? "bg-green text-bg" : "bg-white/5 text-muted"}`}>
-                {p.avatar} {p.name} {view.done.includes(p.id) ? "✓" : "…"}
+                <Avatar id={p.avatar} /> {p.name} {view.done.includes(p.id) ? "✓" : "…"}
               </span>
             ))}
           </div>
@@ -164,7 +165,7 @@ function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act
               return (
                 <tr key={p.id}>
                   <td className="whitespace-nowrap px-2 font-bold">
-                    {p.avatar} {p.name}
+                    <Avatar id={p.avatar} /> {p.name}
                   </td>
                   {CATEGORIES.map((c, i) => {
                     const ans = view.answers[p.id]?.[i] ?? "";

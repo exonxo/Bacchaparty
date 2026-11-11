@@ -1,4 +1,5 @@
 "use client";
+import { Avatar } from "@/components/Avatar";
 import { Button, Panel, PhoneMessage } from "@/components/ui";
 import { HOST_ID, type GameModule, type Player } from "@/lib/types";
 import { COLORS, HOME, LANES, LAST_LOOP, LOOP, SAFE, START, YARD, YARD_SPOTS, tokenXY, type Color } from "./board";
@@ -164,7 +165,7 @@ function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act
                 <li key={s.color} className={`flex items-center justify-between gap-2 text-lg ${p?.connected === false ? "opacity-50" : ""}`}>
                   <span className="flex items-center gap-2 font-semibold">
                     <span className="h-4 w-4 rounded-full" style={{ background: HEX[s.color] }} />
-                    {p?.avatar} {nameOf(players, s.playerId)}
+                    <Avatar id={p?.avatar} /> {nameOf(players, s.playerId)}
                   </span>
                   <span className="text-muted">{place >= 0 ? <b className="text-gold">#{place + 1}</b> : `${home}/4 home`}</span>
                 </li>

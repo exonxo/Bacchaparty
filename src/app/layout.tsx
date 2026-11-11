@@ -1,20 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Baloo_2 } from "next/font/google";
+import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 
-const baloo = Baloo_2({ variable: "--font-baloo", subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
+const body = Inter({ variable: "--font-body", subsets: ["latin"] });
+const display = Outfit({ variable: "--font-display", subsets: ["latin"], weight: ["500", "600", "700", "800", "900"] });
 
 export const metadata: Metadata = {
-  title: "Bacchaparty — desi party games for the whole family",
-  description: "Play Dumb Charades, Housie, Chor Kaun? and more on one big screen with everyone's phones as controllers.",
+  title: "Bacchaparty — desi party games on your phone",
+  description: "Housie, Chor Kaun?, Dumb Charades and more. Play together in one room or across cities — everyone just uses their phone.",
 };
 
-export const viewport: Viewport = { themeColor: "#1a0b2e", width: "device-width", initialScale: 1, maximumScale: 1 };
+export const viewport: Viewport = { themeColor: "#0b0b10", width: "device-width", initialScale: 1, maximumScale: 1, viewportFit: "cover" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${baloo.variable} antialiased`}>{children}</body>
+      <body className={`${body.variable} ${display.variable} antialiased`}>{children}</body>
     </html>
   );
 }

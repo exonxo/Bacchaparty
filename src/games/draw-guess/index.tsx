@@ -1,4 +1,5 @@
 "use client";
+import { Avatar } from "@/components/Avatar";
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Button, Countdown, LevelPicker, NumberPicker, Panel, PhoneMessage, Scoreboard, TextAnswer } from "@/components/ui";
 import { DRAW_WORDS } from "@/content/draw-guess";
@@ -139,7 +140,7 @@ function Feed({ view, players }: { view: Pub; players: Player[] }) {
         const p = players.find((x) => x.id === f.playerId);
         return (
           <div key={view.feed.length - i} className={`rounded-xl px-3 py-1 ${f.text === null ? "bg-green font-bold text-bg" : "bg-white/5"}`}>
-            {p?.avatar} {p?.name ?? "?"}: {f.text === null ? "guessed it! ✅" : f.text}
+            <Avatar id={p?.avatar} /> {p?.name ?? "?"}: {f.text === null ? "guessed it! ✅" : f.text}
           </div>
         );
       })}
@@ -162,7 +163,7 @@ function Screen({ view, players, act, now }: ScreenProps<Pub>) {
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-2xl font-bold">
-            {drawer?.avatar} {drawer?.name ?? "…"} {view.phase === "choosing" ? "is choosing a word…" : view.phase === "drawing" ? "is drawing" : ""}
+            <Avatar id={drawer?.avatar} /> {drawer?.name ?? "…"} {view.phase === "choosing" ? "is choosing a word…" : view.phase === "drawing" ? "is drawing" : ""}
           </div>
           <WordHint view={view} now={now} />
           {view.phase !== "reveal" && <Countdown deadline={view.deadline} now={now} big />}

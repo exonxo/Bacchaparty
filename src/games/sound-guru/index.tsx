@@ -1,4 +1,5 @@
 "use client";
+import { Avatar } from "@/components/Avatar";
 import { Button, LevelPicker, NumberPicker, Panel, PhoneMessage, Scoreboard, TextAnswer } from "@/components/ui";
 import { SOUNDS, type SoundPrompt } from "@/content/sound-guru";
 import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player, type ScreenProps } from "@/lib/types";
@@ -81,7 +82,7 @@ function Screen({ view, players, act }: ScreenProps<Pub>) {
         <div className="text-muted">
           Round {view.turn + 1} of {view.totalTurns}
         </div>
-        {maker && <div className="text-8xl">{maker.avatar}</div>}
+        {maker && <div className="text-8xl"><Avatar id={maker.avatar} /></div>}
         <div className="text-4xl font-extrabold">{maker?.name ?? "…"}</div>
         {view.phase === "ready" && <div className="text-2xl text-muted">is the Sound Maker — check your phone!</div>}
         {view.phase === "making" && (

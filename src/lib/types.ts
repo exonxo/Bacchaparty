@@ -36,6 +36,8 @@ export interface ScreenProps<Pub> {
   act: (type: string, payload?: unknown) => void;
   /** Current time on the host clock (ms). */
   now: number;
+  /** Read-only display (the optional TV view): hide host controls. */
+  spectator?: boolean;
 }
 
 export interface ControllerProps<Pub, Priv> {
@@ -46,6 +48,16 @@ export interface ControllerProps<Pub, Priv> {
   send: (type: string, payload?: unknown) => void;
   /** Current time translated to the host clock (ms). */
   now: number;
+}
+
+/** Phone-first view: shared game view + this player's own controls, on one screen. */
+export interface PhoneProps<Pub, Priv> extends ControllerProps<Pub, Priv> {
+  /** This phone is the host's: show host controls (next, reveal, skip…). */
+  isHost: boolean;
+  /** Dispatch a host-only action (same as the big screen's act). */
+  hostAct: (type: string, payload?: unknown) => void;
+  /** Everyone is in one room (vs. spread across places). */
+  together: boolean;
 }
 
 export interface OptionsFormProps<Opt> {
@@ -70,8 +82,12 @@ export interface GameModule<S = any, Pub = any, Priv = any, Opt = any> {
   onPlayerJoin?(state: S, player: Player): S;
   publicView(state: S): Pub;
   privateView?(state: S, playerId: string): Priv | undefined;
+  /** Big-screen view (legacy host screen / optional TV). */
   Screen: ComponentType<ScreenProps<Pub>>;
+  /** Legacy phone controller, used with a big screen. */
   Controller: ComponentType<ControllerProps<Pub, Priv>>;
+  /** Phone-first view. When present, phones (host included) show this instead. */
+  Phone?: ComponentType<PhoneProps<Pub, Priv>>;
 }
 
 export interface GameInfo {

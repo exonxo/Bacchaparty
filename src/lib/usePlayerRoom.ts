@@ -22,7 +22,12 @@ function store(): Storage {
 export function loadIdentity(): Identity {
   try {
     const raw = store().getItem(KEY);
-    if (raw) return JSON.parse(raw) as Identity;
+    if (raw) {
+      const me = JSON.parse(raw) as Identity;
+      // Older versions used emoji avatars.
+      if (!(AVATARS as readonly string[]).includes(me.avatar)) me.avatar = pick(AVATARS);
+      return me;
+    }
   } catch {}
   return { id: randomId(12), name: "", avatar: pick(AVATARS) };
 }
@@ -41,6 +46,7 @@ export function usePlayerRoom(code: string, me: Identity | null) {
   const transportRef = useRef<RoomTransport | null>(null);
   const lastJoin = useRef(0);
   const lastSeq = useRef(0);
+  const [lastRoomAt, setLastRoomAt] = useState(0);
 
   useEffect(() => {
     if (!me) return;
@@ -57,6 +63,7 @@ export function usePlayerRoom(code: string, me: Identity | null) {
       if (snap.seq < lastSeq.current && snap.seq > 5) return; // stale (host restarts reset seq)
       lastSeq.current = snap.seq;
       setOffset(snap.hostNow - Date.now());
+      setLastRoomAt(Date.now());
       setRoom(snap);
       if (!snap.players.some((p) => p.id === me.id) && Date.now() - lastJoin.current > 3000) join();
     });
@@ -92,5 +99,6 @@ export function usePlayerRoom(code: string, me: Identity | null) {
   );
 
   const self: Player | undefined = room?.players.find((p) => p.id === me?.id);
-  return { room, priv, offset, status, send, self };
+  /** Local time of the last message from the host (0 = never). */
+  return { room, priv, offset, status, send, self, lastRoomAt };
 }

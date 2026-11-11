@@ -1,4 +1,5 @@
 "use client";
+import { Avatar } from "@/components/Avatar";
 import { Button, LevelPicker, Panel, PhoneMessage, PlayerChip, Scoreboard } from "@/components/ui";
 import { KBC_QUESTIONS, type KbcQuestion } from "@/content/kbc";
 import { HOST_ID, type GameModule, type Level, type Player } from "@/lib/types";
@@ -212,7 +213,7 @@ function Screen({ view, players, act }: { view: Pub; players: Player[]; act: (t:
               .filter((p) => p.connected)
               .map((p) => (
                 <button key={p.id} onClick={() => act("hotseat", p.id)} className="rounded-2xl bg-white/10 px-5 py-3 text-xl font-bold hover:bg-saffron hover:text-bg">
-                  {p.avatar} {p.name} {view.played.includes(p.id) && <span className="text-sm opacity-70">✓ played</span>}
+                  <Avatar id={p.avatar} /> {p.name} {view.played.includes(p.id) && <span className="text-sm opacity-70">✓ played</span>}
                 </button>
               ))}
           </div>
@@ -224,7 +225,7 @@ function Screen({ view, players, act }: { view: Pub; players: Player[]; act: (t:
   if (view.phase === "level") {
     return (
       <Panel className="py-16 text-center">
-        <div className="text-6xl">{hot?.avatar}</div>
+        <div className="text-6xl"><Avatar id={hot?.avatar} /></div>
         <div className="mt-3 text-4xl font-extrabold">{hot?.name} is in the hot seat!</div>
         <div className="mt-2 text-xl text-muted">Choose your level on your phone: Kids, Family or Grown-ups.</div>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-sm">
@@ -233,7 +234,7 @@ function Screen({ view, players, act }: { view: Pub; players: Player[]; act: (t:
             .filter((p) => p.connected && p.id !== view.hotSeat)
             .map((p) => (
               <button key={p.id} onClick={() => act("hotseat", p.id)} className="rounded-full bg-white/10 px-3 py-1 font-semibold hover:bg-white/20">
-                {p.avatar} {p.name}
+                <Avatar id={p.avatar} /> {p.name}
               </button>
             ))}
         </div>

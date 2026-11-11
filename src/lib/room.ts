@@ -5,6 +5,10 @@ export interface RoomSnapshot {
   phase: "lobby" | "playing";
   gameId: string | null;
   players: Player[];
+  /** Player id of the host's own phone. */
+  hostPlayerId: string | null;
+  /** Everyone is in one room (true) or spread across places (false). */
+  together: boolean;
   view: unknown;
   hostNow: number;
   seq: number;

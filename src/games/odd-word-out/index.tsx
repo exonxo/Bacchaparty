@@ -1,4 +1,5 @@
 "use client";
+import { Avatar } from "@/components/Avatar";
 import { useState } from "react";
 import { Button, LevelPicker, Panel, PhoneMessage, PlayerChip, Scoreboard, TextAnswer } from "@/components/ui";
 import { pairsFor } from "@/content/odd-word-out";
@@ -113,7 +114,7 @@ function resolveGuess(s: State, guess: string | null): State {
 }
 
 const nameOf = (players: Player[], id: string | null) => players.find((p) => p.id === id)?.name ?? "Someone";
-const findP = (players: Player[], id: string): Player => players.find((p) => p.id === id) ?? { id, name: "Left", avatar: "👋", connected: false };
+const findP = (players: Player[], id: string): Player => players.find((p) => p.id === id) ?? { id, name: "Left", avatar: "", connected: false };
 
 function revealLine(r: NonNullable<Pub["reveal"]>, players: Player[]) {
   const imp = nameOf(players, r.imposterId);
@@ -133,7 +134,7 @@ function Screen({ view, players, act }: { view: Pub; players: Player[]; act: (t:
             </div>
             <div className="text-3xl font-bold">Say ONE word about your secret word</div>
             <div className="text-5xl font-extrabold text-gold">
-              {findP(players, view.order[view.speaker]).avatar} {nameOf(players, view.order[view.speaker])}
+              <Avatar id={findP(players, view.order[view.speaker]).avatar} /> {nameOf(players, view.order[view.speaker])}
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {view.order.map((id, i) => (
@@ -267,7 +268,7 @@ function Controller({ view, priv, me, players, send }: { view: Pub; priv: Priv |
                 onClick={() => send("vote", p.id)}
                 className={`flex items-center gap-2 rounded-2xl px-3 py-3 text-left font-bold ${priv.myVote === p.id ? "bg-pink text-white" : "bg-white/10"}`}
               >
-                <span className="text-2xl">{p.avatar}</span>
+                <span className="text-2xl"><Avatar id={p.avatar} /></span>
                 <span className="truncate">{p.name}</span>
               </button>
             ))}

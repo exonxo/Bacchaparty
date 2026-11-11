@@ -65,4 +65,8 @@ export function answerMatches(guess: string, answers: readonly string[]): boolea
   });
 }
 
-export const AVATARS = ["🦁", "🐯", "🐘", "🦚", "🐒", "🐄", "🐍", "🦜", "🐢", "🐻", "🐼", "🐸", "🐙", "🦄", "🐨", "🐧", "🦊", "🐝"];
+/** Avatar keys; rendered as Lucide icons by components/Avatar. */
+export const AVATARS = [
+  "cat", "dog", "bird", "fish", "rabbit", "squirrel", "turtle", "snail", "panda",
+  "rocket", "flower", "sun", "moon", "star", "flame", "gem", "feather", "origami",
+] as const;

@@ -19,13 +19,13 @@ export function CreateRoom() {
       .catch((e: Error) => setError(e.message));
   }, [router]);
   return (
-    <main className="flex min-h-screen items-center justify-center">
+    <main className="spotlight flex min-h-dvh items-center justify-center">
       {error ? (
-        <PhoneMessage emoji="😕" title="Couldn’t create a room">
+        <PhoneMessage title="Couldn’t create a room">
           {error}
         </PhoneMessage>
       ) : (
-        <PhoneMessage emoji="🪅" title="Setting up your party room…" />
+        <PhoneMessage title="Setting up your party room…" />
       )}
     </main>
   );

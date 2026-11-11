@@ -1,10 +1,10 @@
 "use client";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Logo } from "@/components/Header";
+import { ProfileFields } from "@/components/ProfileForm";
 import { Button } from "@/components/ui";
 import { loadIdentity, saveIdentity, type Identity } from "@/lib/usePlayerRoom";
-import { AVATARS } from "@/lib/util";
 
 export function JoinForm() {
   const router = useRouter();
@@ -29,7 +29,7 @@ export function JoinForm() {
       const data = await res.json();
       if (!data.exists) {
         setBusy(false);
-        return setError("No party with that code. Check the big screen!");
+        return setError("No party with that code. Ask the host to check it.");
       }
     } catch {
       // Network hiccup: try connecting anyway.
@@ -39,53 +39,30 @@ export function JoinForm() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col px-4 py-6">
-      <Link href="/" className="text-2xl font-extrabold">
-        🪅 Baccha<span className="text-saffron">party</span>
-      </Link>
-      <form onSubmit={submit} className="mt-8 space-y-6">
-        <div>
-          <label className="mb-2 block text-lg font-bold">Room code</label>
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 4))}
-            placeholder="ABCD"
-            autoCapitalize="characters"
-            autoComplete="off"
-            className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-4 text-center text-4xl font-extrabold tracking-[0.4em] outline-none focus:border-gold"
-          />
-        </div>
-        <div>
-          <label className="mb-2 block text-lg font-bold">Your name</label>
-          <input
-            value={me?.name ?? ""}
-            onChange={(e) => me && setMe({ ...me, name: e.target.value.slice(0, 16) })}
-            placeholder="e.g. Chintu"
-            autoComplete="off"
-            disabled={!me}
-            className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-2xl font-bold outline-none focus:border-gold"
-          />
-        </div>
-        <div>
-          <label className="mb-2 block text-lg font-bold">Pick your animal</label>
-          <div className="grid grid-cols-6 gap-2">
-            {AVATARS.map((a) => (
-              <button
-                type="button"
-                key={a}
-                onClick={() => me && setMe({ ...me, avatar: a })}
-                className={`aspect-square rounded-2xl text-3xl ${me?.avatar === a ? "bg-gold" : "bg-white/10"}`}
-              >
-                {a}
-              </button>
-            ))}
+    <main className="spotlight min-h-dvh">
+      <div className="mx-auto flex max-w-md flex-col px-4 py-5">
+        <Logo />
+        <form onSubmit={submit} className="mt-8 space-y-6">
+          <h1 className="font-display text-3xl font-black">Join a party</h1>
+          <div>
+            <label className="mb-2 block text-sm font-bold uppercase tracking-[0.15em] text-muted">Room code</label>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 4))}
+              placeholder="ABCD"
+              autoCapitalize="characters"
+              autoComplete="off"
+              inputMode="text"
+              className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-4 text-center font-display text-4xl font-black tracking-[0.45em] outline-none focus:border-saffron"
+            />
           </div>
-        </div>
-        {error && <div className="rounded-xl bg-red/20 px-4 py-2 font-semibold text-red">{error}</div>}
-        <Button type="submit" size="xl" className="w-full" disabled={busy || !me}>
-          {busy ? "Joining…" : "Join the party 🎉"}
-        </Button>
-      </form>
+          <ProfileFields me={me} onChange={setMe} />
+          {error && <div className="shake rounded-xl bg-red/15 px-4 py-2.5 font-semibold text-red">{error}</div>}
+          <Button type="submit" size="xl" className="w-full" disabled={busy || !me}>
+            {busy ? "Joining…" : "Join the party"}
+          </Button>
+        </form>
+      </div>
     </main>
   );
 }
