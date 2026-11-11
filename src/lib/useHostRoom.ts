@@ -22,7 +22,7 @@ import { AVATARS, randomId } from "./util";
 
 interface HostState {
   players: Player[];
-  phase: "lobby" | "playing";
+  phase: "lobby" | "playing" | "closed";
   gameId: string | null;
   gameState: unknown;
   together: boolean;
@@ -395,6 +395,7 @@ export function useHostRoom(code: string, me: Identity | null) {
         if (roleRef.current !== "active" || !keys) return;
         if (!m || typeof m.id !== "string" || !m.id || m.id.length > 24 || typeof m.pk !== "string" || m.pk.length > 200 || !isSealed(m, 600)) return;
         const s = stateRef.current;
+        if (s.phase === "closed") return;
         if (m.id === meRef.current?.id || m.id === HOST_ID || s.kicked.includes(m.id)) return;
         const isNew = !s.players.some((p) => p.id === m.id);
         if (isNew) {
@@ -527,8 +528,21 @@ export function useHostRoom(code: string, me: Identity | null) {
   );
 
   const endGame = useCallback(() => {
-    commit({ ...stateRef.current, phase: "lobby", gameState: null });
+    commit({ ...stateRef.current, phase: "lobby", gameId: null, gameState: null });
   }, [commit]);
+
+  const endParty = useCallback(() => {
+    if (roleRef.current !== "active") return;
+    const s = { ...stateRef.current, phase: "closed" as const, gameId: null, gameState: null };
+    stateRef.current = s;
+    setStateRaw(s);
+    api.current.flush();
+    try {
+      localStorage.removeItem(STATE_PREFIX + code);
+      localStorage.removeItem(KEYS_PREFIX + code);
+    } catch {}
+    void fetch(`/api/rooms/${code}/close`, { method: "POST" });
+  }, [code]);
 
   /** Removes a player for good: their phone is told and can't rejoin this room. */
   const removePlayer = useCallback(
@@ -556,5 +570,5 @@ export function useHostRoom(code: string, me: Identity | null) {
   const view = playing ? mod.publicView(state.gameState) : null;
   const myPriv = playing && me && mod.privateView ? mod.privateView(state.gameState, me.id) : undefined;
 
-  return { state, status, role, view, myPriv, clockOffset: -state.pausedMs, startGame, endGame, removePlayer, setTogether, takeOver, act, sendAsMe };
+  return { state, status, role, view, myPriv, clockOffset: -state.pausedMs, startGame, endGame, endParty, removePlayer, setTogether, takeOver, act, sendAsMe };
 }

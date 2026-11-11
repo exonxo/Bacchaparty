@@ -82,7 +82,12 @@ export function TvScreen({ code }: { code: string }) {
         </div>
       </header>
       <RoomAudioProvider value={{ together: room?.together ?? true, isStage: true }}>
-        {room?.phase === "playing" && mod && room.view ? (
+        {room?.phase === "closed" ? (
+          <section className="py-16 text-center">
+            <h1 className="text-p-show font-extrabold">The host ended the party</h1>
+            <p className="mt-3 text-p-body text-muted">You can close this screen.</p>
+          </section>
+        ) : room?.phase === "playing" && mod && room.view ? (
           <section>
             <div className="mb-5 flex items-center gap-3 font-display text-3xl font-black">
               {info && <GameIcon id={info.id} className="h-8 w-8" />}
