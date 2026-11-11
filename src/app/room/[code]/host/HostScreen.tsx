@@ -7,6 +7,7 @@ import { GameIcon } from "@/components/GameIcon";
 import { GameStage } from "@/components/GameStage";
 import { GameTable, GameTile } from "@/components/paper/GameTile";
 import { gameLook } from "@/components/paper/gameLook";
+import { BusyPaperButton, CassetteCue, GamesSkeleton, isMusicGameLoader, ShuffleDeal } from "@/components/loaders";
 import { PaperButton, PaperSheet, Sticker } from "@/components/paper/Paper";
 import { ProfileFields } from "@/components/ProfileForm";
 import { RoomShell, iconButtonClass } from "@/components/RoomShell";
@@ -119,6 +120,9 @@ function HostRoom({
   const [removing, setRemoving] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [optionsByGame, setOptionsByGame] = useState<Record<string, unknown>>({});
+  const [startingGameId, setStartingGameId] = useState<string | null>(null);
+  const [endingParty, setEndingParty] = useState(false);
+  const [takeoverBusy, setTakeoverBusy] = useState(false);
   const online = state.players.filter((p) => p.connected);
   const mePlayer = state.players.find((p) => p.id === me.id) ?? { ...me, connected: true };
 
@@ -133,12 +137,22 @@ function HostRoom({
   useEffect(() => {
     if (state.phase === "closed") setPartyEnded(true);
   }, [state.phase]);
+  useEffect(() => {
+    if (role === "active") setTakeoverBusy(false);
+  }, [role]);
 
   const hostEndParty = () => {
+    setEndingParty(true);
     endParty();
     setSheet(null);
     setPartyEnded(true);
+    setEndingParty(false);
   };
+
+  useEffect(() => {
+    if (!startingGameId) return;
+    if (state.phase === "playing" && state.gameId === startingGameId) setStartingGameId(null);
+  }, [state.phase, state.gameId, startingGameId]);
 
   const endPartyControls = (
     <button type="button" aria-label="End party for everyone" onClick={() => setSheet("endParty")} className={iconButtonClass} title="End party">
@@ -188,9 +202,18 @@ function HostRoom({
             <p className="mt-2 text-p-body text-muted">
               Only one device can run the room at a time. If you take over here, the game restarts from the lobby unless this device was hosting it before.
             </p>
-            <PaperButton size="lg" className="mt-6 w-full" onClick={takeOver}>
+            <BusyPaperButton
+              size="lg"
+              className="mt-6 w-full"
+              loading={takeoverBusy}
+              busyLabel="Taking over…"
+              onClick={() => {
+                setTakeoverBusy(true);
+                takeOver();
+              }}
+            >
               Host from this device
-            </PaperButton>
+            </BusyPaperButton>
           </div>
         )}
       </main>
@@ -225,9 +248,9 @@ function HostRoom({
         <PaperButton tone="paper" size="lg" onClick={() => setSheet(null)}>
           Keep party going
         </PaperButton>
-        <PaperButton tone="vermilion" size="lg" onClick={hostEndParty}>
+        <BusyPaperButton tone="vermilion" size="lg" loading={endingParty} busyLabel="Ending party…" onClick={hostEndParty}>
           End party
-        </PaperButton>
+        </BusyPaperButton>
       </div>
     </PaperSheet>
   );
@@ -309,6 +332,9 @@ function HostRoom({
   );
 
   return (
+    <>
+      <ShuffleDeal open={!!startingGameId && !isMusicGameLoader(startingGameId)} />
+      <CassetteCue open={!!startingGameId && isMusicGameLoader(startingGameId)} gameId={startingGameId} />
     <RoomShell
       me={mePlayer}
       identity={me}
@@ -374,11 +400,15 @@ function HostRoom({
         <section className="mt-8 lg:mt-0">
           <h2 className="text-p-title font-extrabold">Aaj kya khelein?</h2>
           <p className="mb-4 mt-1 text-p-body text-muted">Tap a game to see the rules and start.</p>
-          <GameTable>
-            {games.map((g, i) => (
-              <GameTile key={g.id} game={g} index={i} onSelect={() => setSelected(g.id)} disabled={!getGameModule(g.id)} />
-            ))}
-          </GameTable>
+          {status === "connecting" ? (
+            <GamesSkeleton count={12} />
+          ) : (
+            <GameTable>
+              {games.map((g, i) => (
+                <GameTile key={g.id} game={g} index={i} onSelect={() => setSelected(g.id)} disabled={!getGameModule(g.id)} />
+              ))}
+            </GameTable>
+          )}
           <p className="mt-4 text-p-note text-muted">
             Need a shared view for the room? Tap <b className="text-ink">TV mode</b> in the header to open the read-only big-screen page in a new tab.
           </p>
@@ -392,17 +422,20 @@ function HostRoom({
         footer={
           info && (
             <>
-              <PaperButton
+              <BusyPaperButton
                 size="lg"
                 className="w-full"
                 disabled={!mod || tooFew || tooMany}
+                loading={!!startingGameId}
+                busyLabel="Starting game…"
                 onClick={() => {
+                  setStartingGameId(info.id);
                   startGame(info.id, options);
                   setSelected(null);
                 }}
               >
                 <Play className="h-5 w-5" fill="currentColor" /> Shuru karo · {online.length} {online.length === 1 ? "player" : "players"}
-              </PaperButton>
+              </BusyPaperButton>
               {(tooFew || tooMany || !mod) && (
                 <p className="mt-2 text-center text-p-note font-semibold text-vermilion">
                   {!mod ? "Coming soon" : tooFew ? `Needs at least ${info.minPlayers} players` : `Max ${info.maxPlayers} players`}
@@ -483,5 +516,6 @@ function HostRoom({
       {endPartySheet}
       <Toast text={toast} />
     </RoomShell>
+    </>
   );
 }

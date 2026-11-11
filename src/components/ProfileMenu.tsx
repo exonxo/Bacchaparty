@@ -2,7 +2,8 @@
 import { ChevronDown, LogOut, Pencil } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { ProfileFields } from "@/components/ProfileForm";
-import { PaperButton, PaperSheet, Sticker } from "@/components/paper/Paper";
+import { BusyPaperButton } from "@/components/loaders";
+import { PaperSheet, Sticker } from "@/components/paper/Paper";
 import { saveIdentity, type Identity } from "@/lib/usePlayerRoom";
 import type { Player } from "@/lib/types";
 
@@ -96,9 +97,9 @@ export function ProfileMenu({
 
       <PaperSheet open={edit} onClose={() => setEdit(false)} title="Update your name">
         <ProfileFields me={draft} onChange={setDraft} />
-        <PaperButton size="lg" className="mt-6 w-full" disabled={!draft.name.trim()} onClick={saveEdit}>
+        <BusyPaperButton size="lg" className="mt-6 w-full" disabled={!draft.name.trim()} busyLabel="Saving…" onClick={saveEdit}>
           Save
-        </PaperButton>
+        </BusyPaperButton>
       </PaperSheet>
     </>
   );

@@ -2,7 +2,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Logo } from "@/components/Header";
-import { PaperButton } from "@/components/paper/Paper";
+import { BusyPaperButton, PartyPost } from "@/components/loaders";
 import { ProfileFields } from "@/components/ProfileForm";
 import { loadIdentity, saveIdentity, type Identity } from "@/lib/usePlayerRoom";
 
@@ -51,6 +51,7 @@ export function JoinForm() {
 
   return (
     <main className="min-h-dvh">
+      <PartyPost open={busy} title="Getting your party ready." subtitle="Bas, sabko bulana baaki hai." />
       <div className="mx-auto flex w-full max-w-md flex-col px-4 py-4 sm:max-w-lg md:max-w-2xl lg:max-w-4xl lg:px-8 lg:py-8">
         <Logo />
         <form onSubmit={submit} className="mt-6 space-y-7" noValidate>
@@ -116,9 +117,17 @@ export function JoinForm() {
               {error.text}
             </div>
           )}
-          <PaperButton type="submit" size="lg" className="w-full lg:max-w-sm" disabled={busy || !me}>
-            {busy ? "Join ho rahe hain…" : "Chalo, join karo"}
-          </PaperButton>
+          <BusyPaperButton
+            type="submit"
+            size="lg"
+            className="w-full lg:max-w-sm"
+            disabled={!me}
+            loading={busy}
+            busyLabel="Joining party…"
+            helper="Your seat is being saved. Ek second!"
+          >
+            Chalo, join karo
+          </BusyPaperButton>
         </form>
       </div>
     </main>

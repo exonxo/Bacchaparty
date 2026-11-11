@@ -8,6 +8,7 @@ import { getBrowserSupabase } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/env";
 import { GameStage } from "@/components/GameStage";
 import { paperButtonClass } from "@/components/paper/classes";
+import { BusyPaperButton } from "@/components/loaders";
 import { PaperButton, PaperSheet, Sticker } from "@/components/paper/Paper";
 import { RoomShell, iconButtonClass } from "@/components/RoomShell";
 import { getGameInfo } from "@/games/catalog";
@@ -42,6 +43,7 @@ export function PlayerScreen({ code }: { code: string }) {
   const { room, priv, offset, status, send, leave, self, kicked, mismatch, lastRoomAt } = usePlayerRoom(code, me);
   const now = useNow(offset, 250);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   // Joined while a game was already running: show a short welcome once.
   const [lateJoin, setLateJoin] = useState(false);
   const sawRoom = useRef(false);
@@ -167,16 +169,19 @@ export function PlayerScreen({ code }: { code: string }) {
           <PaperButton tone="paper" size="lg" onClick={() => setConfirmLeave(false)}>
             Ruko, khelte hain
           </PaperButton>
-          <PaperButton
+          <BusyPaperButton
             tone="vermilion"
             size="lg"
+            loading={leaving}
+            busyLabel="Leaving party…"
             onClick={() => {
+              setLeaving(true);
               leave();
               setTimeout(() => router.push("/"), 250);
             }}
           >
             Leave party
-          </PaperButton>
+          </BusyPaperButton>
         </div>
       </PaperSheet>
     </RoomShell>
