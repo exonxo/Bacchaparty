@@ -66,6 +66,10 @@ npm run dev            # demo mode, no setup needed
 2. Add the environment variables `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 3. Deploy, then put the production URL into the Supabase URL Configuration (step 4 above).
 
+## Keep-alive
+
+Free Supabase projects pause after about a week without activity. `vercel.json` schedules a daily Vercel Cron call to `/api/keepalive`, which runs a tiny query. Optionally set a `CRON_SECRET` env var in Vercel; the endpoint then only accepts Vercel's authenticated cron calls.
+
 ## Adding a game
 
 1. Write `src/games/<id>/index.tsx` exporting a `GameModule` (see `src/lib/types.ts` and `src/games/housie` for a complete example).
