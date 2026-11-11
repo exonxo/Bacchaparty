@@ -1,5 +1,5 @@
 "use client";
-import { Check, Copy, Home, Info, MapPin, Play, QrCode, Share2, Tv, Users, X } from "lucide-react";
+import { Check, Copy, Home, Info, MapPin, MonitorSmartphone, Play, QrCode, Share2, Tv, Users, X } from "lucide-react";
 import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "@/components/Avatar";
@@ -8,7 +8,7 @@ import { GameIcon } from "@/components/GameIcon";
 import { GameStage } from "@/components/GameStage";
 import { ProfileFields } from "@/components/ProfileForm";
 import { RoomShell } from "@/components/RoomShell";
-import { Button, Label, Panel, Sheet } from "@/components/ui";
+import { Button, Label, Panel, PhoneMessage, Sheet } from "@/components/ui";
 import { CATEGORIES, GAMES, getGameInfo } from "@/games/catalog";
 import { getGameModule } from "@/games/modules";
 import { playSfx } from "@/lib/sfx";
@@ -68,8 +68,8 @@ export function HostScreen({ code, defaultName }: { code: string; defaultName: s
 }
 
 function HostRoom({ code, me }: { code: string; me: Identity }) {
-  const { state, status, view, myPriv, startGame, endGame, removePlayer, setTogether, act, sendAsMe } = useHostRoom(code, me);
-  const now = useNow(0, 250);
+  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, removePlayer, setTogether, takeOver, act, sendAsMe } = useHostRoom(code, me);
+  const now = useNow(clockOffset, 250);
   useWakeLock(true);
   const { url, qr } = useInvite(code);
   const [selected, setSelected] = useState<string | null>(null);
@@ -102,6 +102,29 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {}
+  }
+
+  if (role !== "active") {
+    return (
+      <main className="spotlight flex min-h-dvh items-center justify-center px-6 text-center">
+        {role === "checking" ? (
+          <PhoneMessage title="Opening your room…" />
+        ) : (
+          <div className="rise-in max-w-sm">
+            <MonitorSmartphone className="mx-auto h-12 w-12 text-saffron" />
+            <h1 className="mt-4 font-display text-2xl font-extrabold">
+              {role === "blocked" ? "This room is open on another device" : "Hosting moved to another device"}
+            </h1>
+            <p className="mt-2 text-muted">
+              Only one device can run the room at a time. If you take over here, the game restarts from the lobby unless this device was hosting it before.
+            </p>
+            <Button size="lg" className="mt-6 w-full" onClick={takeOver}>
+              Host from this device
+            </Button>
+          </div>
+        )}
+      </main>
+    );
   }
 
   if (state.phase === "playing" && playingMod && view) {
@@ -209,8 +232,12 @@ function HostRoom({ code, me }: { code: string; me: Identity }) {
               {p.id === me.id ? (
                 <span className="text-[10px] font-bold uppercase tracking-wider text-saffron">Host</span>
               ) : (
-                <button aria-label={`Remove ${p.name}`} className="text-muted hover:text-red" onClick={() => removePlayer(p.id)}>
-                  <X className="h-3.5 w-3.5" />
+                <button
+                  aria-label={`Remove ${p.name}`}
+                  className="-my-2 -mr-3 flex h-11 w-11 items-center justify-center text-muted hover:text-red"
+                  onClick={() => confirm(`Remove ${p.name} from the room? They won't be able to rejoin.`) && removePlayer(p.id)}
+                >
+                  <X className="h-4 w-4" />
                 </button>
               )}
             </div>

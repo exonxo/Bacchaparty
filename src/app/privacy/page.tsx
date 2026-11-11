@@ -53,7 +53,7 @@ export default function PrivacyPage() {
         <Section title="What we store">
           <p>
             For each party room we store the <b>room code</b>, <b>which host created it</b>, and <b>when it was created and closed</b>. This is
-            kept in Supabase, our database and login provider.
+            kept in Supabase, our database and login provider, and deleted after 7 days.
           </p>
           <p>
             While you play, game moves (answers, votes, drawings, display names) pass through Supabase’s real-time service between the phones

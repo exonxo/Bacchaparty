@@ -1,12 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
 
-/** Re-renders every `interval` ms and returns Date.now() shifted by `offset`. */
+/**
+ * Re-renders every `interval` ms and returns Date.now() shifted by `offset`.
+ * The timer keeps running when `offset` changes (it used to restart, which
+ * froze countdowns whenever updates arrived quickly).
+ */
 export function useNow(offset = 0, interval = 250): number {
-  const [now, setNow] = useState(() => Date.now() + offset);
+  const [, setTick] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now() + offset), interval);
+    const t = setInterval(() => setTick((n) => n + 1), interval);
     return () => clearInterval(t);
-  }, [offset, interval]);
-  return now;
+  }, [interval]);
+  return Date.now() + offset;
 }

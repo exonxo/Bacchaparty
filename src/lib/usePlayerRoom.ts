@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { openRoom, type RoomTransport } from "./transport";
-import type { PrivateMessage, RoomSnapshot } from "./room";
+import { LEAVE_ACTION, type ActionBody, type ActionEnvelope, type JoinBody, type JoinEnvelope, type PrivateBody, type PrivateEnvelope, type RoomSnapshot, type SignedRoom } from "./room";
+import { createClockSync, createRoomReceiver } from "./roomReceiver";
+import { deriveShared, generateExchangeKeys, open, seal, serialQueue, type StoredKeyPair } from "./secure";
 import type { Player } from "./types";
 import { isSupabaseConfigured } from "./env";
 import { AVATARS, pick, randomId } from "./util";
@@ -10,6 +12,8 @@ export interface Identity {
   id: string;
   name: string;
   avatar: string;
+  /** Key pair that proves this phone is this player (made on first join). */
+  keys?: StoredKeyPair;
 }
 
 const KEY = "bacchaparty-me";
@@ -43,46 +47,99 @@ export function usePlayerRoom(code: string, me: Identity | null) {
   const [priv, setPriv] = useState<unknown>(undefined);
   const [offset, setOffset] = useState(0);
   const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
-  const transportRef = useRef<RoomTransport | null>(null);
-  const lastJoin = useRef(0);
-  const lastSeq = useRef(0);
+  const [kicked, setKicked] = useState(false);
   const [lastRoomAt, setLastRoomAt] = useState(0);
+  const transportRef = useRef<RoomTransport | null>(null);
+  const sharedRef = useRef<CryptoKey | null>(null);
+  const counter = useRef(0);
+  const leftRef = useRef(false);
 
   useEffect(() => {
     if (!me) return;
+    let closed = false;
     const t = openRoom(code);
     transportRef.current = t;
-    const join = () => {
-      lastJoin.current = Date.now();
-      t.send("join", { id: me.id, name: me.name, avatar: me.avatar });
+    const receiver = createRoomReceiver(code);
+    const clock = createClockSync();
+    const queue = serialQueue();
+    let keys = me.keys;
+    let sharedWith = "";
+    let lastJoin = 0;
+    let gotRoom = false;
+    let privEpoch = 0;
+    let privSeq = 0;
+    let avatar = me.avatar;
+
+    const ensureShared = async (hostEcdh: string) => {
+      if (!keys) {
+        keys = await generateExchangeKeys();
+        saveIdentity({ ...me, avatar, keys });
+      }
+      if (sharedWith !== hostEcdh) {
+        sharedRef.current = await deriveShared(keys, hostEcdh);
+        sharedWith = hostEcdh;
+      }
+      return sharedRef.current!;
     };
+
+    const join = async (hostEcdh: string) => {
+      lastJoin = Date.now();
+      const key = await ensureShared(hostEcdh);
+      const body: JoinBody = { name: me.name, avatar };
+      const msg: JoinEnvelope = { id: me.id, pk: keys!.publicKey, ...(await seal(key, body)) };
+      t.send("join", msg);
+    };
+
     t.onStatus(setStatus);
     t.track(me.id);
-    join();
-    const offRoom = t.on("room", (snap: RoomSnapshot) => {
-      if (snap.seq < lastSeq.current && snap.seq > 5) return; // stale (host restarts reset seq)
-      lastSeq.current = snap.seq;
-      setOffset(snap.hostNow - Date.now());
-      setLastRoomAt(Date.now());
-      setRoom(snap);
-      if (!snap.players.some((p) => p.id === me.id) && Date.now() - lastJoin.current > 3000) join();
-    });
-    const offPriv = t.on("private", (m: PrivateMessage) => {
-      if (m?.to === me.id) setPriv(m.data ?? undefined);
-    });
+    t.send("sync", { id: me.id });
+
+    const offRoom = t.on("room", (msg: SignedRoom) =>
+      queue(async () => {
+        const snap = await receiver.accept(msg);
+        if (!snap || closed) return;
+        gotRoom = true;
+        setOffset(clock(snap.hostNow));
+        setLastRoomAt(Date.now());
+        setRoom(snap);
+        if (snap.kicked?.includes(me.id)) {
+          setKicked(true);
+          return;
+        }
+        await ensureShared(snap.hostEcdh);
+        const self = snap.players.find((p) => p.id === me.id);
+        if (!self) {
+          if (!leftRef.current && Date.now() - lastJoin > 3000) await join(snap.hostEcdh);
+        } else if (self.avatar !== avatar) {
+          // The host gave us a different icon because ours was taken.
+          avatar = self.avatar;
+          saveIdentity({ ...me, avatar, keys });
+        }
+      }),
+    );
+    const offPriv = t.on("private", (m: PrivateEnvelope) =>
+      queue(async () => {
+        if (m?.to !== me.id || !sharedRef.current || closed) return;
+        const body = await open<PrivateBody>(sharedRef.current, m);
+        if (!body || body.epoch !== receiver.epoch) return;
+        if (body.epoch === privEpoch && body.seq <= privSeq) return;
+        privEpoch = body.epoch;
+        privSeq = body.seq;
+        setPriv(body.data ?? undefined);
+      }),
+    );
+    // Keep asking until the host answers (it may still be opening the room).
     const retry = setInterval(() => {
-      if (Date.now() - lastJoin.current > 4000 && !transportRef.current) return;
-      setRoom((r) => {
-        if (!r) join();
-        return r;
-      });
-    }, 4000);
+      if (!gotRoom) t.send("sync", { id: me.id });
+    }, 3000);
     return () => {
+      closed = true;
       offRoom();
       offPriv();
       clearInterval(retry);
       t.close();
       transportRef.current = null;
+      sharedRef.current = null;
     };
   }, [code, me]);
 
@@ -92,13 +149,26 @@ export function usePlayerRoom(code: string, me: Identity | null) {
 
   const send = useCallback(
     (type: string, payload?: unknown) => {
-      if (!me) return;
-      transportRef.current?.send("action", { playerId: me.id, type, payload });
+      const key = sharedRef.current;
+      const t = transportRef.current;
+      if (!me || !key || !t) return;
+      counter.current = Math.max(Date.now(), counter.current + 1);
+      const body: ActionBody = { n: counter.current, type, payload };
+      void seal(key, body).then((sealed) => {
+        const msg: ActionEnvelope = { from: me.id, ...sealed };
+        t.send("action", msg);
+      });
     },
     [me],
   );
 
+  /** Tell the host we're leaving on purpose. */
+  const leave = useCallback(() => {
+    leftRef.current = true;
+    send(LEAVE_ACTION);
+  }, [send]);
+
   const self: Player | undefined = room?.players.find((p) => p.id === me?.id);
-  /** Local time of the last message from the host (0 = never). */
-  return { room, priv, offset, status, send, self, lastRoomAt };
+  /** lastRoomAt: local time of the last genuine message from the host (0 = never). */
+  return { room, priv, offset, status, send, leave, self, kicked, lastRoomAt };
 }

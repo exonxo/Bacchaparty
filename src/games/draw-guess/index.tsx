@@ -63,7 +63,7 @@ interface Priv {
 
 const CHOOSE_FOR = 20_000;
 const REVEAL_FOR = 6_000;
-const MAX_POINTS = 30_000; // total coordinates kept per drawing
+const MAX_POINTS = 12_000; // total coordinates kept per drawing
 const COLORS = ["#1a0b2e", "#ff5a5f", "#4f9dff", "#36c96a", "#ff9933", "#8b5a2b", "#ff4fa3", "#ffd23f"];
 const WIDTHS = [6, 14, 28];
 
@@ -232,7 +232,7 @@ function DrawPad({ turn, send }: { turn: number; send: (t: string, p?: unknown) 
       const pts = buffer.current.splice(0, 400);
       send("stroke", { s: cur.index, c: cur.c, w: cur.w, p: pts });
     };
-    const t = setInterval(flush, 120);
+    const t = setInterval(flush, 250);
     return () => clearInterval(t);
   }, [send]);
 

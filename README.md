@@ -37,7 +37,13 @@ The full rules for every game are in the app at `/games` (source: `src/games/cat
 - **Database:** `rooms` records which signed-in host owns which code. `content_items` is reserved for the future LLM content refresh.
 - **Demo mode:** if the Supabase env vars are missing, login is skipped and rooms sync between tabs of the same browser using `BroadcastChannel`. This is useful for development: open `/host` in one tab and `/join` in others.
 
-> Secrets are sent to phones as broadcast messages that are filtered on the device. A determined player with browser devtools could peek at them. That's fine for a family party game; a server-authoritative design would be needed for anything competitive.
+### Security model
+
+- **Host updates are signed.** The host's device signs every room update (ECDSA P-256, WebCrypto). Phones only accept updates signed with the key the server has on record for that room (`rooms.host_key`), so nobody in the room can fake the host, replay old updates or freeze the game.
+- **Secrets are encrypted per player.** Each phone agrees a secret key with the host (ECDH → AES-GCM). Roles, tickets and words are encrypted for their owner, and a player's actions are encrypted with the same key, so players can't read each other's secrets or act as someone else.
+- **One host device at a time.** A second device opening the host page is asked to take over; the first one then stops.
+- **Rooms table is closed.** After `0002_room_security.sql`, room codes can't be listed; the app only looks them up one at a time through database functions.
+- Still open: anyone with the code can join and can flood the channel with junk (it is ignored, but it uses your Realtime quota), and the code lookup has no rate limit.
 
 ## Run locally
 
@@ -49,7 +55,7 @@ npm run dev            # demo mode, no setup needed
 ## Set up Supabase
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. In **SQL Editor**, run `supabase/migrations/0001_init.sql`.
+2. In **SQL Editor**, run `supabase/migrations/0001_init.sql`, then `supabase/migrations/0002_room_security.sql`.
 3. Go to **Authentication → Sign In / Providers → Google**, enable it and paste a Google OAuth client ID and secret:
    - Create the client in [Google Cloud Console](https://console.cloud.google.com/apis/credentials) under **Create credentials → OAuth client ID → Web application**.
    - Under **Authorized redirect URIs**, add `https://YOUR-PROJECT.supabase.co/auth/v1/callback`.

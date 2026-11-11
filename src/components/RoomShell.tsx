@@ -19,7 +19,7 @@ export function MuteButton() {
         setMuted(!muted);
         setM(!muted);
       }}
-      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.07] text-muted hover:text-ink"
+      className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.07] text-muted hover:text-ink"
     >
       {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
     </button>

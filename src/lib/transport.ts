@@ -7,7 +7,7 @@ import { getBrowserSupabase } from "./supabase/client";
  * broadcast channel; without Supabase it falls back to BroadcastChannel
  * (works between tabs of the same browser — handy for local testing).
  */
-export type RoomEvent = "join" | "action" | "sync" | "room" | "private" | "draw";
+export type RoomEvent = "join" | "action" | "sync" | "room" | "private" | "host";
 
 export interface RoomTransport {
   send(event: RoomEvent, payload: unknown): void;
@@ -49,7 +49,7 @@ class SupabaseTransport implements RoomTransport {
     this.channel = supabase.channel(`room:${code}`, {
       config: { broadcast: { self: false, ack: false } },
     });
-    (["join", "action", "sync", "room", "private", "draw"] as RoomEvent[]).forEach((ev) => {
+    (["join", "action", "sync", "room", "private", "host"] as RoomEvent[]).forEach((ev) => {
       this.channel.on("broadcast", { event: ev }, (msg) => this.emitter.emit(ev, msg.payload));
     });
     this.channel.on("presence", { event: "sync" }, () => {
