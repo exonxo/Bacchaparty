@@ -57,6 +57,7 @@ export interface OptionsFormProps<Opt> {
  * A game runs entirely on the host device ("host-authoritative").
  * Phones send actions, the host reduces them and broadcasts views.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the registry stores heterogeneous games
 export interface GameModule<S = any, Pub = any, Priv = any, Opt = any> {
   id: string;
   defaultOptions: Opt;

@@ -138,12 +138,13 @@ function speak(text: string) {
 
 function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act: (t: string, p?: unknown) => void; now: number }) {
   const spoken = useRef<number | null>(null);
+  const { current, call } = view;
   useEffect(() => {
-    if (view.current && spoken.current !== view.current) {
-      spoken.current = view.current;
-      speak(view.call ?? String(view.current));
+    if (current && spoken.current !== current) {
+      spoken.current = current;
+      speak(call ?? String(current));
     }
-  }, [view.current, view.call]);
+  }, [current, call]);
   const calledSet = new Set(view.called);
   const left = view.nextCallAt ? Math.max(0, Math.ceil((view.nextCallAt - now) / 1000)) : null;
   return (

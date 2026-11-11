@@ -11,6 +11,7 @@ export type RoomEvent = "join" | "action" | "sync" | "room" | "private" | "draw"
 
 export interface RoomTransport {
   send(event: RoomEvent, payload: unknown): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- payloads are validated by each handler
   on(event: RoomEvent, handler: (payload: any) => void): () => void;
   onStatus(handler: (status: "connecting" | "connected" | "error") => void): void;
   /** Presence: who is online right now (player ids). */
@@ -19,6 +20,7 @@ export interface RoomTransport {
   close(): void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- payloads are validated by each handler
 type Handler = (payload: any) => void;
 
 class Emitter {

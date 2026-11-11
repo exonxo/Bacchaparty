@@ -74,6 +74,7 @@ export function HostScreen({ code }: { code: string }) {
             <Panel className="text-center">
               <div className="text-sm font-bold uppercase tracking-widest text-muted">Room code</div>
               <div className="my-2 text-7xl font-extrabold tracking-[0.2em] text-gold">{code}</div>
+              {/* eslint-disable-next-line @next/next/no-img-element -- QR is a generated data URL */}
               {qr && <img src={qr} alt="QR code to join" className="mx-auto w-48 rounded-2xl" />}
               <div className="mt-3 text-muted">Scan or open {shortUrl}/join on your phone</div>
             </Panel>
