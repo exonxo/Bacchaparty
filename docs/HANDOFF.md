@@ -92,6 +92,19 @@ Context for assistants working on `exonxo/Bacchaparty` after the cloud-agent bra
 
 ---
 
+## AI suggestion engine (Gemini)
+
+- **Route:** `POST /api/suggest` — body `{ kind, context, roomCode? }`.
+- **Kinds:** `chor-kaun-topic`, `emoji-puzzle`, `next-game`, `dare`.
+- **Auth:** Signed-in Supabase host only; optional `roomCode` must match `findOwnRoom`. Demo/no-login gets **401** (UI falls back client-side).
+- **Key:** `GEMINI_API_KEY` server env only (see `.env.example`). Never expose to the client.
+- **Model:** `gemini-flash-latest` via Generative Language API; `thinkingBudget: 0`, JSON schema, ~8s timeout.
+- **Resilience:** Validates Gemini JSON; on missing key, timeout, 429, rate limit, or bad output → **built-in fallbacks** (`src/lib/suggest/fallbacks.ts`). Response `{ ok, fallback, data }`.
+- **Limits:** In-memory per-IP/per-room rate limit + short TTL cache (`src/lib/suggest/rate-limit.ts`).
+- **UI:** Paper ✨ chips — Chor Kaun “Fresh topic”, Emoji Picture “New puzzles”, host lobby **What next?** + **Dare / prompt** (`src/components/suggest/*`). Uses `BusyPaperButton` / Chit Shuffle while waiting.
+
+---
+
 ## Useful scripts
 
 - `node scripts/host-refresh-e2e.mjs` — host reload, no takeover prompt.

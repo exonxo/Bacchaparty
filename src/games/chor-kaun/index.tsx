@@ -1,7 +1,11 @@
 "use client";
 import { Check, EyeOff, Tag, Timer as TimerIcon, Vote } from "lucide-react";
+import { useParams } from "next/navigation";
+import { useState } from "react";
+import { SuggestPaperButton } from "@/components/suggest/SuggestPaperButton";
+import { requestSuggest } from "@/lib/suggest/client";
 import { Button, Label, NumberPicker, Panel, PlayerChip, Scoreboard } from "@/components/ui";
-import { CHOR_TOPIC_ALL, resolveRoundTopic, topicById, topicLabel, type ChorTopic, type ChorTopicChoice } from "@/content/chor-kaun";
+import { CHOR_TOPICS, CHOR_TOPIC_ALL, resolveRoundTopic, topicById, topicLabel, type ChorTopic, type ChorTopicChoice } from "@/content/chor-kaun";
 import { HOST_ID, type ControllerProps, type GameModule, type Player, type ScreenProps } from "@/lib/types";
 import { fmt, nameOf, resultText } from "./helpers";
 import { Phone } from "./PaperPhone";
@@ -11,6 +15,8 @@ import { pick, shuffle } from "@/lib/util";
 export interface Options {
   topic: ChorTopicChoice;
   minutes: number;
+  /** AI- or host-added packs merged at runtime (not in defaultOptions). */
+  extraTopics?: ChorTopic[];
 }
 
 export type Reason = "vote" | "timer" | "guess" | "host";
@@ -101,7 +107,7 @@ function pickWords(topic: ChorTopic, used: string[]): { majorityWord: string; ch
 }
 
 function deal(options: Options, participants: string[], now: number, scores: Record<string, number>, round: number, usedMajorityWords: string[]): State {
-  const topic = resolveRoundTopic(options.topic);
+  const topic = resolveRoundTopic(options.topic, options.extraTopics);
   const { majorityWord, chorWord, usedMajorityWords: nextUsed } = pickWords(topic, usedMajorityWords);
   const chorId = pick(participants);
   const nextScores = { ...scores };
@@ -282,10 +288,37 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
 }
 
 function TopicOptionsField({ value, onChange }: { value: Options; onChange: (o: Options) => void }) {
+  const params = useParams();
+  const roomCode = typeof params?.code === "string" ? params.code : undefined;
+  const [loading, setLoading] = useState(false);
+  const [hint, setHint] = useState<string | null>(null);
+
+  const freshTopic = async () => {
+    setLoading(true);
+    try {
+      const { data } = await requestSuggest<ChorTopic>(
+        "chor-kaun-topic",
+        { excludeTopicIds: [...CHOR_TOPICS.map((t) => t.id), ...(value.extraTopics ?? []).map((t) => t.id)] },
+        roomCode,
+      );
+      const extraTopics = [...(value.extraTopics ?? []).filter((t) => t.id !== data.id), data];
+      onChange({ ...value, topic: data.id, extraTopics });
+      setHint(`${data.emoji} ${data.label} · ${data.words.length} words`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div>
-      <div className="mb-2 text-sm font-semibold text-muted">Topic</div>
-      <TopicPickerLobby value={value.topic} onChange={(topic) => onChange({ ...value, topic })} />
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-sm font-semibold text-muted">Topic</div>
+        <SuggestPaperButton loading={loading} onClick={() => void freshTopic()}>
+          ✨ Fresh topic
+        </SuggestPaperButton>
+      </div>
+      {hint && <p className="text-p-note text-muted">{hint}</p>}
+      <TopicPickerLobby value={value.topic} extraTopics={value.extraTopics} onChange={(topic) => onChange({ ...value, topic })} />
     </div>
   );
 }
@@ -329,7 +362,7 @@ const chorKaun: GameModule<State, Pub, Priv, Options> = {
   },
   publicView(s) {
     const { counts } = tally(s);
-    const pack = topicById(s.topicId);
+    const pack = topicById(s.topicId) ?? s.options.extraTopics?.find((t) => t.id === s.topicId);
     const words = pack ? [...pack.words] : [];
     const roundTopic =
       s.options.topic === CHOR_TOPIC_ALL ? `${topicLabel(CHOR_TOPIC_ALL)} · ${s.topicLabel}` : s.topicLabel;

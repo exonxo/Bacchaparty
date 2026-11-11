@@ -32,11 +32,21 @@ export function TopicPicker({ value, onChange, compact }: { value: ChorTopicChoi
 }
 
 /** Host lobby (classic tile style on paper host sheet). */
-export function TopicPickerLobby({ value, onChange }: { value: ChorTopicChoice; onChange: (id: ChorTopicChoice) => void }) {
+export function TopicPickerLobby({
+  value,
+  onChange,
+  extraTopics,
+}: {
+  value: ChorTopicChoice;
+  onChange: (id: ChorTopicChoice) => void;
+  extraTopics?: readonly { id: string; label: string; emoji: string }[];
+}) {
+  const extraLabel = extraTopics?.find((t) => t.id === value)?.label;
+  const label = extraLabel ?? topicLabel(value);
   return (
     <div className="space-y-3">
       <div className="text-sm font-semibold text-muted">
-        Topic: <span className="text-ink">{topicLabel(value)}</span>
+        Topic: <span className="text-ink">{label}</span>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <button
@@ -57,6 +67,19 @@ export function TopicPickerLobby({ value, onChange }: { value: ChorTopicChoice; 
             <div className="truncate font-bold">
               {t.emoji} {t.label}
             </div>
+          </button>
+        ))}
+        {extraTopics?.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onChange(t.id)}
+            className={`rounded-xl border px-3 py-2 text-left ${value === t.id ? "border-saffron bg-saffron/15" : "border-dashed border-line bg-tint"}`}
+          >
+            <div className="truncate font-bold">
+              {t.emoji} {t.label}
+            </div>
+            <div className="text-xs text-muted">✨ Suggested</div>
           </button>
         ))}
       </div>
