@@ -21,10 +21,10 @@ export const COLOR_LABEL: Record<PunoColor, string> = {
 };
 
 export const COLOR_INK: Record<PunoColor, string> = {
-  haldi: "#e2b33c",
-  sindoor: "#c8553d",
-  mehndi: "#3e8e5a",
-  neel: "#3d6fb6",
+  haldi: "#f2b632",
+  sindoor: "#c23a22",
+  mehndi: "#2f7d4f",
+  neel: "#1d4ed8",
 };
 
 export const ACTION_LABEL: Record<ActionKind | "rang-badal" | "chaar-le", string> = {
