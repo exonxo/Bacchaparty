@@ -164,7 +164,7 @@ export function TestBanner({ on, compact }: { on: boolean; compact?: boolean }) 
   if (!on) return null;
   if (compact) {
     return (
-      <p role="status" className="mb-1 text-center text-[9px] font-extrabold uppercase tracking-widest text-muted">
+      <p role="status" className="mb-1 text-center text-[11px] font-extrabold uppercase tracking-widest text-muted">
         Test mode · bots in room
       </p>
     );
