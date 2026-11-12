@@ -57,6 +57,7 @@ export function RoomShell({
   width = "cozy",
   testMode,
   onTestMode,
+  fillViewport,
 }: {
   me: Player | null;
   identity?: Identity | null;
@@ -73,13 +74,15 @@ export function RoomShell({
   width?: ShellWidth;
   testMode?: boolean;
   onTestMode?: (on: boolean) => void;
+  /** Game fills remaining viewport below header (no extra main padding). */
+  fillViewport?: boolean;
 }) {
   const shell = SHELL_WIDTH[width];
   const profileIdentity =
     identity ?? (me ? { id: me.id, name: me.name, avatar: me.avatar } : null);
 
   return (
-    <div className="min-h-dvh" style={{ ["--me" as string]: playerColor(me?.avatar) }}>
+    <div className={fillViewport ? "flex min-h-dvh flex-col" : "min-h-dvh"} style={{ ["--me" as string]: playerColor(me?.avatar) }}>
       <header className="sticky top-0 z-30 border-b-[1.5px] border-line bg-bg pt-[env(safe-area-inset-top)]">
         <div className={`mx-auto flex ${shell} items-center justify-between gap-3 px-4 py-2`}>
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
@@ -146,7 +149,15 @@ export function RoomShell({
           </div>
         </div>
       </header>
-      <div className={`mx-auto ${shell} px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-4`}>{children}</div>
+      <div
+        className={`mx-auto flex w-full ${shell} px-4 ${
+          fillViewport
+            ? "min-h-0 flex-1 flex-col overflow-hidden pb-[env(safe-area-inset-bottom)] pt-1"
+            : "pb-[max(2rem,env(safe-area-inset-bottom))] pt-4"
+        }`}
+      >
+        {children}
+      </div>
       {away && (
         <div className="rise-in fixed inset-x-0 bottom-0 z-40 flex justify-center p-4" role="status">
           <div className="cut flex max-w-md items-center gap-3 rounded-cut bg-card px-4 py-3">

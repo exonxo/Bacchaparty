@@ -307,6 +307,7 @@ function HostRoom({
         title={playingInfo?.name}
         tvHref={tvHref}
         width="cozy"
+        fillViewport={playingMod?.id === "puno"}
         testMode={testMode}
         onTestMode={setTestMode}
         right={
@@ -318,8 +319,10 @@ function HostRoom({
           </>
         }
       >
-        <TestBanner on={testMode} compact={playingMod?.id === "puno"} />
-        <GameStage mod={playingMod} view={view} priv={myPriv} me={mePlayer} players={state.players} send={sendAsMe} now={now} isHost hostAct={act} together={state.together} tvOn={!!state.tvOn} />
+        <div className={playingMod?.id === "puno" ? "flex min-h-0 flex-1 flex-col" : undefined}>
+          <TestBanner on={testMode} compact={playingMod?.id === "puno"} />
+          <GameStage mod={playingMod} view={view} priv={myPriv} me={mePlayer} players={state.players} send={sendAsMe} now={now} isHost={true} hostAct={act} together={state.together} tvOn={!!state.tvOn} />
+        </div>
         {endGameSheet}
         {endPartySheet}
       </RoomShell>

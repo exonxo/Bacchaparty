@@ -92,14 +92,26 @@ function WildHatchMini({ size }: { size: number }) {
   );
 }
 
-function WildGrid({ className = "" }: { className?: string }) {
+/** Four-colour wheel for rang-badal corners at small sizes. */
+function CornerColorWheel({ px }: { px: number }) {
+  const cols = [WILD_QUAD.sindoor, WILD_QUAD.haldi, WILD_QUAD.mehndi, WILD_QUAD.neel];
+  const cx = 8;
+  const cy = 8;
+  const r = 6.5;
   return (
-    <div className={`grid grid-cols-2 grid-rows-2 border-[2px] border-ink ${className}`}>
-      <div className="aspect-square" style={{ background: WILD_QUAD.sindoor }} />
-      <div className="aspect-square" style={{ background: WILD_QUAD.haldi }} />
-      <div className="aspect-square" style={{ background: WILD_QUAD.mehndi }} />
-      <div className="aspect-square" style={{ background: WILD_QUAD.neel }} />
-    </div>
+    <svg width={px} height={px} viewBox="0 0 16 16" className="shrink-0" aria-hidden>
+      <circle cx={cx} cy={cy} r="7.4" fill="#fffdf8" stroke={INK} strokeWidth="1.3" />
+      {cols.map((fill, i) => {
+        const a0 = (i * Math.PI) / 2 - Math.PI / 2;
+        const a1 = ((i + 1) * Math.PI) / 2 - Math.PI / 2;
+        const x0 = cx + Math.cos(a0) * r;
+        const y0 = cy + Math.sin(a0) * r;
+        const x1 = cx + Math.cos(a1) * r;
+        const y1 = cy + Math.sin(a1) * r;
+        return <path key={i} d={`M${cx} ${cy} L${x0} ${y0} A${r} ${r} 0 0 1 ${x1} ${y1} Z`} fill={fill} stroke={INK} strokeWidth="0.6" />;
+      })}
+      <circle cx={cx} cy={cy} r="2.2" fill="#fffdf8" stroke={INK} strokeWidth="0.8" />
+    </svg>
   );
 }
 
@@ -287,7 +299,7 @@ function CornerSlot({ card, size, inverted }: { card: PunoCard; size: CardSize; 
   if (card.value === "ruk-ja") inner = <SlashCircleIcon className={`text-ink ${miniCls}`} />;
   else if (card.value === "ulta") inner = <UltaLoopIcon className={`text-ink ${miniCls}`} />;
   else if (card.value === "do-le") inner = <PlusTwoIcon className="text-xl" />;
-  else if (card.value === "rang-badal") inner = <WildGrid className="w-full max-w-[1.4rem]" />;
+  else if (card.value === "rang-badal") inner = <CornerColorWheel px={Math.max(12, mini)} />;
   else if (card.value === "chaar-le") inner = <PlusFourIcon className="text-xl" light />;
   else inner = <WildHatchMini size={mini} />;
   return <span className={`inline-flex ${spin}`}>{inner}</span>;

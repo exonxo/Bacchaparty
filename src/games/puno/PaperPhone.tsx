@@ -150,7 +150,7 @@ function PlayTable({
   pileRef: RefCallback<HTMLDivElement>;
 }) {
   return (
-    <div className="relative min-h-0 shrink-0 overflow-visible px-2 pb-2 pt-2">
+    <div className="relative min-h-0 shrink-0 overflow-visible px-2 pb-0 pt-1">
       <Sparkle className="absolute left-2 top-2 z-20 text-ink" />
       <Sparkle className="absolute right-[38%] top-1 z-20 text-ink opacity-80" />
       <TurnSticker myTurn={myTurn} />
@@ -188,7 +188,7 @@ function PlayTable({
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="flex min-h-[10.5rem] items-end justify-center gap-4 pb-0 pt-8">
+      <div className="flex min-h-[8.25rem] items-end justify-center gap-3 pb-0 pt-3">
         <DeckStack innerRef={deckRef} onClick={onDraw} />
         <DiscardSpread top={view.top} under={view.discardUnder} wildColor={view.wildColor} pulse={wildPulse} pileRef={pileRef} />
       </div>
@@ -217,7 +217,7 @@ function PlayerFooter({
   countPulse: string | null;
 }) {
   return (
-    <footer className="z-50 mt-auto shrink-0 border-t-[3px] border-ink bg-ink px-2 py-2">
+    <footer data-testid="puno-footer" className="z-50 mt-auto shrink-0 border-t-[3px] border-ink bg-ink px-2 py-2">
       <div className="flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {seats.map((s) => {
           const p = players.find((x) => x.id === s.playerId);
@@ -652,7 +652,7 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
     <MotionConfig transition={spring.settle}>
       <InkDefs />
       <motion.div {...screenIn} className="flex h-full min-h-0 w-full max-w-[393px] flex-col overflow-hidden bg-bg-2 pb-0">
-        <div className="relative grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden" style={TABLE_GRID}>
+        <div className="relative grid min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden" style={TABLE_GRID}>
           <PlayTable
             view={view}
             myTurn={myTurn}
@@ -660,42 +660,43 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
             onDraw={myTurn ? handleDraw : undefined}
             left={left}
             noteText={noteText}
-            noteVisible={noteVisible}
+            noteVisible={noteVisible && !myTurn}
             wildPulse={wildPulse}
             deckRef={deckRef}
             pileRef={pileRef}
           />
 
           {jumpReady && (
-            <p className="pointer-events-none absolute left-0 right-0 top-[38%] z-20 py-0.5 text-center text-[9px] font-extrabold uppercase tracking-wide text-ink/80">
+            <p className="pointer-events-none absolute left-0 right-0 top-[32%] z-20 py-0.5 text-center text-[9px] font-extrabold uppercase tracking-wide text-ink/80">
               Jump · tap match
             </p>
           )}
 
-          <section aria-label="Your cards" className="relative z-10 grid min-h-0 grid-cols-[5.25rem_minmax(0,1fr)] overflow-hidden">
-          <motion.div className="flex flex-col justify-end gap-1 pb-3 pl-1">
+          <div className="z-20 flex shrink-0 flex-col gap-1.5 px-2 py-1">
             {canPass && (
-              <NeoButton className="!min-h-9 !px-2 !text-[10px]" variant="ink" onClick={() => send("pass")}>
+              <NeoButton className="!min-h-8 w-full !px-2 !text-[10px]" variant="ink" onClick={() => send("pass")}>
                 Pass
               </NeoButton>
             )}
             {ekGlow && (
-              <NeoButton className="!min-h-9 !px-2 !text-[10px]" variant="turmeric" onClick={() => send("ek-bacha")}>
+              <NeoButton className="!min-h-8 w-full !px-2 !text-[10px]" variant="turmeric" onClick={() => send("ek-bacha")}>
                 <Megaphone className="mr-0.5 inline h-3.5 w-3.5" /> Ek Bacha!
               </NeoButton>
             )}
             {catchTarget && (
-              <NeoButton className="!min-h-9 !px-2 !text-[10px]" variant="vermilion" onClick={() => send("pakdo", { who: view.ekBacha!.playerId })}>
+              <NeoButton className="!min-h-8 w-full !px-2 !text-[10px]" variant="vermilion" onClick={() => send("pakdo", { who: view.ekBacha!.playerId })}>
                 <Pointer className="mr-0.5 inline h-3.5 w-3.5" /> Pakdo!
               </NeoButton>
             )}
-            <button type="button" className="text-left text-[9px] font-bold uppercase text-ink underline" onClick={() => setSheet("help")}>
+            <button type="button" className="w-fit text-left text-[9px] font-bold uppercase text-ink underline" onClick={() => setSheet("help")}>
               Hint
             </button>
-          </motion.div>
+          </div>
+
+          <section aria-label="Your cards" className="relative z-10 min-h-0 overflow-hidden">
           <div
             ref={scrollRef}
-            className="flex h-full w-full touch-pan-x items-end overflow-x-auto overflow-y-visible overscroll-x-contain px-4 pb-3 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex h-full w-full touch-pan-x items-end overflow-x-auto overflow-y-visible overscroll-x-contain px-3 pb-2 pt-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             <motion.div
               className="mx-auto flex items-end justify-start pl-2 pr-20"

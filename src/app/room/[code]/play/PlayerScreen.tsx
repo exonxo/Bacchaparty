@@ -92,6 +92,7 @@ export function PlayerScreen({ code }: { code: string }) {
       title={room?.phase === "playing" ? info?.name : undefined}
       away={away}
       width={room?.phase === "playing" ? "cozy" : "wide"}
+      fillViewport={room?.phase === "playing" && mod?.id === "puno"}
       right={
         <button
           aria-label="Leave party"
@@ -152,19 +153,21 @@ export function PlayerScreen({ code }: { code: string }) {
               </button>
             </div>
           )}
-          <GameStage
-            mod={mod}
-            view={room.view}
-            priv={priv}
-            me={player}
-            players={room.players}
-            send={send}
-            now={now}
-            isHost={false}
-            hostAct={noop}
-            together={room.together}
-            tvOn={!!room.tvOn}
-          />
+          <div className={mod?.id === "puno" ? "flex min-h-0 flex-1 flex-col" : undefined}>
+            <GameStage
+              mod={mod}
+              view={room.view}
+              priv={priv}
+              me={player}
+              players={room.players}
+              send={send}
+              now={now}
+              isHost={false}
+              hostAct={noop}
+              together={room.together}
+              tvOn={!!room.tvOn}
+            />
+          </div>
         </>
       )}
 
