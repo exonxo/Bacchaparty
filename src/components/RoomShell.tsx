@@ -156,7 +156,7 @@ export function RoomShell({
         className={`mx-auto flex w-full ${shell} px-4 ${
           fillViewport
             ? "min-h-0 flex-1 flex-col overflow-hidden pb-[env(safe-area-inset-bottom)] pt-1"
-            : "pb-[max(2rem,env(safe-area-inset-bottom))] pt-4"
+            : "flex-col pb-[max(2rem,env(safe-area-inset-bottom))] pt-4"
         }`}
       >
         {children}
