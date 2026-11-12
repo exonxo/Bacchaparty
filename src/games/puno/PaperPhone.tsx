@@ -21,6 +21,7 @@ import {
   TAG_CAPS,
   radialPose,
   fanMessyOffset,
+  seedDecorativePile,
 } from "./Cards";
 import { CardFlightLayer, centerOf, throwFromPan, type CardFlightRequest } from "./CardFlight";
 import { fanSpring, pileSpring, slapSpring, snapSpring } from "./springs";
@@ -58,7 +59,10 @@ function DiscardSpread({
   pulse?: boolean;
   pileRef: RefCallback<HTMLDivElement>;
 }) {
-  const layers = under.slice(-10);
+  const layers = useMemo(() => {
+    const merged = under.length >= 5 ? under : [...seedDecorativePile(top), ...under];
+    return merged.slice(-10);
+  }, [top, under]);
   const reduce = useReducedMotion();
   return (
     <motion.div
@@ -171,20 +175,20 @@ function PlayTable({
       >
         <ArrowDown className="h-4 w-4" strokeWidth={3} />
       </motion.div>
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {noteVisible && noteText && (
           <motion.div
-            key={noteText}
+            key={view.note?.at ?? noteText}
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="pointer-events-none absolute left-1/2 top-[38%] z-40 max-w-[92%] -translate-x-1/2 border-[3px] border-ink bg-card/95 px-2 py-1 text-center font-display text-[9px] font-extrabold uppercase shadow-[3px_3px_0_0_var(--ink)]"
+            exit={{ opacity: 0, transition: { duration: 0.12 } }}
+            className="pointer-events-none absolute left-1/2 top-[34%] z-40 max-w-[90%] -translate-x-1/2 border-[3px] border-ink bg-card px-2 py-1 text-center font-display text-[9px] font-extrabold uppercase shadow-[3px_3px_0_0_var(--ink)]"
           >
             {noteText}
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="flex h-full items-end justify-center gap-4 pb-1 pt-12">
+      <div className="flex min-h-[10.5rem] items-end justify-center gap-4 pb-0 pt-8">
         <DeckStack innerRef={deckRef} onClick={onDraw} />
         <DiscardSpread top={view.top} under={view.discardUnder} wildColor={view.wildColor} pulse={wildPulse} pileRef={pileRef} />
       </div>
@@ -212,11 +216,10 @@ function PlayerFooter({
   setChipRef: (id: string, el: HTMLDivElement | null) => void;
   countPulse: string | null;
 }) {
-  const others = seats.filter((s) => s.playerId !== meId);
   return (
-    <footer className="z-50 shrink-0 border-t-[3px] border-ink bg-ink px-2 py-2.5">
+    <footer className="z-50 mt-auto shrink-0 border-t-[3px] border-ink bg-ink px-2 py-2">
       <div className="flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {others.map((s) => {
+        {seats.map((s) => {
           const p = players.find((x) => x.id === s.playerId);
           const on = s.playerId === turnPlayerId;
           const oneLeft = counts[s.playerId] === 1;
@@ -225,8 +228,8 @@ function PlayerFooter({
             <div
               key={s.playerId}
               ref={(el) => setChipRef(s.playerId, el)}
-              className={`relative flex min-w-[6.5rem] shrink-0 items-center gap-2 rounded-md border-[2.5px] bg-paper px-2 py-1.5 ${
-                on ? "border-turmeric shadow-[0_0_0_2px_var(--turmeric)]" : "border-paper"
+              className={`relative flex min-w-[6rem] shrink-0 items-center gap-2 rounded-md border-[2.5px] bg-paper px-2 py-1.5 ${
+                s.playerId === meId ? "border-ink ring-1 ring-ink/20" : on ? "border-turmeric shadow-[0_0_0_2px_var(--turmeric)]" : "border-paper"
               }`}
             >
               <MiniCardBack />
@@ -364,9 +367,10 @@ function SwipeableCard({
         transformOrigin: "50% 92%",
         opacity: hidden ? 0 : 1,
       }}
-      className="shrink-0"
-      drag={selected && !hidden ? true : false}
-      dragConstraints={{ top: -200, bottom: 12, left: -48, right: 48 }}
+      className={`shrink-0 ${selected ? "touch-none" : "touch-pan-x"}`}
+      drag={selected && !hidden ? "y" : false}
+      dragDirectionLock
+      dragConstraints={{ top: -200, bottom: 12, left: 0, right: 0 }}
       dragElastic={0.12}
       onDragEnd={onEnd}
       animate={{ scale, y: hidden ? lift : lift }}
@@ -394,7 +398,6 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   const [wildPulse, setWildPulse] = useState(false);
   const [countPulse, setCountPulse] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const fanX = useMotionValue(0);
   const deckEl = useRef<HTMLDivElement | null>(null);
   const pileEl = useRef<HTMLDivElement | null>(null);
   const chipEls = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -526,21 +529,30 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
     const from = centerOf(deckEl.current);
     if (!from) return;
     const flyIn = () => {
-      const slot = centerOf(cardEls.current.get(card.id) ?? null) ?? fanCenter();
-      if (!slot) return;
-      enqueue({
-        key: `draw-self-${card.id}`,
-        kind: "draw-self",
-        card,
-        from,
-        to: slot,
-        flip: true,
-        vy: -200,
-        size: "fan",
-      });
+      const el = cardEls.current.get(card.id);
+      const scroller = scrollRef.current;
+      if (el && scroller) {
+        const target = el.offsetLeft - scroller.clientWidth / 2 + el.clientWidth / 2;
+        scroller.scrollTo({ left: Math.max(0, target), behavior: reduce ? "auto" : "smooth" });
+      }
+      const launch = () => {
+        const slot = centerOf(cardEls.current.get(card.id) ?? null) ?? fanCenter();
+        if (!slot) return;
+        enqueue({
+          key: `draw-self-${card.id}`,
+          kind: "draw-self",
+          card,
+          from,
+          to: slot,
+          flip: true,
+          vy: -200,
+          size: "fan",
+        });
+      };
+      window.setTimeout(launch, reduce ? 60 : 300);
     };
     requestAnimationFrame(flyIn);
-  }, [hand, handKey, enqueue, fanCenter]);
+  }, [hand, handKey, enqueue, fanCenter, reduce]);
 
   useEffect(() => {
     if (lastPlayId.current === null && view.lastPlay) lastPlayId.current = view.lastPlay.id;
@@ -639,8 +651,8 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   return (
     <MotionConfig transition={spring.settle}>
       <InkDefs />
-      <motion.div {...screenIn} className="flex h-full min-h-0 w-full max-w-[393px] flex-col overflow-hidden bg-bg-2">
-        <div className="relative flex min-h-0 flex-1 flex-col overflow-visible" style={TABLE_GRID}>
+      <motion.div {...screenIn} className="flex h-full min-h-0 w-full max-w-[393px] flex-col overflow-hidden bg-bg-2 pb-0">
+        <div className="relative grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden" style={TABLE_GRID}>
           <PlayTable
             view={view}
             myTurn={myTurn}
@@ -660,18 +672,34 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
             </p>
           )}
 
-          <section aria-label="Your cards" className="relative z-10 -mb-[72px] min-h-0 flex-1 overflow-visible">
-          <motion.div
+          <section aria-label="Your cards" className="relative z-10 grid min-h-0 grid-cols-[5.25rem_minmax(0,1fr)] overflow-hidden">
+          <motion.div className="flex flex-col justify-end gap-1 pb-3 pl-1">
+            {canPass && (
+              <NeoButton className="!min-h-9 !px-2 !text-[10px]" variant="ink" onClick={() => send("pass")}>
+                Pass
+              </NeoButton>
+            )}
+            {ekGlow && (
+              <NeoButton className="!min-h-9 !px-2 !text-[10px]" variant="turmeric" onClick={() => send("ek-bacha")}>
+                <Megaphone className="mr-0.5 inline h-3.5 w-3.5" /> Ek Bacha!
+              </NeoButton>
+            )}
+            {catchTarget && (
+              <NeoButton className="!min-h-9 !px-2 !text-[10px]" variant="vermilion" onClick={() => send("pakdo", { who: view.ekBacha!.playerId })}>
+                <Pointer className="mr-0.5 inline h-3.5 w-3.5" /> Pakdo!
+              </NeoButton>
+            )}
+            <button type="button" className="text-left text-[9px] font-bold uppercase text-ink underline" onClick={() => setSheet("help")}>
+              Hint
+            </button>
+          </motion.div>
+          <div
             ref={scrollRef}
-            className="flex h-full w-full items-end overflow-x-auto overflow-y-visible pb-[78px] pt-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            drag={hand.length > 5 ? "x" : false}
-            dragConstraints={{ left: -Math.max(0, hand.length * 48 - 360), right: 0 }}
-            style={{ x: fanX }}
-            dragElastic={0.08}
+            className="flex h-full w-full touch-pan-x items-end overflow-x-auto overflow-y-visible overscroll-x-contain px-4 pb-3 pt-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             <motion.div
-              className="mx-auto flex items-end justify-start px-3 pr-24"
-              style={{ minWidth: hand.length > 5 ? `${hand.length * (FAN_CARD.w + overlap + 8)}px` : "100%" }}
+              className="mx-auto flex items-end justify-start pl-2 pr-20"
+              style={{ minWidth: hand.length > 4 ? `${hand.length * (FAN_CARD.w + overlap + 14)}px` : "100%" }}
               animate={reduce ? undefined : { rotate: [0, 0.32, 0, -0.32, 0] }}
               transition={reduce ? undefined : { duration: 6.8, repeat: Infinity, ease: "easeInOut" }}
             >
@@ -703,34 +731,13 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
                 );
               })}
             </motion.div>
-          </motion.div>
+          </div>
 
           {scrollHint && overflowN > 0 && (
-            <span className="pointer-events-none absolute bottom-[86px] left-2 border-2 border-ink bg-paper px-1.5 py-0.5 text-[10px] font-extrabold shadow-[3px_3px_0_0_var(--ink)]">
+            <span className="pointer-events-none absolute right-3 top-0 z-20 border-2 border-ink bg-paper px-1.5 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0_0_var(--ink)]">
               +{overflowN} · swipe
             </span>
           )}
-
-          <div className="pointer-events-none absolute bottom-[82px] right-1 z-50 flex flex-col items-end gap-1.5">
-            <div className="pointer-events-auto flex flex-col items-stretch gap-1.5">
-              {canPass && (
-                <NeoButton className="!min-h-9 !px-3 !text-[11px]" variant="ink" onClick={() => send("pass")}>
-                  Pass
-                </NeoButton>
-              )}
-              <NeoButton className="!min-h-9 !px-2 !text-[10px]" variant={ekGlow ? "turmeric" : "paper"} onClick={() => send("ek-bacha")}>
-                <Megaphone className="mr-0.5 inline h-3.5 w-3.5" /> Ek Bacha!
-              </NeoButton>
-              {catchTarget && (
-                <NeoButton className="!min-h-9 !px-2 !text-[10px]" variant="vermilion" onClick={() => send("pakdo", { who: view.ekBacha!.playerId })}>
-                  <Pointer className="mr-0.5 inline h-3.5 w-3.5" /> Pakdo!
-                </NeoButton>
-              )}
-              <button type="button" className="self-end text-[9px] font-bold uppercase text-ink underline" onClick={() => setSheet("help")}>
-                Hint
-              </button>
-            </div>
-          </div>
         </section>
         </div>
 

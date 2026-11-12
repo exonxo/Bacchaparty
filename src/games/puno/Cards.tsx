@@ -28,15 +28,15 @@ export const TABLE_CARD = { w: 92, h: 132 };
 
 type CardSize = "hand" | "fan" | "pile" | "table" | "small" | "tv";
 
-type Dim = { w: number; h: number; border: number; shadow: number; tag: string; center: string; icon: number; lift: number };
+type Dim = { w: number; h: number; border: number; shadow: number; corner: string; center: string; cornerIcon: number; lift: number };
 
 const DIM: Record<CardSize, Dim> = {
-  fan: { w: FAN_CARD.w, h: FAN_CARD.h, border: 4, shadow: 5, tag: "text-[9px] px-2 py-0.5", center: "text-[4.5rem]", icon: 14, lift: 24 },
-  pile: { w: TABLE_CARD.w, h: TABLE_CARD.h, border: 4, shadow: 4, tag: "text-[8px] px-1.5 py-0.5", center: "text-[2.4rem]", icon: 11, lift: 8 },
-  table: { w: TABLE_CARD.w, h: TABLE_CARD.h, border: 4, shadow: 4, tag: "text-[8px] px-1.5 py-0.5", center: "text-[2.4rem]", icon: 11, lift: 8 },
-  hand: { w: 58, h: 84, border: 3, shadow: 4, tag: "text-[7px] px-1.5 py-0.5", center: "text-[2rem]", icon: 9, lift: 8 },
-  small: { w: 52, h: 76, border: 3, shadow: 4, tag: "text-[7px] px-1 py-0.5", center: "text-[1.65rem]", icon: 8, lift: 6 },
-  tv: { w: 152, h: 216, border: 5, shadow: 8, tag: "text-sm px-2 py-0.5", center: "text-[5rem]", icon: 18, lift: 12 },
+  fan: { w: FAN_CARD.w, h: FAN_CARD.h, border: 4, shadow: 5, corner: "text-4xl", center: "text-[4.5rem]", cornerIcon: 22, lift: 24 },
+  pile: { w: TABLE_CARD.w, h: TABLE_CARD.h, border: 4, shadow: 4, corner: "text-2xl", center: "text-[2.4rem]", cornerIcon: 14, lift: 8 },
+  table: { w: TABLE_CARD.w, h: TABLE_CARD.h, border: 4, shadow: 4, corner: "text-2xl", center: "text-[2.4rem]", cornerIcon: 14, lift: 8 },
+  hand: { w: 58, h: 84, border: 3, shadow: 4, corner: "text-xl", center: "text-[2rem]", cornerIcon: 11, lift: 8 },
+  small: { w: 52, h: 76, border: 3, shadow: 4, corner: "text-lg", center: "text-[1.65rem]", cornerIcon: 10, lift: 6 },
+  tv: { w: 152, h: 216, border: 5, shadow: 8, corner: "text-5xl", center: "text-[5rem]", cornerIcon: 28, lift: 12 },
 };
 
 function shadowStyle(px: number): CSSProperties {
@@ -53,65 +53,41 @@ function cardIdChar(id: string, i: number) {
   return id.charCodeAt(i) * (i + 1);
 }
 
-function CornerMark({ kind, size }: { kind: number; size: number }) {
-  const stroke = 2;
+/** Circle with slash (Ruk Ja) — readable at small sizes. */
+function SlashCircleIcon({ className = "" }: { className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden className="shrink-0 text-ink">
-      {kind === 0 && <circle cx="8" cy="8" r="5" fill="currentColor" />}
-      {kind === 1 && (
-        <g fill="none" stroke="currentColor" strokeWidth={stroke}>
-          <path d="M4 4 L12 12 M12 4 L4 12" strokeLinecap="square" />
-        </g>
-      )}
-      {kind === 2 && (
-        <g fill="none" stroke="currentColor" strokeWidth={stroke}>
-          <circle cx="8" cy="8" r="3.2" />
-          {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => {
-            const r = (a * Math.PI) / 180;
-            return <line key={a} x1={8 + Math.cos(r) * 4.2} y1={8 + Math.sin(r) * 4.2} x2={8 + Math.cos(r) * 7.2} y2={8 + Math.sin(r) * 7.2} />;
-          })}
-        </g>
-      )}
-      {kind === 3 && (
-        <path fill="currentColor" d="M8 2 C6 6 4 10 4 12 L6 12 C6 10 7 7 8 5 C9 7 10 10 10 12 L12 12 C12 10 10 6 8 2 Z" />
-      )}
-      {kind === 4 && (
-        <g fill="currentColor">
-          <circle cx="8" cy="8" r="2.2" />
-          {[0, 72, 144, 216, 288].map((a) => {
-            const r = (a * Math.PI) / 180;
-            return <ellipse key={a} cx={8 + Math.cos(r) * 4.5} cy={8 + Math.sin(r) * 4.5} rx="2.2" ry="1.1" transform={`rotate(${a} ${8 + Math.cos(r) * 4.5} ${8 + Math.sin(r) * 4.5})`} />;
-          })}
-        </g>
-      )}
+    <svg viewBox="0 0 48 48" className={className} aria-hidden fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="square">
+      <circle cx="24" cy="24" r="17" />
+      <line x1="13" y1="13" x2="35" y2="35" />
     </svg>
   );
 }
 
-function WildHatch({ size }: { size: number }) {
+/** Two circular arrows chasing (Ulta). */
+function UltaLoopIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 64" className={className} aria-hidden fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M46 22 A20 20 0 1 0 24 42" />
+      <polygon points="40,12 46,22 56,18" fill="currentColor" stroke="none" />
+      <path d="M18 42 A20 20 0 1 0 40 22" />
+      <polygon points="24,52 18,42 8,46" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function PlusTwoIcon({ className = "" }: { className?: string }) {
+  return <span className={`font-display font-extrabold leading-none ${className}`}>+2</span>;
+}
+
+function PlusFourIcon({ className = "", light }: { className?: string; light?: boolean }) {
+  return <span className={`font-display font-extrabold leading-none ${className}`} style={{ color: light ? "#fffdf8" : INK }}>+4</span>;
+}
+
+function WildHatchMini({ size }: { size: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
       <rect width="16" height="16" fill={INK} />
-      <path d="M-2 2 L18 22 M-2 6 L18 26 M-2 10 L18 30" stroke="#fffdf8" strokeWidth="1.2" />
-    </svg>
-  );
-}
-
-/** Bold stop / skip motif — no palm or fingers. */
-function StopSkipIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 64 64" className={className} aria-hidden fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="square">
-      <circle cx="32" cy="32" r="22" />
-      <path d="M22 32 H42" />
-    </svg>
-  );
-}
-
-function ReverseIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 80 36" className={className} aria-hidden fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="square">
-      <path d="M4 18 H32 M28 8 L38 18 L28 28" />
-      <path d="M76 18 H48 M52 8 L42 18 L52 28" />
+      <path d="M-2 2 L18 22 M-2 6 L18 26" stroke="#fffdf8" strokeWidth="1.2" />
     </svg>
   );
 }
@@ -134,53 +110,72 @@ function faceBg(card: PunoCard, wildTint?: PunoColor | null): string | undefined
   return FILL[card.color as PunoColor];
 }
 
-function glyphForColor(card: PunoCard): { bl: number; br: number } {
-  if (card.color === "wild" || card.value === "rang-badal" || card.value === "chaar-le") return { bl: 1, br: -1 };
-  const map: Record<PunoColor, { bl: number; br: number }> = {
-    sindoor: { bl: 4, br: 0 },
-    neel: { bl: 1, br: 1 },
-    mehndi: { bl: 3, br: 3 },
-    haldi: { bl: 2, br: 2 },
-  };
-  return map[card.color as PunoColor] ?? { bl: 0, br: 0 };
+export type ActionArtKind = "ruk-ja" | "ulta" | "do-le" | "chaar-le" | "rang-badal";
+
+/** Centre illustration for action cards — swap illustrations here later. */
+export function ActionArt({ kind, size }: { kind: ActionArtKind; size: CardSize }) {
+  const big = size === "fan" || size === "tv";
+  const icon = big ? "h-[5.5rem] w-[5.5rem]" : "h-14 w-14";
+  if (kind === "ruk-ja") return <SlashCircleIcon className={`text-ink ${icon}`} />;
+  if (kind === "ulta") return <UltaLoopIcon className={`text-ink ${icon}`} />;
+  if (kind === "do-le") return <PlusTwoIcon className={big ? "text-[4.5rem]" : "text-[2.2rem]"} />;
+  if (kind === "rang-badal") return <WildGrid className={big ? "w-[4.5rem]" : "w-14"} />;
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <WildGrid className={big ? "w-[3.2rem]" : "w-11"} />
+      <PlusFourIcon className={big ? "text-[4.5rem]" : "text-[2.2rem]"} light />
+    </div>
+  );
 }
 
-function CenterArt({ card, size }: { card: PunoCard; size: CardSize }) {
+function PunoOval({ size }: { size: CardSize }) {
+  const big = size === "fan" || size === "tv";
+  return (
+    <span
+      className={`inline-flex -rotate-12 items-center justify-center rounded-[50%] border-[3px] border-ink bg-[#fffdf8] font-display font-extrabold uppercase tracking-[0.22em] text-ink shadow-[4px_4px_0_0_#1e1a17] ${
+        big ? "h-[4.25rem] w-[7.5rem] text-base" : "h-11 w-20 text-[10px]"
+      }`}
+    >
+      Puno
+    </span>
+  );
+}
+
+function actionKind(card: PunoCard): ActionArtKind {
+  if (card.value === "ruk-ja") return "ruk-ja";
+  if (card.value === "ulta") return "ulta";
+  if (card.value === "do-le") return "do-le";
+  if (card.value === "rang-badal") return "rang-badal";
+  return "chaar-le";
+}
+
+function CornerSlot({ card, size, inverted }: { card: PunoCard; size: CardSize; inverted?: boolean }) {
   const d = DIM[size];
-  const isChaar = card.value === "chaar-le";
-  const fg = isChaar ? "#fffdf8" : INK;
-  const big = size === "fan";
+  const fg = card.value === "chaar-le" ? "#fffdf8" : INK;
+  const spin = inverted ? "rotate-180" : "";
   if (card.kind === "number") {
     return (
-      <span className={`font-display font-extrabold leading-[0.85] tracking-tighter ${d.center}`} style={{ color: fg }}>
+      <span className={`font-display font-extrabold leading-none tabular-nums ${d.corner} ${spin}`} style={{ color: fg, display: "inline-block" }}>
         {card.value}
       </span>
     );
   }
-  if (card.value === "ruk-ja") {
-    return <StopSkipIcon className={`text-ink ${big ? "h-[4.5rem] w-[4.5rem]" : "h-10 w-10"}`} />;
-  }
-  if (card.value === "ulta") {
-    return <ReverseIcon className={big ? "w-[78%] max-w-[9rem]" : "w-12"} />;
-  }
-  if (card.value === "do-le") {
-    return (
-      <span className={`font-display font-extrabold leading-none ${d.center}`} style={{ color: fg }}>
-        +2
-      </span>
-    );
-  }
-  if (card.value === "rang-badal") {
-    return null;
-  }
-  return (
-    <div className="flex flex-col items-center justify-center gap-1.5 leading-none">
-      <WildGrid className={big ? "w-[3.2rem]" : "w-10"} />
-      <span className={`font-display font-extrabold ${d.center}`} style={{ color: fg }}>
-        +4
-      </span>
-    </div>
-  );
+  const mini = d.cornerIcon;
+  const miniCls = mini <= 12 ? "h-3 w-3" : mini <= 16 ? "h-4 w-4" : "h-5 w-5";
+  let inner: ReactNode;
+  if (card.value === "ruk-ja") inner = <SlashCircleIcon className={`text-ink ${miniCls}`} />;
+  else if (card.value === "ulta") inner = <UltaLoopIcon className={`text-ink ${miniCls}`} />;
+  else if (card.value === "do-le") inner = <PlusTwoIcon className="text-xl" />;
+  else if (card.value === "rang-badal") inner = <WildGrid className="w-full max-w-[1.4rem]" />;
+  else if (card.value === "chaar-le") inner = <PlusFourIcon className="text-xl" light />;
+  else inner = <WildHatchMini size={mini} />;
+  return <span className={`inline-flex ${spin}`}>{inner}</span>;
+}
+
+function CenterArt({ card, size }: { card: PunoCard; size: CardSize }) {
+  if (card.kind === "number") return <PunoOval size={size} />;
+  if (card.value === "rang-badal") return null;
+  return <ActionArt kind={actionKind(card)} size={size} />;
 }
 
 export function CardFace({
@@ -207,28 +202,28 @@ export function CardFace({
   const shadowPx = pressed ? Math.max(1, d.shadow - 2) : lift ? d.shadow + 6 : d.shadow;
   const liftY = reduce ? (lift ? -8 : pressed ? 1 : 0) : lift ? -d.lift : pressed ? 2 : 0;
   const bg = faceBg(card, wildTint);
-  const glyphs = glyphForColor(card);
-  const isWild = card.color === "wild" || card.value === "rang-badal" || card.value === "chaar-le";
   const isRangBadal = card.value === "rang-badal";
 
   const shell = (
     <>
       {dim && <div className="pointer-events-none absolute inset-0 z-30 rounded-[14px] bg-ink/[0.08] saturate-[0.72]" aria-hidden />}
       {isRangBadal && (
-        <div className="absolute inset-0 z-0 grid grid-cols-2 grid-rows-2 overflow-hidden rounded-[14px] border-[2px] border-ink">
+        <div className="absolute inset-0 z-0 grid grid-cols-2 grid-rows-2 overflow-hidden rounded-[14px]">
           <div className="h-full w-full" style={{ background: WILD_QUAD.sindoor }} />
           <div className="h-full w-full" style={{ background: WILD_QUAD.haldi }} />
           <div className="h-full w-full" style={{ background: WILD_QUAD.mehndi }} />
           <div className="h-full w-full" style={{ background: WILD_QUAD.neel }} />
         </div>
       )}
-      <motion.div layout={false} className="absolute inset-0 z-[1] flex items-center justify-center px-3 py-3">
+      <span className="absolute left-2.5 top-2.5 z-20">
+        <CornerSlot card={card} size={size} />
+      </span>
+      <span className="absolute bottom-2.5 right-2.5 z-20">
+        <CornerSlot card={card} size={size} inverted />
+      </span>
+      <motion.div layout={false} className="absolute inset-0 z-[1] flex items-center justify-center px-4 py-6">
         <CenterArt card={card} size={size} />
       </motion.div>
-      <span className="absolute bottom-2.5 left-2.5 z-20 h-2 w-2 rounded-full bg-ink" aria-hidden />
-      <span className="absolute bottom-2 right-2 z-20 rounded-sm border-2 border-ink bg-paper p-0.5 shadow-[1px_1px_0_0_#1e1a17]">
-        {isWild ? <WildHatch size={d.icon} /> : <CornerMark kind={glyphs.br} size={d.icon} />}
-      </span>
     </>
   );
 
@@ -300,6 +295,19 @@ export function fanMessyOffset(cardId: string, index: number) {
 
 export function pilePose(cardId: string, layer: number) {
   return radialPose(cardId, layer, 8);
+}
+
+const DECO_COLORS: PunoColor[] = ["haldi", "neel", "mehndi", "sindoor"];
+
+/** Visual-only cards so the discard looks messy from frame one (5–7 under the top). */
+export function seedDecorativePile(top: PunoCard): PunoCard[] {
+  const n = 5 + (hashId(top.id) % 3);
+  return Array.from({ length: n }, (_, i) => ({
+    id: `deco-${top.id}-${i}`,
+    color: DECO_COLORS[(hashId(top.id) + i) % DECO_COLORS.length],
+    kind: "number" as const,
+    value: 1 + ((hashId(top.id) + i * 5) % 9),
+  }));
 }
 
 export function MiniCardBack({ className = "" }: { className?: string }) {
