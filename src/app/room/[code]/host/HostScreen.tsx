@@ -12,6 +12,7 @@ import { BusyPaperButton, CassetteCue, GamesSkeleton, isMusicGameLoader, Shuffle
 import { PaperButton, PaperSheet, Sticker } from "@/components/paper/Paper";
 import { ProfileFields } from "@/components/ProfileForm";
 import { TestBanner } from "@/components/ProfileMenu";
+import { ResultsCard } from "@/components/ResultsCard";
 import { RoomShell, iconButtonClass } from "@/components/RoomShell";
 import { GAMES, getGameInfo } from "@/games/catalog";
 import { getGameModule } from "@/games/modules";
@@ -318,7 +319,7 @@ function HostRoom({
         }
       >
         <TestBanner on={testMode} />
-        <GameStage mod={playingMod} view={view} priv={myPriv} me={mePlayer} players={state.players} send={sendAsMe} now={now} isHost hostAct={act} together={state.together} />
+        <GameStage mod={playingMod} view={view} priv={myPriv} me={mePlayer} players={state.players} send={sendAsMe} now={now} isHost hostAct={act} together={state.together} tvOn={!!state.tvOn} />
         {endGameSheet}
         {endPartySheet}
       </RoomShell>
@@ -392,6 +393,7 @@ function HostRoom({
       right={endPartyControls}
     >
       <TestBanner on={testMode} />
+      <ResultsCard result={state.lastResult} />
       <div className="lg:grid lg:grid-cols-[minmax(0,22rem)_1fr] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,24rem)_1fr] xl:gap-10 min-[1440px]:grid-cols-[minmax(0,26rem)_1fr]">
         <aside className="space-y-6 lg:sticky lg:top-28">
           {invite}

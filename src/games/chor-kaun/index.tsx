@@ -1,14 +1,13 @@
 "use client";
-import { Check, EyeOff, Tag, Timer as TimerIcon, Vote } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { SuggestPaperButton } from "@/components/suggest/SuggestPaperButton";
 import { requestSuggest } from "@/lib/suggest/client";
-import { Button, Label, NumberPicker, Panel, PlayerChip, Scoreboard } from "@/components/ui";
+import { NumberPicker } from "@/components/ui";
 import { CHOR_TOPICS, CHOR_TOPIC_ALL, resolveRoundTopic, topicById, topicLabel, type ChorTopic, type ChorTopicChoice } from "@/content/chor-kaun";
-import { HOST_ID, type ControllerProps, type GameModule, type Player, type ScreenProps } from "@/lib/types";
-import { fmt, nameOf, resultText } from "./helpers";
+import { HOST_ID, type ControllerProps, type GameModule, type Player } from "@/lib/types";
 import { Phone } from "./PaperPhone";
+import { TvScreen } from "./TvScreen";
 import { TopicPickerLobby } from "./TopicPicker";
 import { pick, shuffle } from "@/lib/util";
 
@@ -53,6 +52,8 @@ export interface Pub {
   participants: string[];
   firstAsker: string;
   deadline: number;
+  /** Length of a round in ms, for the timer bar. */
+  roundMs: number;
   voteCounts: Record<string, number>;
   voted: string[];
   topicId: string;
@@ -72,21 +73,6 @@ export interface Pub {
 export type Priv =
   | { chor: true; word: string; myVote: string | null }
   | { chor: false; word: string; myVote: string | null };
-
-/** mm:ss timer pill. */
-function TimerPill({ deadline, now, big = false }: { deadline: number; now: number; big?: boolean }) {
-  const left = Math.max(0, Math.ceil((deadline - now) / 1000));
-  return (
-    <div
-      className={`inline-flex items-center gap-1.5 rounded-full font-display font-bold tabular-nums ${left <= 30 ? "bg-red text-white" : "bg-white/[0.08]"} ${
-        big ? "px-8 py-4 text-6xl" : "px-3 py-1.5 text-base"
-      }`}
-    >
-      <TimerIcon className={big ? "h-12 w-12" : "h-4 w-4"} />
-      {fmt(left)}
-    </div>
-  );
-}
 
 function activeIds(players: Player[], fallback: string[]): string[] {
   const online = players.filter((p) => p.connected).map((p) => p.id);
@@ -181,97 +167,6 @@ function checkMajority(s: State): State {
   return hit ? finish(s, "vote") : s;
 }
 
-function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
-  const parts = view.participants.map((id) => players.find((p) => p.id === id)).filter(Boolean) as Player[];
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-      <div className="space-y-6">
-        {view.phase === "playing" ? (
-          <Panel className="space-y-5 py-8 text-center">
-            <Label>Round {view.round}</Label>
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-4 py-2 text-lg">
-              <Tag className="h-5 w-5 text-saffron" />
-              Topic: <span className="font-bold text-saffron">{view.topicLabel}</span>
-            </div>
-            <div className="flex items-center justify-center gap-3 font-display text-4xl font-black">
-              <EyeOff className="h-9 w-9 text-saffron" /> Check your phone secretly
-            </div>
-            <div className="text-2xl">
-              <span className="font-bold text-saffron">{nameOf(players, view.firstAsker)}</span> asks the first question.
-            </div>
-            <TimerPill deadline={view.deadline} now={now} big />
-            <div className="text-muted">Vote anytime on your phone. The Chor can guess the real word anytime.</div>
-            {!spectator && (
-              <Button tone="ghost" onClick={() => confirm("Stop the round and count votes now?") && act("end")}>
-                Stop & count votes
-              </Button>
-            )}
-          </Panel>
-        ) : (
-          view.reveal && (
-            <Panel className="pop-in space-y-4 py-8 text-center">
-              <Tag className="mx-auto h-12 w-12 text-saffron" />
-              <div className="text-xl text-muted">
-                Topic: {view.reveal.topicLabel} · The word was
-              </div>
-              <div className="font-display text-5xl font-black text-saffron">{view.reveal.majorityWord}</div>
-              <div className="text-lg text-muted">Chor had: {view.reveal.chorWord}</div>
-              <div className="text-2xl font-bold">{resultText(view.reveal.result, players, view.reveal.chorId)}</div>
-              <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-2">
-                {parts.map((p) => (
-                  <PlayerChip
-                    key={p.id}
-                    player={p}
-                    highlight={p.id === view.reveal!.chorId}
-                    extra={<span className="text-sm opacity-80">· {p.id === view.reveal!.chorId ? "Chor" : "In the know"}</span>}
-                  />
-                ))}
-              </div>
-              {!spectator && (
-                <Button size="lg" onClick={() => act("next")}>
-                  Next round
-                </Button>
-              )}
-            </Panel>
-          )
-        )}
-        <Panel>
-          <Label className="mb-3">Votes</Label>
-          <div className="flex flex-wrap gap-2">
-            {parts.map((p) => (
-              <PlayerChip
-                key={p.id}
-                player={p}
-                extra={
-                  <span className="flex items-center gap-1 text-sm">
-                    {view.voted.includes(p.id) ? <Check className="h-4 w-4 text-green" /> : <span className="text-muted">…</span>}
-                    {view.voteCounts[p.id] ? (
-                      <span className="flex items-center gap-0.5 text-saffron">
-                        <Vote className="h-3.5 w-3.5" /> {view.voteCounts[p.id]}
-                      </span>
-                    ) : null}
-                  </span>
-                }
-              />
-            ))}
-          </div>
-        </Panel>
-        <Panel>
-          <Label className="mb-3">Words this round</Label>
-          <div className="flex flex-wrap gap-2">
-            {view.wordChoices.map((w) => (
-              <span key={w} className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-3 py-1 text-sm">
-                {w}
-              </span>
-            ))}
-          </div>
-        </Panel>
-      </div>
-      <Scoreboard players={players} scores={view.scores} />
-    </div>
-  );
-}
-
 const noop = () => {};
 
 function Controller(props: ControllerProps<Pub, Priv>) {
@@ -333,6 +228,7 @@ function TopicOptionsField({ value, onChange }: { value: Options; onChange: (o: 
 const chorKaun: GameModule<State, Pub, Priv, Options> = {
   id: "chor-kaun",
   paper: true,
+  tvPaper: true,
   defaultOptions: { topic: CHOR_TOPIC_ALL, minutes: 8 },
   OptionsForm,
   init({ players, options, now }) {
@@ -379,6 +275,7 @@ const chorKaun: GameModule<State, Pub, Priv, Options> = {
       participants: s.participants,
       firstAsker: s.firstAsker,
       deadline: s.deadline,
+      roundMs: s.options.minutes * 60_000,
       voteCounts: s.phase === "reveal" ? counts : {},
       voted: Object.keys(s.votes),
       topicId: s.topicId,
@@ -404,7 +301,7 @@ const chorKaun: GameModule<State, Pub, Priv, Options> = {
     if (id === s.chorId) return { chor: true, word: s.chorWord, myVote };
     return { chor: false, word: s.majorityWord, myVote };
   },
-  Screen,
+  Screen: TvScreen,
   Controller,
   Phone,
 };

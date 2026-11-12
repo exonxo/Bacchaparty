@@ -1,10 +1,9 @@
 "use client";
-import { Avatar } from "@/components/Avatar";
-import { Button, Panel, PlayerChip, Scoreboard } from "@/components/ui";
 import { KBC_QUESTIONS, type KbcQuestion } from "@/content/kbc";
-import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player } from "@/lib/types";
+import { HOST_ID, type ControllerProps, type GameModule, type Level } from "@/lib/types";
 import { shuffle } from "@/lib/util";
 import { Phone } from "./PaperPhone";
+import { TvScreen } from "./Tv";
 
 export const LADDER = 10;
 export const SAFE = 5;
@@ -12,10 +11,9 @@ export const SAFE = 5;
 export const QUESTION_MS = 30_000;
 /** A hot-seat player who's been disconnected this long is skipped. */
 const AWAY_MS = 10_000;
-const LETTERS = ["A", "B", "C", "D"];
-const LEVEL_LABEL: Record<Level, string> = { kids: "Kids", family: "Family", adults: "Grown-ups" };
 
-export type Phase = "pick" | "level" | "question" | "locked" | "reveal" | "over";
+/** "over": one hot seat finished. "final": the whole game is over (everyone played, or the host ended it). */
+export type Phase = "pick" | "level" | "question" | "locked" | "reveal" | "over" | "final";
 
 interface Question {
   q: string;
@@ -140,222 +138,14 @@ function toPick(s: State): State {
   return { ...s, phase: "pick", hotSeat: null, question: null, result: null, deadline: null, pausedLeft: null, timedOut: false, hotAwaySince: null };
 }
 
+function toFinal(s: State): State {
+  return { ...s, phase: "final", hotSeat: null, question: null, deadline: null, pausedLeft: null, timedOut: false, hotAwaySince: null };
+}
+
 function scoresOf(s: State): Record<string, number> {
   const out: Record<string, number> = {};
   for (const id of new Set([...Object.keys(s.best), ...Object.keys(s.bonus)])) out[id] = (s.best[id] ?? 0) + (s.bonus[id] ?? 0);
   return out;
-}
-
-function Ladder({ rung, phase }: { rung: number; phase: Phase }) {
-  return (
-    <Panel className="space-y-1">
-      {Array.from({ length: LADDER }, (_, i) => LADDER - 1 - i).map((i) => {
-        const done = i < rung || (i === rung && phase === "reveal");
-        const current = i === rung && phase !== "pick" && phase !== "level";
-        return (
-          <div
-            key={i}
-            className={`flex items-center justify-between rounded-xl px-3 py-1.5 text-lg font-bold ${
-              current ? "bg-saffron text-bg" : done ? "bg-green/25 text-green" : "text-muted"
-            }`}
-          >
-            <span>Level {i + 1}</span>
-            <span>{i + 1 === LADDER ? "🏆" : i + 1 === SAFE ? "🛡️ safe" : ""}</span>
-          </div>
-        );
-      })}
-    </Panel>
-  );
-}
-
-function OptionGrid({
-  options,
-  removed,
-  highlight,
-  correct,
-  onPick,
-  big,
-}: {
-  options: string[];
-  removed: number[];
-  highlight: number | null;
-  correct: number | null;
-  onPick?: (i: number) => void;
-  big?: boolean;
-}) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {options.map((opt, i) => {
-        const gone = removed.includes(i);
-        const isCorrect = correct === i;
-        const isWrongPick = correct !== null && highlight === i && !isCorrect;
-        const cls = isCorrect
-          ? "bg-green text-bg border-green"
-          : isWrongPick
-            ? "bg-red text-white border-red"
-            : highlight === i
-              ? "bg-saffron text-bg border-saffron"
-              : "bg-white/5 border-white/15";
-        return (
-          <button
-            key={i}
-            disabled={!onPick || gone}
-            onClick={() => onPick?.(i)}
-            className={`flex items-center gap-3 rounded-2xl border-2 px-4 text-left font-bold transition ${cls} ${gone ? "opacity-20" : ""} ${
-              big ? "py-5 text-2xl" : "py-4 text-lg"
-            }`}
-          >
-            <span className="text-gold">{LETTERS[i]}.</span>
-            <span>{gone ? "" : opt}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function FamilyBars({ counts }: { counts: number[] }) {
-  const total = counts.reduce((a, b) => a + b, 0) || 1;
-  return (
-    <div className="grid grid-cols-4 gap-3">
-      {counts.map((c, i) => (
-        <div key={i} className="flex flex-col items-center gap-1">
-          <div className="flex h-28 w-full items-end overflow-hidden rounded-xl bg-white/5">
-            <div className="w-full bg-teal transition-all" style={{ height: `${(c / total) * 100}%` }} />
-          </div>
-          <div className="font-bold">
-            {LETTERS[i]} · {Math.round((c / total) * 100)}%
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function nameOf(players: Player[], id: string | null) {
-  return players.find((p) => p.id === id)?.name ?? "Player";
-}
-
-function Screen({ view, players, act, spectator }: { view: Pub; players: Player[]; act: (t: string, p?: unknown) => void; now: number; spectator?: boolean }) {
-  if (spectator) act = () => {};
-  const hot = players.find((p) => p.id === view.hotSeat);
-  if (view.phase === "pick") {
-    return (
-      <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-        <Panel>
-          <div className="text-3xl font-extrabold">Who’s in the hot seat? 🔥</div>
-          <p className="mt-1 text-muted">Tap a player. Everyone else plays along on their phones for bonus points.</p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            {players
-              .filter((p) => p.connected)
-              .map((p) => (
-                <button key={p.id} onClick={() => act("hotseat", p.id)} className="rounded-2xl bg-white/10 px-5 py-3 text-xl font-bold hover:bg-saffron hover:text-bg">
-                  <Avatar id={p.avatar} /> {p.name} {view.played.includes(p.id) && <span className="text-sm opacity-70">✓ played</span>}
-                </button>
-              ))}
-          </div>
-        </Panel>
-        <Scoreboard players={players} scores={view.scores} />
-      </div>
-    );
-  }
-  if (view.phase === "level") {
-    return (
-      <Panel className="py-16 text-center">
-        <div className="text-6xl"><Avatar id={hot?.avatar} /></div>
-        <div className="mt-3 text-4xl font-extrabold">{hot?.name} is in the hot seat!</div>
-        <div className="mt-2 text-xl text-muted">Choose your level on your phone: Kids, Family or Grown-ups.</div>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-sm">
-          <span className="text-muted">Wrong person?</span>
-          {players
-            .filter((p) => p.connected && p.id !== view.hotSeat)
-            .map((p) => (
-              <button key={p.id} onClick={() => act("hotseat", p.id)} className="rounded-full bg-white/10 px-3 py-1 font-semibold hover:bg-white/20">
-                <Avatar id={p.avatar} /> {p.name}
-              </button>
-            ))}
-        </div>
-      </Panel>
-    );
-  }
-  if (view.phase === "over" && view.result) {
-    const r = view.result;
-    return (
-      <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-        <Panel className="py-12 text-center">
-          <div className="text-7xl">{r.how === "champion" ? "🏆" : r.how === "quit" ? "🙏" : "💫"}</div>
-          <div className="mt-4 text-4xl font-extrabold">
-            {r.how === "champion" ? `${nameOf(players, r.playerId)} is the Champion!` : `${nameOf(players, r.playerId)} finishes at Level ${r.won}`}
-          </div>
-          <div className="mt-2 text-xl text-muted">
-            {r.how === "quit" ? "Walked away safely." : r.how === "wrong" ? (r.won ? "Saved by the safe level!" : "Better luck next time!") : "All 10 levels cleared!"}
-          </div>
-          <Button size="xl" className="mt-8" onClick={() => act("nextSeat")}>
-            Next hot seat ▶
-          </Button>
-        </Panel>
-        <Scoreboard players={players} scores={view.scores} />
-      </div>
-    );
-  }
-  const q = view.question!;
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_16rem]">
-      <div className="space-y-5">
-        <div className="flex flex-wrap items-center gap-3">
-          {hot && <PlayerChip player={hot} highlight />}
-          <span className="rounded-full bg-white/10 px-3 py-1 font-semibold">{view.level && LEVEL_LABEL[view.level]} questions</span>
-          <span className="rounded-full bg-white/10 px-3 py-1 font-semibold">
-            Audience answered: {view.answered.length}/{view.audienceCount}
-          </span>
-          <span className={`rounded-full px-3 py-1 font-semibold ${view.lifelines.fifty ? "bg-white/5 text-muted line-through" : "bg-teal/20 text-teal"}`}>50:50</span>
-          <span className={`rounded-full px-3 py-1 font-semibold ${view.lifelines.family ? "bg-white/5 text-muted line-through" : "bg-teal/20 text-teal"}`}>
-            Ask the Family
-          </span>
-        </div>
-        <Panel className="py-8 text-center">
-          <div className="text-sm font-bold uppercase tracking-widest text-gold">Level {view.rung + 1}</div>
-          <div className="mt-2 text-4xl font-extrabold leading-tight">{q.q}</div>
-        </Panel>
-        <OptionGrid options={q.options} removed={view.removed} highlight={view.hotAnswer} correct={view.phase === "reveal" ? view.answer : null} big />
-        {view.family && (
-          <Panel>
-            <div className="mb-2 font-bold text-teal">Ask the Family — how the audience voted</div>
-            <FamilyBars counts={view.family} />
-          </Panel>
-        )}
-        <div className="flex flex-wrap items-center gap-3">
-          {view.phase === "question" && <div className="text-xl text-muted">Waiting for {hot?.name} to lock an answer…</div>}
-          {view.phase === "locked" && (
-            <Button size="xl" onClick={() => act("reveal")}>
-              Reveal answer 🥁
-            </Button>
-          )}
-          {view.phase === "reveal" && view.hotAnswer === view.answer && view.rung < LADDER - 1 && (
-            <>
-              <div className="text-2xl font-extrabold text-green">Correct! 🎉</div>
-              <Button size="xl" onClick={() => act("next")}>
-                Next question ▶
-              </Button>
-            </>
-          )}
-          {view.phase === "reveal" && (view.hotAnswer !== view.answer || view.rung === LADDER - 1) && (
-            <>
-              <div className={`text-2xl font-extrabold ${view.hotAnswer === view.answer ? "text-gold" : "text-red"}`}>
-                {view.hotAnswer === view.answer ? "Champion! 🏆" : "Oh no, wrong answer!"}
-              </div>
-              <Button size="xl" onClick={() => act("finish")}>
-                See result ▶
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-      <div className="space-y-4">
-        <Ladder rung={view.rung} phase={view.phase} />
-      </div>
-    </div>
-  );
 }
 
 function Controller(props: ControllerProps<Pub, Priv>) {
@@ -365,6 +155,7 @@ function Controller(props: ControllerProps<Pub, Priv>) {
 const game: GameModule<State, Pub, Priv, Record<string, never>> = {
   id: "kaun-banega-champion",
   paper: true,
+  tvPaper: true,
   defaultOptions: {},
   init({ players }) {
     return {
@@ -424,7 +215,23 @@ const game: GameModule<State, Pub, Priv, Record<string, never>> = {
         if (!right) return { ...finishRun(s, s.rung >= SAFE ? SAFE : 0, "wrong"), phase: "over" };
         return s;
       }
-      if (a.type === "nextSeat" && s.phase === "over") return toPick(s);
+      if (a.type === "nextSeat" && s.phase === "over") {
+        // Everyone in the room has had a turn: show the final results instead of another pick.
+        const online = players.filter((p) => p.connected);
+        if (online.length > 0 && online.every((p) => s.played.includes(p.id))) return toFinal(s);
+        return toPick(s);
+      }
+      // "Khel khatam": the host ends the game and everyone sees the final results.
+      if (a.type === "final" && (s.phase === "pick" || s.phase === "over") && s.played.length > 0) return toFinal(s);
+      if (a.type === "again" && s.phase === "final") {
+        return {
+          ...toPick(s),
+          best: Object.fromEntries(players.map((p) => [p.id, 0])),
+          bonus: {},
+          played: [],
+          used: [],
+        };
+      }
       return s;
     }
     const isHot = a.playerId === s.hotSeat;
@@ -503,7 +310,7 @@ const game: GameModule<State, Pub, Priv, Record<string, never>> = {
   privateView(s, id) {
     return { myAnswer: s.audience[id] ?? null };
   },
-  Screen: (props) => <Screen {...props} view={{ ...props.view, audienceCount: props.players.filter((p) => p.connected && p.id !== props.view.hotSeat).length }} />,
+  Screen: (props) => <TvScreen {...props} view={{ ...props.view, audienceCount: props.players.filter((p) => p.connected && p.id !== props.view.hotSeat).length }} />,
   Controller,
   Phone,
 };

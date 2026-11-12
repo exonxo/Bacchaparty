@@ -10,15 +10,15 @@ import { useOnChange, useSfx } from "@/lib/roomAudio";
 import type { Level, PhoneProps, Player } from "@/lib/types";
 import { LADDER, SAFE, type Priv, type Pub } from "./index";
 
-const NAVY = "#23407a";
-const NAVY_DEEP = "#182d57";
+export const NAVY = "#23407a";
+export const NAVY_DEEP = "#182d57";
 const CREAM = "#fffdf8";
 const INK = "#1e1a17";
 
 type Shape = "triangle" | "diamond" | "circle" | "square";
 
 /** Each answer has a colour AND a shape, so colour-blind players (and a room shouting "the triangle!") can tell them apart. */
-const OPTION_LOOK: { color: string; on: string; shape: Shape; name: string }[] = [
+export const OPTION_LOOK: { color: string; on: string; shape: Shape; name: string }[] = [
   { color: "#c23a22", on: CREAM, shape: "triangle", name: "Triangle" },
   { color: "#1d4ed8", on: CREAM, shape: "diamond", name: "Diamond" },
   { color: "#2f7d4f", on: CREAM, shape: "circle", name: "Circle" },
@@ -31,9 +31,9 @@ const LEVELS: { id: Level; name: string; hint: string; Icon: typeof Baby }[] = [
   { id: "adults", name: "Grown-ups", hint: "Mushkil · GK champions", Icon: Brain },
 ];
 
-const LEVEL_NAME: Record<Level, string> = { kids: "Kids", family: "Family", adults: "Grown-ups" };
+export const LEVEL_NAME: Record<Level, string> = { kids: "Kids", family: "Family", adults: "Grown-ups" };
 
-function ShapeIcon({ shape, size = 22, fill, stroke = INK }: { shape: Shape; size?: number; fill: string; stroke?: string }) {
+export function ShapeIcon({ shape, size = 22, fill, stroke = INK }: { shape: Shape; size?: number; fill: string; stroke?: string }) {
   const common = { fill, stroke, strokeWidth: 2, strokeLinejoin: "round" as const };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden className="shrink-0">
@@ -291,7 +291,7 @@ function Standings({ view, players, me }: { view: Pub; players: Player[]; me: Pl
                 {p.name} {p.id === me.id && <span className="text-p-note font-semibold text-muted">you</span>}
               </span>
               <span className="block text-p-note text-muted">
-                {played ? `Hot seat: Level ${best}` : "Hot seat baaki hai"}
+                {played ? `Hot seat: Level ${best}` : view.phase === "final" ? "Hot seat nahi liya" : "Hot seat baaki hai"}
                 {bonus > 0 && ` · +${bonus} audience`}
               </span>
             </span>
@@ -349,6 +349,13 @@ function PickStage({ view, players, me, isHost, hostAct }: PhoneProps<Pub, Priv>
           })}
         </div>
         <Standings view={view} players={players} me={me} />
+        {view.played.length > 0 && (
+          <HostBar>
+            <PaperButton tone="paper" onClick={() => hostAct("final")}>
+              <Flag className="h-4 w-4" /> Khel khatam — result dikhao
+            </PaperButton>
+          </HostBar>
+        )}
       </div>
     );
   }
@@ -357,7 +364,7 @@ function PickStage({ view, players, me, isHost, hostAct }: PhoneProps<Pub, Priv>
       <div className="cut flex items-center gap-4 rounded-soft p-4" style={{ background: NAVY, color: CREAM }}>
         <Armchair className="breathe h-12 w-12 shrink-0" strokeWidth={1.8} />
         <div>
-          <h1 className="font-display text-p-title font-extrabold leading-tight">Host hot seat chun raha hai…</h1>
+          <h1 className="font-display text-p-title font-extrabold leading-tight">Host hot seat chun rahe hain…</h1>
           <p className="mt-1 text-p-body opacity-85">Aapka naam bhi aa sakta hai! Taiyaar raho.</p>
         </div>
       </div>
@@ -532,7 +539,7 @@ function PlayStage({ view, priv, players, me, send, now, isHost, hostAct }: Phon
           ) : mine === null ? (
             <p className="text-p-body text-muted">Chupke se jawab do: sahi hua toh +1 bonus.</p>
           ) : (
-            <p className="text-p-body font-semibold">Aapka jawab lock. {hot?.name ?? "Hot seat"} abhi soch raha hai…</p>
+            <p className="text-p-body font-semibold">Aapka jawab lock. {hot?.name ?? "Hot seat"} abhi soch rahe hain…</p>
           ))}
         {view.phase === "locked" && (
           <p className="text-p-body font-semibold">{isHot ? "Lock ho gaya! Host jawab kholega." : `${hot?.name ?? "Hot seat"} ne jawab lock kar diya. Dil thaam ke baitho…`}</p>
@@ -665,16 +672,85 @@ function OverStage({ view, players, me, isHost, hostAct }: PhoneProps<Pub, Priv>
           <Stamp tone={r.how === "champion" ? "leaf" : r.how === "quit" ? "ink" : "vermilion"}>{r.how === "champion" ? "Champion" : r.how === "quit" ? "Ruk gaye" : "Out"}</Stamp>
         </motion.div>
       </div>
-      {allPlayed && <p className="mt-6 rounded-cut border-[1.5px] border-ink bg-turmeric px-3 py-2 text-center text-p-body font-bold text-ink">Sab ne hot seat le li! Lobby jao, ya phir se ek round khelo.</p>}
+      {allPlayed && <p className="mt-6 rounded-cut border-[1.5px] border-ink bg-turmeric px-3 py-2 text-center text-p-body font-bold text-ink">Sab ne hot seat le li! Ab final result.</p>}
       <Standings view={view} players={players} me={me} />
       {isHost ? (
         <HostBar>
-          <PaperButton size="lg" onClick={() => hostAct("nextSeat")}>
-            <Armchair className="h-5 w-5" /> Agla hot seat
-          </PaperButton>
+          {allPlayed ? (
+            <PaperButton size="lg" onClick={() => hostAct("nextSeat")}>
+              <Trophy className="h-5 w-5" /> Final result dikhao
+            </PaperButton>
+          ) : (
+            <>
+              <PaperButton size="lg" onClick={() => hostAct("nextSeat")}>
+                <Armchair className="h-5 w-5" /> Agla hot seat
+              </PaperButton>
+              <PaperButton tone="paper" onClick={() => hostAct("final")}>
+                <Flag className="h-4 w-4" /> Khel khatam — result dikhao
+              </PaperButton>
+            </>
+          )}
         </HostBar>
       ) : (
-        <p className="mt-6 text-center text-p-body text-muted">Host agla hot seat chunega…</p>
+        <p className="mt-6 text-center text-p-body text-muted">Host agla hot seat chunenge…</p>
+      )}
+    </div>
+  );
+}
+
+/** The whole game is over: a small podium (level + audience bonus), the full board, and play-again for the host. */
+function FinalStage({ view, players, me, isHost, hostAct }: PhoneProps<Pub, Priv>) {
+  const rows = players
+    .filter((p) => p.id in view.scores)
+    .map((p) => ({ p, total: view.scores[p.id] ?? 0 }))
+    .sort((a, b) => b.total - a.total || a.p.name.localeCompare(b.p.name));
+  const top = rows.slice(0, 3);
+  const order = [1, 0, 2].filter((i) => top[i]);
+  const heights = [116, 84, 60];
+  const delays = [0.9, 0.5, 0.1];
+  const winner = top[0];
+  const mine = rows.findIndex((r) => r.p.id === me.id);
+  return (
+    <div>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0, transition: { delay: 1.4, duration: dur.screen, ease: ease.out } }} className="text-center">
+        <p className="text-p-note font-bold uppercase tracking-[0.18em] text-muted">Khel khatam</p>
+        <h1 aria-live="polite" className="mt-1 text-p-show font-extrabold leading-none text-balance">
+          {winner ? (winner.p.id === me.id ? "Aap bane Champion!" : `${winner.p.name} bane Champion!`) : "Khel khatam!"}
+        </h1>
+        {mine >= 0 && <p className="mt-2 text-p-body text-muted">Aap #{mine + 1} · {rows[mine].total} points</p>}
+      </motion.div>
+      <div className="mt-6 flex items-end justify-center gap-3 border-b-[1.5px] border-ink">
+        {order.map((i) => {
+          const r = top[i];
+          return (
+            <div key={r.p.id} className="flex w-[30%] flex-col items-center">
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0, transition: { delay: delays[i] + 0.25, ...spring.settle } }} className="flex flex-col items-center">
+                {i === 0 && <Trophy className="mb-1 h-6 w-6 text-turmeric-ink" />}
+                <Sticker id={r.p.avatar} size={i === 0 ? 56 : 46} tilt={i === 0 ? -5 : 4} />
+                <span className="mt-1 max-w-full truncate text-p-body font-bold">{r.p.name}</span>
+              </motion.div>
+              <motion.div
+                className="cut mt-1 flex w-full items-start justify-center rounded-t-cut pt-2"
+                style={{ background: i === 0 ? NAVY : "var(--paper)", color: i === 0 ? CREAM : INK }}
+                initial={{ height: 0 }}
+                animate={{ height: heights[i], transition: { delay: delays[i], duration: dur.reveal, ease: ease.expo } }}
+              >
+                <span className="font-display text-p-title font-extrabold tabular-nums">{r.total}</span>
+              </motion.div>
+            </div>
+          );
+        })}
+      </div>
+      <Standings view={view} players={players} me={me} />
+      {isHost ? (
+        <HostBar>
+          <PaperButton size="lg" onClick={() => hostAct("again")}>
+            <Armchair className="h-5 w-5" /> Phir se khelo
+          </PaperButton>
+          <p className="text-p-note text-muted">Doosra game? Upar Home dabao.</p>
+        </HostBar>
+      ) : (
+        <p className="mt-6 text-center text-p-body text-muted">Host agla game chunenge…</p>
       )}
     </div>
   );
@@ -702,6 +778,10 @@ export function Phone(props: PhoneProps<Pub, Priv>) {
         if (priv.myAnswer === view.answer) sfx.mine("ding", [30]);
       }
     }
+    if (next === "final") {
+      sfx.shared("fanfare");
+      celebrate();
+    }
     if (next === "over" && view.result?.how === "champion") {
       sfx.shared("fanfare");
       celebrate();
@@ -712,12 +792,14 @@ export function Phone(props: PhoneProps<Pub, Priv>) {
   });
 
   const stageKey =
-    view.phase === "pick" ? "pick" : view.phase === "level" ? `level-${view.hotSeat}` : view.phase === "over" ? "over" : `play-${view.hotSeat}`;
+    view.phase === "pick" ? "pick" : view.phase === "level" ? `level-${view.hotSeat}` : view.phase === "over" ? "over" : view.phase === "final" ? "final" : `play-${view.hotSeat}`;
   const stage =
     view.phase === "pick" ? (
       <PickStage {...props} />
     ) : view.phase === "level" ? (
       <LevelStage {...props} />
+    ) : view.phase === "final" ? (
+      <FinalStage {...props} />
     ) : view.phase === "over" && view.result ? (
       <OverStage {...props} />
     ) : view.question ? (

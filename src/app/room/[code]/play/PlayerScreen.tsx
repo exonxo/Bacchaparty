@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/env";
 import { GameStage } from "@/components/GameStage";
+import { ResultsCard } from "@/components/ResultsCard";
 import { paperButtonClass } from "@/components/paper/classes";
 import { BusyPaperButton } from "@/components/loaders";
 import { PaperButton, PaperSheet, Sticker } from "@/components/paper/Paper";
@@ -116,12 +117,14 @@ export function PlayerScreen({ code }: { code: string }) {
           <p className="mt-2 text-p-body text-muted">Make sure the host has room {code} open.</p>
         </div>
       ) : room.phase === "lobby" || !mod || !room.view ? (
+        <>
+        <ResultsCard result={room.lastResult} />
         <div className="rise-in flex min-h-[50vh] flex-col items-center justify-center text-center lg:min-h-[60vh]">
           <span className="breathe inline-block">
             <Sticker id={player.avatar} size={96} tilt={-6} />
           </span>
           <h1 className="mt-6 text-p-show font-extrabold">Aa gaye, {me.name}!</h1>
-          <p className="mt-2 text-p-lead text-muted">{host ? `${host.name} game chun raha hai…` : "The host is picking a game…"}</p>
+          <p className="mt-2 text-p-lead text-muted">{host ? `${host.name} game chun rahe hain…` : "The host is picking a game…"}</p>
           <h2 className="mb-3 mt-10 text-p-note font-bold uppercase tracking-[0.18em] text-muted">Room mein · {room.players.filter((p) => p.connected).length}</h2>
           <ul className="flex flex-wrap justify-center gap-x-2 gap-y-3">
             {room.players.map((p) => (
@@ -135,6 +138,7 @@ export function PlayerScreen({ code }: { code: string }) {
             ))}
           </ul>
         </div>
+        </>
       ) : (
         <>
           {lateJoin && info && (
@@ -159,6 +163,7 @@ export function PlayerScreen({ code }: { code: string }) {
             isHost={false}
             hostAct={noop}
             together={room.together}
+            tvOn={!!room.tvOn}
           />
         </>
       )}

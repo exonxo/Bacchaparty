@@ -3,6 +3,7 @@ import { Maximize } from "lucide-react";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { Sticker } from "@/components/paper/Paper";
+import { ResultsCard } from "@/components/ResultsCard";
 import { GameIcon } from "@/components/GameIcon";
 import { Logo } from "@/components/Header";
 import { MuteButton, iconButtonClass } from "@/components/RoomShell";
@@ -52,8 +53,8 @@ export function TvScreen({ code }: { code: string }) {
   }, [code]);
 
   const mod = room?.gameId ? getGameModule(room.gameId) : null;
-  // Big-screen game views still use the night palette.
-  const playing = room?.phase === "playing";
+  // Big-screen game views that haven't been redesigned keep the night palette.
+  const playing = room?.phase === "playing" && !mod?.tvPaper;
   useEffect(() => {
     if (!playing) return;
     document.documentElement.dataset.theme = "dark";
@@ -81,7 +82,7 @@ export function TvScreen({ code }: { code: string }) {
           </button>
         </div>
       </header>
-      <RoomAudioProvider value={{ together: room?.together ?? true, isStage: true }}>
+      <RoomAudioProvider value={{ together: room?.together ?? true, isStage: true, isTv: true, tvOn: true }}>
         {room?.phase === "closed" ? (
           <section className="py-16 text-center">
             <h1 className="text-p-show font-extrabold">The host ended the party</h1>
@@ -96,6 +97,8 @@ export function TvScreen({ code }: { code: string }) {
             <mod.Screen view={room.view} players={room.players} act={noop} now={now} spectator />
           </section>
         ) : (
+          <>
+          <ResultsCard result={room?.lastResult} big />
           <section className="grid items-center gap-10 py-10 lg:grid-cols-2">
             <div>
               <div className="text-p-lead font-bold uppercase tracking-[0.2em] text-turmeric-ink">Room code</div>
@@ -112,6 +115,7 @@ export function TvScreen({ code }: { code: string }) {
             {/* eslint-disable-next-line @next/next/no-img-element -- QR is a generated data URL */}
             {qr && <img src={qr} alt="QR code to join" className="cut mx-auto w-72 rounded-cut" />}
           </section>
+          </>
         )}
       </RoomAudioProvider>
     </main>

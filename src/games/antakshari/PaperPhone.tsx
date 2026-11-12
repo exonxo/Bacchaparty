@@ -14,7 +14,7 @@ const INK = "#1e1a17";
 /** Cassette shell (the game's colour) and the two team papers (same as Dumb Charades). */
 const ROSE = "#e2557a";
 const ROSE_DARK = "#b83a5c";
-const TEAM_PAPER: Record<Team, string> = { 0: "#f2b632", 1: "#ec7a3c" };
+export const TEAM_PAPER: Record<Team, string> = { 0: "#f2b632", 1: "#ec7a3c" };
 
 /* ------------------------------------------------------------------ */
 /* Small pieces                                                         */
@@ -95,9 +95,9 @@ function Reel({ cx, cy, spin }: { cx: number; cy: number; spin: boolean }) {
  * by hand, like a mixtape. The letter is HTML over the label so it uses the
  * display font; everything else is one SVG.
  */
-function Cassette({ letter, spin, caption, compact = false }: { letter: string; spin: boolean; caption?: string; compact?: boolean }) {
+export function Cassette({ letter, spin, caption, compact = false, tv = false }: { letter: string; spin: boolean; caption?: string; compact?: boolean; tv?: boolean }) {
   return (
-    <div className={`mx-auto w-full ${compact ? "max-w-[11.5rem]" : "max-w-[22rem]"}`}>
+    <div className={`mx-auto w-full ${compact ? "max-w-[11.5rem]" : tv ? "" : "max-w-[22rem]"}`}>
       <div className="relative" style={{ transform: "rotate(-1.2deg)" }}>
         <svg viewBox="0 0 320 200" className="block w-full drop-shadow-[2px_2px_0_var(--ink)]" aria-hidden>
           <rect x={4} y={4} width={312} height={192} rx={14} fill={ROSE} stroke={INK} strokeWidth={2.5} />
@@ -118,7 +118,7 @@ function Cassette({ letter, spin, caption, compact = false }: { letter: string; 
           ))}
         </svg>
         {!compact && (
-          <div className="pointer-events-none absolute inset-x-[10%] top-[9.5%] flex justify-between text-[0.6875rem] font-bold uppercase tracking-[0.18em] text-ink/60">
+          <div className={`pointer-events-none absolute inset-x-[10%] top-[9.5%] flex justify-between font-bold uppercase tracking-[0.18em] text-ink/60 ${tv ? "text-[clamp(0.7rem,1.6vh,1.1rem)]" : "text-[0.6875rem]"}`}>
             <span>Side A</span>
             <span>Antakshari</span>
           </div>
@@ -130,7 +130,7 @@ function Cassette({ letter, spin, caption, compact = false }: { letter: string; 
               initial={{ y: -14, opacity: 0, rotate: -10 }}
               animate={{ y: 0, opacity: 1, rotate: -4, transition: spring.settle }}
               exit={{ y: 10, opacity: 0, transition: { duration: dur.screenExit, ease: ease.in } }}
-              className={`font-display font-extrabold leading-none text-ink ${compact ? "text-[2rem]" : "text-[3.75rem]"}`}
+              className={`font-display font-extrabold leading-none text-ink ${compact ? "text-[2rem]" : tv ? "text-[clamp(5rem,15vh,11rem)]" : "text-[3.75rem]"}`}
               aria-label={letter === "?" ? "Next letter coming" : `Letter ${letter}`}
             >
               {letter}

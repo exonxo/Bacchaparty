@@ -1,9 +1,10 @@
 "use client";
-import { Button, NumberPicker, Panel, PlayerChip, Toggle } from "@/components/ui";
+import { NumberPicker, Toggle } from "@/components/ui";
 import { START_LETTERS, songsFor } from "@/content/antakshari";
-import { HOST_ID, type ControllerProps, type GameModule, type Player, type ScreenProps } from "@/lib/types";
+import { HOST_ID, type ControllerProps, type GameModule, type Player } from "@/lib/types";
 import { pick, shuffle } from "@/lib/util";
 import { Phone } from "./PaperPhone";
+import { TvScreen } from "./Tv";
 
 export interface Options {
   hints: boolean;
@@ -99,72 +100,6 @@ function concede(s: State, now: number, kind: "giveup" | "timeout"): State {
 
 const connectedIds = (players: Player[]) => new Set(players.filter((p) => p.connected).map((p) => p.id));
 
-/* ------------------------------------------------------------------ */
-/* Big screen (TV) — still the night look                               */
-/* ------------------------------------------------------------------ */
-
-function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
-  const singing = view.turn;
-  const judging = other(singing);
-  const find = (id: string) => players.find((p) => p.id === id);
-  const judges = view.teams[judging].map(find).filter(Boolean) as Player[];
-  const left = view.deadline ? Math.max(0, Math.ceil((view.deadline - now) / 1000)) : null;
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-2">
-        {([0, 1] as Team[]).map((t) => (
-          <Panel key={t} className={t === singing ? "border-gold/70" : ""}>
-            <div className="flex items-center justify-between">
-              <div className="text-2xl font-extrabold">{view.teamNames[t]}</div>
-              <div className="text-5xl font-extrabold text-gold">{view.scores[t]}</div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {view.teams[t].map((id) => {
-                const p = find(id);
-                return p ? <PlayerChip key={id} player={p} extra={view.votes[id] ? <span className="text-sm">{view.votes[id] === "valid" ? "valid" : "challenge"}</span> : null} /> : null;
-              })}
-            </div>
-          </Panel>
-        ))}
-      </div>
-      <Panel className="space-y-5 py-8 text-center">
-        <div className="text-2xl">
-          <b>{view.teamNames[singing]}</b>
-          {view.phase === "next-letter" ? ", tell us the last letter of your song!" : ", sing a song starting with…"}
-        </div>
-        <div key={view.letter} className="pop-in mx-auto flex h-44 w-44 items-center justify-center rounded-full bg-pink text-9xl font-extrabold text-white shadow-2xl">
-          {view.letter}
-        </div>
-        {view.phase === "singing" && left !== null && <div className={`text-4xl font-extrabold tabular-nums ${left <= 5 ? "text-red" : ""}`}>{left}s</div>}
-        {view.phase === "singing" && view.paused && <div className="text-xl text-muted">Timer paused</div>}
-        {view.phase === "judging" && (
-          <div className="text-xl">
-            <b>{view.teamNames[judging]}</b>, was it valid? Vote on your phones.
-            {judges.filter((p) => p.connected).length === 0 && <div className="text-muted">(No one on that team is connected.)</div>}
-          </div>
-        )}
-        {view.phase === "challenged" && <div className="text-2xl font-bold text-red">Challenge! The host decides.</div>}
-        {!spectator && (view.phase === "judging" || view.phase === "challenged") && (
-          <div className="flex justify-center gap-3">
-            <Button tone="green" size="lg" onClick={() => act("accept")}>
-              Valid
-            </Button>
-            <Button tone="red" size="lg" onClick={() => act("reject")}>
-              Doesn’t count
-            </Button>
-          </div>
-        )}
-        {view.lastEvent && now - view.lastEvent.at < 6000 && <div className="pop-in inline-block rounded-2xl bg-teal px-5 py-2 text-xl font-bold text-bg">{view.lastEvent.text}</div>}
-        {view.hintsOn && view.phase === "singing" && view.hint && (
-          <div className="mx-auto max-w-xl rounded-2xl bg-white/5 p-4 text-2xl font-bold">
-            {view.hint.title} <span className="text-base font-normal text-muted">({view.hint.source})</span>
-          </div>
-        )}
-      </Panel>
-    </div>
-  );
-}
-
 const noop = () => {};
 
 /** Older phones that ask for the classic controller get the phone view without host buttons. */
@@ -191,6 +126,7 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
 const antakshari: GameModule<State, Pub, undefined, Options> = {
   id: "antakshari",
   paper: true,
+  tvPaper: true,
   defaultOptions: { hints: false, seconds: 30 },
   OptionsForm,
   init({ players, options, now }) {
@@ -340,7 +276,7 @@ const antakshari: GameModule<State, Pub, undefined, Options> = {
       awaySince: s.awaySince ?? null,
     };
   },
-  Screen,
+  Screen: TvScreen,
   Controller,
   Phone,
 };

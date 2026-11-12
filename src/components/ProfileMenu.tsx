@@ -1,6 +1,6 @@
 "use client";
 import { BOTS } from "@/lib/testBots";
-import { ChevronDown, LogOut, Pencil } from "lucide-react";
+import { ChevronDown, Tv, LogOut, Pencil } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { ProfileFields } from "@/components/ProfileForm";
 import { BusyPaperButton } from "@/components/loaders";
@@ -15,6 +15,7 @@ export function ProfileMenu({
   onChange,
   testMode,
   onTestMode,
+  tvHref,
 }: {
   identity: Identity;
   player: Player | null;
@@ -23,6 +24,8 @@ export function ProfileMenu({
   /** Host-only: simulated players for solo testing. */
   testMode?: boolean;
   onTestMode?: (on: boolean) => void;
+  /** On small phones the TV button lives in this menu instead of the top bar. */
+  tvHref?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState(false);
@@ -85,6 +88,18 @@ export function ProfileMenu({
             >
               <Pencil className="h-4 w-4" /> Edit name
             </button>
+            {tvHref && (
+              <a
+                href={tvHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="press flex min-h-11 w-full items-center gap-2 border-t-[1.5px] border-line px-3 py-2.5 text-left text-p-body font-semibold min-[400px]:hidden"
+              >
+                <Tv className="h-4 w-4" /> Open TV mode
+              </a>
+            )}
             {hostTestControls && (
               <div className="border-t-[1.5px] border-line px-3 py-3">
                 <button

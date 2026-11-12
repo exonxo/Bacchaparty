@@ -1,11 +1,10 @@
 "use client";
-import { Avatar } from "@/components/Avatar";
-import { Button, Countdown, LevelPicker, NumberPicker, Panel, Scoreboard } from "@/components/ui";
+import { LevelPicker, NumberPicker } from "@/components/ui";
 import { DRAW_WORDS } from "@/content/draw-guess";
-import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player, type ScreenProps } from "@/lib/types";
+import { HOST_ID, type ControllerProps, type GameModule, type Level } from "@/lib/types";
 import { answerMatches, shuffle } from "@/lib/util";
 import { Phone } from "./PaperPhone";
-import { PadDrawing } from "./pad";
+import { TvScreen } from "./Tv";
 import {
   COLORS,
   DRAWER_AWAY_SKIP,
@@ -27,7 +26,6 @@ import {
   type Pub,
   type Stroke,
 } from "./shared";
-import { usePadStrokes } from "./usePad";
 
 export interface State {
   level: Level;
@@ -58,7 +56,7 @@ export interface State {
   drawerAwaySince: number | null;
 }
 
-const CHOOSE_FOR = 20_000;
+export const CHOOSE_FOR = 20_000;
 const REVEAL_FOR = 7_000;
 
 export const display = (entry: string) => entry.split("|")[0];
@@ -126,83 +124,6 @@ function index(v: unknown, list: unknown[], fallback: number): number {
   return fallback;
 }
 
-/* ------------------------------------------------------------------ */
-/* Big screen (TV) — still the night palette                            */
-/* ------------------------------------------------------------------ */
-
-function TvPad({ view }: { view: Pub }) {
-  const { strokes } = usePadStrokes(view.pad);
-  return <PadDrawing strokes={strokes} className="rounded-3xl bg-white" />;
-}
-
-function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
-  const drawer = players.find((p) => p.id === view.drawerId);
-  if (view.phase === "over") {
-    return (
-      <div className="mx-auto max-w-xl space-y-6 text-center">
-        <div className="text-5xl font-extrabold">Draw & Guess results</div>
-        <Scoreboard players={players} scores={view.scores} big title="Final scores" />
-      </div>
-    );
-  }
-  const mask = view.phase === "drawing" ? (now >= view.hintAt && view.firstLetter ? view.firstLetter + view.mask.slice(1) : view.mask) : "";
-  return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-2xl font-bold">
-            <Avatar id={drawer?.avatar} /> {drawer?.name ?? "…"} {view.phase === "choosing" ? "is choosing a word…" : view.phase === "drawing" ? "is drawing" : ""}
-          </div>
-          <div className="font-mono text-3xl font-bold tracking-[0.3em] whitespace-pre">{mask}</div>
-          {view.phase !== "reveal" && <Countdown deadline={view.deadline} now={now} big />}
-        </div>
-        <div className="mx-auto max-w-[min(100%,56vh)]">
-          <TvPad view={view} />
-        </div>
-        {view.phase === "reveal" && (
-          <div className="pop-in text-center text-4xl font-extrabold">
-            It was <span className="text-gold">{view.answer}</span>!
-          </div>
-        )}
-        {!spectator && (
-          <div className="flex flex-wrap justify-center gap-3">
-            {view.phase === "drawing" && (
-              <Button tone="ghost" onClick={() => act("reveal")}>
-                Reveal word
-              </Button>
-            )}
-            {view.phase === "reveal" ? (
-              <Button onClick={() => act("next")}>Next turn</Button>
-            ) : (
-              <Button tone="ghost" onClick={() => act("skip")}>
-                Skip this drawer
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
-      <div className="space-y-4">
-        <Panel>
-          <div className="mb-2 text-sm font-bold uppercase tracking-widest text-muted">
-            Turn {view.turn + 1} of {view.totalTurns} · Guesses
-          </div>
-          <div className="flex flex-col gap-1">
-            {view.feed.slice(-10).map((f, i) => {
-              const p = players.find((x: Player) => x.id === f.playerId);
-              return (
-                <div key={i} className={`rounded-xl px-3 py-1 ${f.text === null ? "bg-green font-bold text-bg" : "bg-white/5"}`}>
-                  <Avatar id={p?.avatar} /> {p?.name ?? "?"}: {f.text === null ? "guessed it!" : f.text}
-                </div>
-              );
-            })}
-          </div>
-        </Panel>
-        <Scoreboard players={players} scores={view.scores} />
-      </div>
-    </div>
-  );
-}
-
 /** Older code path (a phone without the phone-first view): same screen, no host controls. */
 function Controller(props: ControllerProps<Pub, Priv>) {
   return <Phone {...props} isHost={false} hostAct={() => {}} together />;
@@ -221,6 +142,7 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
 const drawGuess: GameModule<State, Pub, Priv, Options> = {
   id: "draw-guess",
   paper: true,
+  tvPaper: true,
   defaultOptions: { level: "family", roundsPerPlayer: 1, seconds: 80 },
   OptionsForm,
   init({ players, options, now }) {
@@ -369,7 +291,7 @@ const drawGuess: GameModule<State, Pub, Priv, Options> = {
     if (s.phase === "drawing" && s.word) return { word: display(s.word) };
     return undefined;
   },
-  Screen,
+  Screen: TvScreen,
   Controller,
   Phone,
 };

@@ -268,7 +268,7 @@ function RevealScreen({
 
   const prev = (id: string) => (view.scores[id] ?? 0) - (gains[id] ?? 0);
   const rows = [...parts].sort((a, b) => (sorted ? (view.scores[b.id] ?? 0) - (view.scores[a.id] ?? 0) : prev(b.id) - prev(a.id)));
-  const verdict = reveal.result.reason === "guess" && reveal.result.chorGuessCorrect ? "Sahi jawab!" : escaped ? "Bhaag gaya!" : "Pakda gaya!";
+  const verdict = reveal.result.reason === "guess" && reveal.result.chorGuessCorrect ? "Sahi jawab!" : escaped ? "Bhaag gaye!" : "Pakde gaye!";
   const base = 0.26 + dur.reveal;
   // Stagger by the first (pre-sort) order, fixed per player so a re-sort doesn't replay it.
   const enterDelay = useMemo(() => {
@@ -307,7 +307,7 @@ function RevealScreen({
         <p className="text-p-lead font-semibold text-balance">{resultText(reveal.result, players, reveal.chorId)}</p>
         {played && (
           <p className={`mt-1 text-p-body font-bold ${won ? "text-leaf" : "text-muted"}`}>
-            {won ? `Shabash! You win this round · +${gains[me.id] ?? 0}` : wasChor ? "Pakde gaye! Agli baar." : "Chor bhaag gaya. Agli baar pakdenge!"}
+            {won ? `Shabash! You win this round · +${gains[me.id] ?? 0}` : wasChor ? "Pakde gaye! Agli baar." : "Chor bhaag gaye. Agli baar pakdenge!"}
           </p>
         )}
       </motion.div>
@@ -370,7 +370,7 @@ function RevealScreen({
               <motion.span key={i} className="h-1.5 w-1.5 rounded-full bg-ink/50" animate={{ opacity: [0.25, 1, 0.25] }} transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.2, ease: "easeInOut" }} />
             ))}
           </span>
-          Host agle lifafe baant raha hai…
+          Host agle lifafe baant rahe hain…
         </p>
       )}
     </div>
