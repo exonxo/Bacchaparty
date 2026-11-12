@@ -1,7 +1,7 @@
 "use client";
 import { ArrowDown, Megaphone, Pointer } from "lucide-react";
 import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useReducedMotion, useTransform, type PanInfo } from "motion/react";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefCallback } from "react";
 import { screenIn, spring } from "@/components/paper/motion";
 import { InkDefs } from "@/components/paper/objects";
 import { PaperSheet } from "@/components/paper/Paper";
@@ -21,7 +21,8 @@ import {
   TAG_CAPS,
   radialPose,
 } from "./Cards";
-import { fanSpring, pileSpring, slapSpring, snapSpring, throwSpring } from "./springs";
+import { CardFlightLayer, centerOf, throwFromPan, type CardFlightRequest } from "./CardFlight";
+import { fanSpring, pileSpring, slapSpring, snapSpring } from "./springs";
 import type { Priv, Pub, PunoColor } from "./shared";
 
 const nameOf = (players: Player[], id: string) => players.find((p) => p.id === id)?.name ?? "Khiladi";
@@ -43,15 +44,28 @@ function Sparkle({ className }: { className?: string }) {
   );
 }
 
-function DiscardSpread({ top, under, wildColor, pulse }: { top: PunoCard; under: PunoCard[]; wildColor: PunoColor | null; pulse?: boolean }) {
+function DiscardSpread({
+  top,
+  under,
+  wildColor,
+  pulse,
+  pileRef,
+}: {
+  top: PunoCard;
+  under: PunoCard[];
+  wildColor: PunoColor | null;
+  pulse?: boolean;
+  pileRef: RefCallback<HTMLDivElement>;
+}) {
   const layers = under.slice(-9);
   const reduce = useReducedMotion();
   return (
     <motion.div
+      ref={pileRef}
       className="relative h-[138px] w-[148px]"
       aria-label="Discard pile"
-      animate={pulse && !reduce ? { scale: [1, 1.04, 1] } : undefined}
-      transition={{ duration: 0.35 }}
+      animate={pulse && !reduce ? { scale: [1, 1.05, 0.98, 1] } : undefined}
+      transition={{ duration: 0.38 }}
     >
       {layers.map((c, i) => {
         const pose = radialPose(c.id, i, layers.length + 1);
@@ -116,6 +130,8 @@ function PlayTable({
   noteText,
   noteVisible,
   wildPulse,
+  deckRef,
+  pileRef,
 }: {
   view: Pub;
   myTurn: boolean;
@@ -125,6 +141,8 @@ function PlayTable({
   noteText?: string;
   noteVisible: boolean;
   wildPulse: boolean;
+  deckRef: RefCallback<HTMLDivElement>;
+  pileRef: RefCallback<HTMLDivElement>;
 }) {
   return (
     <div className="relative min-h-0 flex-[0.42] overflow-hidden border-b-[3px] border-ink px-2 pb-3 pt-2" style={TABLE_GRID}>
@@ -166,8 +184,8 @@ function PlayTable({
         )}
       </AnimatePresence>
       <div className="flex h-full items-end justify-center gap-4 pb-1 pt-12">
-        <DeckStack onClick={onDraw} />
-        <DiscardSpread top={view.top} under={view.discardUnder} wildColor={view.wildColor} pulse={wildPulse} />
+        <DeckStack innerRef={deckRef} onClick={onDraw} />
+        <DiscardSpread top={view.top} under={view.discardUnder} wildColor={view.wildColor} pulse={wildPulse} pileRef={pileRef} />
       </div>
       {view.stackPending && view.stackTotal > 0 && <StackBadge total={view.stackTotal} />}
     </div>
@@ -181,6 +199,8 @@ function PlayerFooter({
   counts,
   turnPlayerId,
   ekBacha,
+  setChipRef,
+  countPulse,
 }: {
   seats: Pub["seats"];
   players: Player[];
@@ -188,6 +208,8 @@ function PlayerFooter({
   counts: Record<string, number>;
   turnPlayerId: string;
   ekBacha: Pub["ekBacha"];
+  setChipRef: (id: string, el: HTMLDivElement | null) => void;
+  countPulse: string | null;
 }) {
   const others = seats.filter((s) => s.playerId !== meId);
   return (
@@ -201,6 +223,7 @@ function PlayerFooter({
           return (
             <div
               key={s.playerId}
+              ref={(el) => setChipRef(s.playerId, el)}
               className={`relative flex min-w-[6.5rem] shrink-0 items-center gap-2 rounded-md border-[2.5px] bg-paper px-2 py-1.5 ${
                 on ? "border-turmeric shadow-[0_0_0_2px_var(--turmeric)]" : "border-paper"
               }`}
@@ -208,7 +231,14 @@ function PlayerFooter({
               <MiniCardBack />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-display text-[10px] font-extrabold uppercase leading-tight text-ink">{p?.name ?? "…"}</div>
-                <div className="font-display text-xs font-extrabold tabular-nums text-ink">{counts[s.playerId] ?? 0}</div>
+                <motion.div
+                  key={`${s.playerId}-${counts[s.playerId] ?? 0}`}
+                  animate={countPulse === s.playerId ? { scale: [1, 1.35, 1] } : undefined}
+                  transition={{ duration: 0.35 }}
+                  className="font-display text-xs font-extrabold tabular-nums text-ink"
+                >
+                  {counts[s.playerId] ?? 0}
+                </motion.div>
               </div>
               {(oneLeft || catchMe) && (
                 <span className="absolute -top-2 right-0 border border-ink bg-turmeric px-1 text-[7px] font-extrabold uppercase text-ink">Ek!</span>
@@ -252,76 +282,91 @@ function fanOverlap(n: number) {
   return -FAN_CARD.w * 0.62;
 }
 
-type FlyState = { cardId: string; mode: "play" | "jump"; wildColor?: PunoColor } | null;
-
 function SwipeableCard({
   card,
   playable,
   selected,
   onPick,
-  onBeginThrow,
+  onThrowPan,
   wildTint,
   rotate,
   marginLeft,
   selectedLift,
   resetDrag,
-  flying,
+  hidden,
+  shellRef,
 }: {
   card: PunoCard;
   playable: boolean;
   selected: boolean;
   onPick: () => void;
-  onBeginThrow: (vx: number, vy: number) => void;
+  onThrowPan: (el: HTMLDivElement, vx: number, vy: number, offsetX: number, offsetY: number) => boolean;
   wildTint?: PunoColor | null;
   rotate: number;
   marginLeft: number;
   selectedLift: boolean;
   resetDrag: number;
-  flying: boolean;
+  hidden: boolean;
+  shellRef: RefCallback<HTMLDivElement>;
 }) {
   const reduce = useReducedMotion();
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const dragRotate = useTransform(y, [-160, 0], [rotate - 6, rotate]);
+  const dragRotate = useTransform(y, [-160, 0], [rotate - 8, rotate]);
 
   useEffect(() => {
     x.set(0);
     y.set(0);
   }, [resetDrag, x, y]);
 
+  const springBack = () => {
+    animate(x, 0, reduce ? { duration: 0.14 } : fanSpring);
+    animate(y, 0, reduce ? { duration: 0.14 } : fanSpring);
+  };
+
   const onEnd = (_: unknown, info: PanInfo) => {
-    if (!selected || flying) {
-      animate(y, 0, reduce ? { duration: 0.15 } : throwSpring);
+    if (!selected || hidden) {
+      springBack();
       return;
     }
-    const speed = Math.hypot(info.velocity.x, info.velocity.y);
-    if (info.offset.y < -64 || (info.velocity.y < -420 && info.offset.y < -28)) {
-      onBeginThrow(info.velocity.x, info.velocity.y);
+    const el = rootRef.current;
+    if (!el) {
+      springBack();
       return;
     }
-    animate(y, 0, reduce ? { duration: 0.15 } : fanSpring);
-    if (speed > 80) animate(x, 0, fanSpring);
+    const ok = onThrowPan(el, info.velocity.x, info.velocity.y, info.offset.x, info.offset.y);
+    if (ok) {
+      x.set(0);
+      y.set(0);
+    } else springBack();
   };
 
   const lift = selected && selectedLift ? -28 : 0;
-  const scale = selected ? 1.04 : 1;
+  const scale = selected ? 1.05 : 1;
 
   return (
     <motion.div
-      style={{ x, y, rotate: reduce ? rotate : dragRotate, marginLeft, zIndex: selected ? 50 : undefined, transformOrigin: "50% 115%" }}
+      ref={(node) => {
+        rootRef.current = node;
+        shellRef(node);
+      }}
+      style={{
+        x,
+        y,
+        rotate: reduce ? rotate : dragRotate,
+        marginLeft,
+        zIndex: selected ? 50 : undefined,
+        transformOrigin: "50% 115%",
+        opacity: hidden ? 0 : 1,
+      }}
       className="shrink-0"
-      drag={selected && !flying ? true : false}
-      dragConstraints={{ top: -200, bottom: 12, left: -40, right: 40 }}
-      dragElastic={0.14}
+      drag={selected && !hidden ? true : false}
+      dragConstraints={{ top: -200, bottom: 12, left: -48, right: 48 }}
+      dragElastic={0.12}
       onDragEnd={onEnd}
-      animate={
-        flying
-          ? reduce
-            ? { opacity: 0 }
-            : { y: -240, x: 110, rotate: rotate + 18, scale: 0.78, opacity: 0.35 }
-          : { scale, y: lift }
-      }
-      transition={flying ? throwSpring : fanSpring}
+      animate={{ scale, y: hidden ? lift : lift }}
+      transition={fanSpring}
     >
       <CardFace card={card} wildTint={wildTint} size="fan" dim={!playable} selected={selected && selectedLift} onClick={playable ? onPick : undefined} />
     </motion.div>
@@ -329,25 +374,63 @@ function SwipeableCard({
 }
 
 export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Priv>) {
-  const hand = priv?.hand ?? [];
+  const hand = useMemo(() => priv?.hand ?? [], [priv?.hand]);
+  const handKey = useMemo(() => hand.map((c) => c.id).join("|"), [hand]);
   const playable = new Set(priv?.playable ?? []);
   const jumpable = new Set(priv?.jumpable ?? []);
   const canPass = priv?.canPass ?? false;
   const myTurn = view.turnPlayerId === me.id;
   const [picked, setPicked] = useState<string | null>(null);
-  const [wildPick, setWildPick] = useState<{ cardId: string; mode: "play" | "jump" } | null>(null);
+  const [wildPick, setWildPick] = useState<{ cardId: string; mode: "play" | "jump"; vx?: number; vy?: number } | null>(null);
   const [sheet, setSheet] = useState<"help" | null>(null);
   const [scrollHint, setScrollHint] = useState(false);
   const [dragReset, setDragReset] = useState(0);
-  const [fly, setFly] = useState<FlyState>(null);
+  const [flights, setFlights] = useState<CardFlightRequest[]>([]);
+  const [hiddenCards, setHiddenCards] = useState<Set<string>>(() => new Set());
   const [wildPulse, setWildPulse] = useState(false);
+  const [countPulse, setCountPulse] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fanX = useMotionValue(0);
+  const deckEl = useRef<HTMLDivElement | null>(null);
+  const pileEl = useRef<HTMLDivElement | null>(null);
+  const chipEls = useRef<Map<string, HTMLDivElement>>(new Map());
+  const cardEls = useRef<Map<string, HTMLDivElement>>(new Map());
+  const lastPlayId = useRef<number | null>(null);
+  const lastDrawKey = useRef("");
+  const prevHandIds = useRef<string[]>([]);
+  const pendingSelfDraw = useRef(false);
   const reduce = useReducedMotion();
   const sfx = useSfx();
   const left = Math.max(0, Math.ceil((view.deadline - now) / 1000));
   const turnName = nameOf(players, view.turnPlayerId);
   const overlap = fanOverlap(hand.length);
+
+  const deckRef: RefCallback<HTMLDivElement> = useCallback((el) => {
+    deckEl.current = el;
+  }, []);
+  const pileRef: RefCallback<HTMLDivElement> = useCallback((el) => {
+    pileEl.current = el;
+  }, []);
+
+  const setChipRef = useCallback((id: string, el: HTMLDivElement | null) => {
+    if (el) chipEls.current.set(id, el);
+    else chipEls.current.delete(id);
+  }, []);
+
+  const enqueue = useCallback((req: CardFlightRequest) => {
+    setFlights((q) => [...q, req]);
+  }, []);
+
+  const popFlight = useCallback((key: string) => {
+    setFlights((q) => q.filter((x) => x.key !== key));
+  }, []);
+
+  const fanCenter = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width * 0.45, y: r.bottom - 48 };
+  }, []);
 
   useOnChange(view.turnPlayerId, (id) => {
     if (id === me.id) {
@@ -374,6 +457,91 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
     return () => ro.disconnect();
   }, [hand.length]);
 
+  // Inbound plays from other players
+  useEffect(() => {
+    const lp = view.lastPlay;
+    if (!lp || lp.playerId === me.id) return;
+    if (lastPlayId.current === lp.id) return;
+    lastPlayId.current = lp.id;
+    const from = centerOf(chipEls.current.get(lp.playerId) ?? null);
+    const to = centerOf(pileEl.current);
+    if (!from || !to) return;
+    const vx = (to.x - from.x) * 0.65;
+    const vy = -720 - Math.abs(to.x - from.x) * 0.2;
+    enqueue({
+      key: `inbound-${lp.id}`,
+      kind: "inbound",
+      card: lp.card,
+      wildTint: lp.wildColor,
+      from,
+      to,
+      vx,
+      vy,
+      size: "pile",
+      onComplete: () => setWildPulse(true),
+    });
+    window.setTimeout(() => setWildPulse(false), 420);
+  }, [view.lastPlay, me.id, enqueue]);
+
+  // Other players drawing
+  useEffect(() => {
+    const n = view.note;
+    if (!n || n.kind !== "draw" || n.playerId === me.id) return;
+    const key = `${n.at}-${n.playerId}`;
+    if (lastDrawKey.current === key) return;
+    lastDrawKey.current = key;
+    const from = centerOf(deckEl.current);
+    const to = centerOf(chipEls.current.get(n.playerId) ?? null);
+    if (!from || !to) return;
+    enqueue({
+      key: `draw-other-${key}`,
+      kind: "draw-other",
+      from,
+      to,
+      vx: (to.x - from.x) * 0.4,
+      vy: 520,
+      size: "pile",
+      onComplete: () => {
+        setCountPulse(n.playerId);
+        window.setTimeout(() => setCountPulse(null), 380);
+      },
+    });
+  }, [view.note, me.id, enqueue]);
+
+  // Self draw: animate new card from deck into fan
+  useEffect(() => {
+    const ids = hand.map((c) => c.id);
+    const prev = new Set(prevHandIds.current);
+    const added = ids.filter((id) => !prev.has(id));
+    prevHandIds.current = ids;
+
+    if (!pendingSelfDraw.current || added.length === 0) return;
+    pendingSelfDraw.current = false;
+    const card = hand.find((c) => c.id === added[added.length - 1]);
+    if (!card) return;
+    const from = centerOf(deckEl.current);
+    if (!from) return;
+    const flyIn = () => {
+      const slot = centerOf(cardEls.current.get(card.id) ?? null) ?? fanCenter();
+      if (!slot) return;
+      enqueue({
+        key: `draw-self-${card.id}`,
+        kind: "draw-self",
+        card,
+        from,
+        to: slot,
+        flip: true,
+        vy: -200,
+        size: "fan",
+      });
+    };
+    requestAnimationFrame(flyIn);
+  }, [hand, handKey, enqueue, fanCenter]);
+
+  useEffect(() => {
+    if (lastPlayId.current === null && view.lastPlay) lastPlayId.current = view.lastPlay.id;
+  }, [view.lastPlay]);
+
   const ekGlow = myTurn && hand.length === 2;
   const catchTarget = view.ekBacha && view.ekBacha.playerId !== me.id && !view.ekBachaSaid.includes(view.ekBacha.playerId);
   const jumpReady = !myTurn && jumpable.size > 0;
@@ -382,36 +550,74 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
 
   const result = useMemo(() => (view.phase === "over" ? summarizeGame("puno", view, players, now) : null), [view, players, now]);
 
-  const completeThrow = (cardId: string, mode: "play" | "jump", wildColor?: PunoColor) => {
+  const sendPlay = (cardId: string, mode: "play" | "jump", wildColor?: PunoColor) => {
     send(mode, { cardId, wildColor });
     setPicked(null);
-    setFly(null);
+    setHiddenCards((s) => {
+      const n = new Set(s);
+      n.delete(cardId);
+      return n;
+    });
     sfx.mine("whoosh");
     vibrate(20);
   };
 
-  const throwCard = (cardId: string, mode: "play" | "jump", wildColor?: PunoColor) => {
-    const card = hand.find((c) => c.id === cardId);
-    if (!card) return;
-    if (card.color === "wild" && !wildColor && !wildPick) {
-      setWildPick({ cardId, mode });
-      return;
-    }
-    setFly({ cardId, mode, wildColor });
-    window.setTimeout(() => completeThrow(cardId, mode, wildColor), reduce ? 120 : 420);
+  const queueThrow = (card: PunoCard, mode: "play" | "jump", vx: number, vy: number, el: HTMLDivElement, wildColor?: PunoColor) => {
+    const from = centerOf(el);
+    const to = centerOf(pileEl.current);
+    if (!from || !to) return;
+    const req = throwFromPan(
+      vx,
+      vy,
+      0,
+      -72,
+      from,
+      to,
+      fanAngle(hand.length, hand.findIndex((c) => c.id === card.id)),
+      card,
+      wildColor ?? view.wildColor,
+      () => sendPlay(card.id, mode, wildColor),
+    );
+    if (!req) return;
+    setHiddenCards((s) => new Set(s).add(card.id));
+    enqueue(req);
   };
 
-  const onBeginThrow = (cardId: string, vx: number, vy: number) => {
+  const onThrowPan = (cardId: string, el: HTMLDivElement | null, vx: number, vy: number, offsetX: number, offsetY: number): boolean => {
+    if (!el) return false;
     const mode: "play" | "jump" = jumpable.has(cardId) && !myTurn ? "jump" : "play";
     const card = hand.find((c) => c.id === cardId);
-    if (!card) return;
+    if (!card) return false;
+
+    const from = centerOf(el);
+    const to = centerOf(pileEl.current);
+    if (!from || !to) return false;
+
     if (card.color === "wild") {
-      setWildPick({ cardId, mode });
-      return;
+      const qualifies =
+        offsetY < -76 ||
+        (offsetY < -40 && vy < -260) ||
+        (offsetY < -52 && Math.hypot(vx, vy) > 480) ||
+        (Math.hypot(vx, vy) > 620 && offsetY < -34);
+      if (qualifies) {
+        setWildPick({ cardId, mode, vx, vy });
+        setDragReset((n) => n + 1);
+      }
+      return false;
     }
-    throwCard(cardId, mode);
-    void vx;
-    void vy;
+
+    const startRot = fanAngle(hand.length, hand.findIndex((c) => c.id === cardId));
+    const req = throwFromPan(vx, vy, offsetX, offsetY, from, to, startRot, card, view.wildColor, () => sendPlay(cardId, mode, undefined));
+    if (!req) return false;
+    setHiddenCards((s) => new Set(s).add(cardId));
+    enqueue(req);
+    return true;
+  };
+
+  const handleDraw = () => {
+    if (!myTurn) return;
+    pendingSelfDraw.current = true;
+    send("draw");
   };
 
   if (view.phase === "over") {
@@ -434,11 +640,13 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
           view={view}
           myTurn={myTurn}
           turnName={turnName}
-          onDraw={myTurn ? () => send("draw") : undefined}
+          onDraw={myTurn ? handleDraw : undefined}
           left={left}
           noteText={noteText}
           noteVisible={noteVisible}
           wildPulse={wildPulse}
+          deckRef={deckRef}
+          pileRef={pileRef}
         />
 
         {jumpReady && (
@@ -454,11 +662,19 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
             style={{ x: fanX }}
             dragElastic={0.08}
           >
-            <div className="mx-auto flex items-end justify-start px-3 pr-24" style={{ minWidth: hand.length > 5 ? `${hand.length * (FAN_CARD.w + overlap + 8)}px` : "100%" }}>
+            <motion.div
+              className="mx-auto flex items-end justify-start px-3 pr-24"
+              style={{ minWidth: hand.length > 5 ? `${hand.length * (FAN_CARD.w + overlap + 8)}px` : "100%" }}
+              animate={reduce ? undefined : { rotate: [0, 0.32, 0, -0.32, 0] }}
+              transition={reduce ? undefined : { duration: 6.8, repeat: Infinity, ease: "easeInOut" }}
+            >
               {hand.map((card, i) => {
                 const can = playable.has(card.id) || jumpable.has(card.id);
                 const rot = fanAngle(hand.length, i);
-                const isFlying = fly?.cardId === card.id;
+                const shellRef: RefCallback<HTMLDivElement> = (el) => {
+                  if (el) cardEls.current.set(card.id, el);
+                  else cardEls.current.delete(card.id);
+                };
                 return (
                   <SwipeableCard
                     key={card.id}
@@ -468,15 +684,16 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
                     wildTint={view.wildColor}
                     rotate={rot}
                     marginLeft={i === 0 ? 0 : overlap}
-                    selectedLift={!isFlying}
+                    selectedLift={!hiddenCards.has(card.id)}
                     resetDrag={dragReset}
-                    flying={isFlying}
+                    hidden={hiddenCards.has(card.id)}
+                    shellRef={shellRef}
                     onPick={() => setPicked((p) => (p === card.id ? null : card.id))}
-                    onBeginThrow={(vx, vy) => onBeginThrow(card.id, vx, vy)}
+                    onThrowPan={(el, vx, vy, ox, oy) => onThrowPan(card.id, el, vx, vy, ox, oy)}
                   />
                 );
               })}
-            </div>
+            </motion.div>
           </motion.div>
 
           {scrollHint && overflowN > 0 && (
@@ -514,7 +731,11 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
           counts={view.counts}
           turnPlayerId={view.turnPlayerId}
           ekBacha={view.ekBacha}
+          setChipRef={setChipRef}
+          countPulse={countPulse}
         />
+
+        <CardFlightLayer queue={flights} pop={popFlight} />
 
         <PaperSheet open={sheet === "help"} onClose={() => setSheet(null)} title="PUNO">
           <ul className="list-disc space-y-2 pl-5 text-p-note font-semibold">
@@ -532,9 +753,15 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
           }}
           onPick={(c) => {
             if (!wildPick) return;
+            const card = hand.find((x) => x.id === wildPick.cardId);
+            const el = cardEls.current.get(wildPick.cardId);
+            if (card && el) {
+              queueThrow(card, wildPick.mode, wildPick.vx ?? 0, wildPick.vy ?? -800, el, c);
+            } else if (card) {
+              sendPlay(card.id, wildPick.mode, c);
+            }
             setWildPulse(true);
-            window.setTimeout(() => setWildPulse(false), 400);
-            throwCard(wildPick.cardId, wildPick.mode, c);
+            window.setTimeout(() => setWildPulse(false), 420);
             setWildPick(null);
           }}
         />

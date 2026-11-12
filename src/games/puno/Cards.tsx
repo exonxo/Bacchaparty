@@ -1,6 +1,6 @@
 "use client";
 import { motion, useReducedMotion } from "motion/react";
-import { type CSSProperties, type ReactNode, useState } from "react";
+import { type CSSProperties, type ReactNode, type Ref, useState } from "react";
 import type { PunoCard, PunoColor } from "./shared";
 
 const INK = "#1e1a17";
@@ -348,12 +348,20 @@ export function CardBack({ size = "pile", onClick }: { size?: CardSize; onClick?
   );
 }
 
-export function DeckStack({ size = "pile", onClick }: { size?: CardSize; onClick?: () => void }) {
+export function DeckStack({
+  size = "pile",
+  onClick,
+  innerRef,
+}: {
+  size?: CardSize;
+  onClick?: () => void;
+  innerRef?: Ref<HTMLDivElement>;
+}) {
   const d = DIM[size === "tv" ? "tv" : "pile"];
   const step = size === "tv" ? 3 : 2;
   const layers = [4, 3, 2, 1];
   return (
-    <div className="relative" style={{ width: d.w + step * 5, height: d.h + step * 2 }}>
+    <div ref={innerRef} className="relative" style={{ width: d.w + step * 5, height: d.h + step * 2 }}>
       {layers.map((i) => (
         <div
           key={i}

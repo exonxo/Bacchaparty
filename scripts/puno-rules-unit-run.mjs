@@ -78,7 +78,7 @@ assert(!s.ekBacha, "caught clears ek bacha");
 
 // win detection
 s = newGame(["w1", "w2"], 0);
-const card = s.hands.w1[0];
+const card = s.hands.w1.find((c) => c.kind === "number") ?? s.hands.w1[0];
 if (card) {
   s = {
     ...s,
