@@ -10,6 +10,7 @@ import {
   reduceEkBacha,
   reduceJump,
   reducePakdo,
+  reducePass,
   reducePlay,
   reshuffleDiscard,
 } from "../src/games/puno/rules.ts";
@@ -108,5 +109,14 @@ s = newGame(["e1", "e2"], 0);
 s = { ...s, hands: { ...s.hands, e1: s.hands.e1.slice(0, 2) } };
 s = reduceEkBacha(s, "e1", 700, () => "E");
 assert(s.ekBachaSaid.includes("e1"), "ek bacha call recorded");
+
+// pass after draw advances turn
+s = newGame(["pa", "pb"], 0);
+const turnBefore = s.turn;
+s = { ...s, drawnThisTurn: true, stackTotal: 0 };
+const activePass = s.seats[s.turn].playerId;
+s = reducePass(s, activePass, 800);
+assert(s.turn !== turnBefore, "pass advances");
+assert(!s.drawnThisTurn, "pass clears drawn flag");
 
 console.log("puno-rules-unit: OK");

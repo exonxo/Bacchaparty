@@ -318,7 +318,7 @@ function HostRoom({
           </>
         }
       >
-        <TestBanner on={testMode} />
+        <TestBanner on={testMode} compact={playingMod?.id === "puno"} />
         <GameStage mod={playingMod} view={view} priv={myPriv} me={mePlayer} players={state.players} send={sendAsMe} now={now} isHost hostAct={act} together={state.together} tvOn={!!state.tvOn} />
         {endGameSheet}
         {endPartySheet}

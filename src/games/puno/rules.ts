@@ -424,5 +424,10 @@ export function privForPlayer(s: PunoState, playerId: string) {
   const myTurn = currentPlayer(s) === playerId;
   const playable = myTurn ? legalPlayIds(hand, s.top, s.wildColor, s.stackTotal) : [];
   const jumpable = !myTurn ? legalJumpIds(hand, s.top, s.wildColor, s.stackTotal) : [];
-  return { hand, playable, jumpable };
+  return {
+    hand,
+    playable,
+    jumpable,
+    canPass: myTurn && s.drawnThisTurn && s.stackTotal === 0,
+  };
 }

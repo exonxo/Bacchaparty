@@ -47,10 +47,16 @@ export function GameStage({
       if (meta && prevColor) meta.content = prevColor;
     };
   }, [dark]);
+  const punoFill = mod.id === "puno" && !!mod.Phone;
   return (
     <RoomAudioProvider value={{ together, isStage: isHost, tvOn }}>
       {mod.Phone ? (
-        <mod.Phone view={view} priv={priv} me={me} players={players} send={send} now={now} isHost={isHost} hostAct={hostAct} together={together} tvOn={tvOn} />
+        <div
+          className={punoFill ? "-mx-4 flex min-h-0 flex-col sm:-mx-0" : undefined}
+          style={punoFill ? { height: "calc(100dvh - 5.25rem - env(safe-area-inset-top))", maxHeight: "calc(100svh - 5.25rem - env(safe-area-inset-top))" } : undefined}
+        >
+          <mod.Phone view={view} priv={priv} me={me} players={players} send={send} now={now} isHost={isHost} hostAct={hostAct} together={together} tvOn={tvOn} />
+        </div>
       ) : isHost ? (
         <div className="space-y-6">
           <div className="rounded-xl bg-tint px-4 py-3 text-sm text-muted">

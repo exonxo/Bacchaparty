@@ -1,6 +1,6 @@
 "use client";
 import { ArrowDown, Megaphone, Pointer } from "lucide-react";
-import { MotionConfig, motion, useMotionValue, useTransform, type PanInfo } from "motion/react";
+import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useReducedMotion, useTransform, type PanInfo } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { screenIn, spring } from "@/components/paper/motion";
 import { InkDefs } from "@/components/paper/objects";
@@ -12,14 +12,16 @@ import { vibrate } from "@/lib/sfx";
 import type { PhoneProps, Player } from "@/lib/types";
 import type { PunoCard } from "./shared";
 import {
-  CardBack,
   CardFace,
   ColorSwatch,
+  DeckStack,
+  FAN_CARD,
   MiniCardBack,
   NeoButton,
   TAG_CAPS,
-  pilePose,
+  radialPose,
 } from "./Cards";
+import { fanSpring, pileSpring, slapSpring, snapSpring, throwSpring } from "./springs";
 import type { Priv, Pub, PunoColor } from "./shared";
 
 const nameOf = (players: Player[], id: string) => players.find((p) => p.id === id)?.name ?? "Khiladi";
@@ -27,55 +29,82 @@ const nameOf = (players: Player[], id: string) => players.find((p) => p.id === i
 const TABLE_GRID: CSSProperties = {
   backgroundColor: "var(--bg-2)",
   backgroundImage: `
-    linear-gradient(color-mix(in srgb, var(--ink) 7%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--ink) 7%, transparent) 1px, transparent 1px)
+    linear-gradient(color-mix(in srgb, var(--ink) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--ink) 8%, transparent) 1px, transparent 1px)
   `,
-  backgroundSize: "22px 22px",
+  backgroundSize: "20px 20px",
 };
 
-function DiscardSpread({ top, under, wildColor }: { top: PunoCard; under: PunoCard[]; wildColor: PunoColor | null }) {
-  const layers = under.slice(-5);
+function Sparkle({ className }: { className?: string }) {
   return (
-    <div className="relative h-[108px] w-[130px]" aria-label="Discard pile">
-      {layers.map((c, i) => {
-        const pose = pilePose(c.id, i + 1);
-        return (
-          <div
-            key={c.id}
-            className="pointer-events-none absolute left-1/2 top-1/2"
-            style={{
-              transform: `translate(calc(-50% + ${pose.x}px), calc(-50% + ${pose.y}px)) rotate(${pose.rotate}deg) scale(${pose.scale})`,
-              zIndex: i + 1,
-            }}
-          >
-            <CardFace card={c} wildTint={wildColor} size="pile" />
-          </div>
-        );
-      })}
-      <div className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
-        <CardFace card={top} wildTint={wildColor} size="pile" />
-      </div>
-    </div>
+    <svg width="16" height="16" viewBox="0 0 16 16" className={className} aria-hidden>
+      <path fill="currentColor" d="M8 0 L9.2 6.8 L16 8 L9.2 9.2 L8 16 L6.8 9.2 L0 8 L6.8 6.8 Z" />
+    </svg>
   );
 }
 
-function TurnSticker({ myTurn, name }: { myTurn: boolean; name: string }) {
-  if (myTurn) {
-    return (
-      <motion.div
-        initial={{ rotate: -6 }}
-        animate={{ rotate: [-6, -4, -6] }}
-        transition={{ duration: 2.2, repeat: Infinity }}
-        className="absolute right-2 top-2 z-30 border-[3px] border-ink bg-vermilion px-3 py-2 font-display text-sm font-extrabold uppercase tracking-wide text-ink shadow-[5px_5px_0_0_var(--ink)]"
-      >
-        Teri baari!
-      </motion.div>
-    );
-  }
+function DiscardSpread({ top, under, wildColor, pulse }: { top: PunoCard; under: PunoCard[]; wildColor: PunoColor | null; pulse?: boolean }) {
+  const layers = under.slice(-9);
+  const reduce = useReducedMotion();
   return (
-    <div className="absolute right-2 top-2 z-30 max-w-[48%] border-[3px] border-ink bg-paper px-2 py-1.5 text-right font-display text-[10px] font-extrabold uppercase leading-tight tracking-wide shadow-[4px_4px_0_0_var(--ink)]">
-      {name}
-    </div>
+    <motion.div
+      className="relative h-[138px] w-[148px]"
+      aria-label="Discard pile"
+      animate={pulse && !reduce ? { scale: [1, 1.04, 1] } : undefined}
+      transition={{ duration: 0.35 }}
+    >
+      {layers.map((c, i) => {
+        const pose = radialPose(c.id, i, layers.length + 1);
+        return (
+          <motion.div
+            key={c.id}
+            layout={false}
+            className="pointer-events-none absolute left-1/2 top-1/2"
+            initial={false}
+            animate={{ x: pose.x, y: pose.y, rotate: pose.rotate, scale: pose.scale }}
+            transition={pileSpring}
+            className="-translate-x-1/2 -translate-y-1/2"
+            style={{ zIndex: pose.zIndex }}
+          >
+            <CardFace card={c} wildTint={wildColor} size="pile" />
+          </motion.div>
+        );
+      })}
+      <div className="absolute left-1/2 top-1/2 z-[30] -translate-x-1/2 -translate-y-1/2">
+        <CardFace card={top} wildTint={wildColor} size="pile" />
+      </div>
+    </motion.div>
+  );
+}
+
+function TurnSticker({ myTurn }: { myTurn: boolean }) {
+  const reduce = useReducedMotion();
+  if (!myTurn) return null;
+  return (
+    <motion.div
+      key="my-turn"
+      initial={reduce ? { opacity: 0 } : { rotate: -18, scale: 0.7, opacity: 0 }}
+      animate={reduce ? { opacity: 1 } : { rotate: -7, scale: 1, opacity: 1 }}
+      transition={slapSpring}
+      className="absolute right-2 top-2 z-30 border-[3px] border-ink bg-vermilion px-3 py-1.5 font-display text-xs font-extrabold uppercase tracking-wide text-ink shadow-[5px_5px_0_0_var(--ink)]"
+    >
+      Teri baari!
+    </motion.div>
+  );
+}
+
+function StackBadge({ total }: { total: number }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div
+      key={total}
+      initial={reduce ? undefined : { scale: 0.5, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={slapSpring}
+      className="absolute bottom-2 right-[18%] z-30 border-[3px] border-ink bg-vermilion px-2.5 py-1 font-display text-xs font-extrabold uppercase text-paper shadow-[4px_4px_0_0_var(--ink)]"
+    >
+      +{total}
+    </motion.div>
   );
 }
 
@@ -85,18 +114,31 @@ function PlayTable({
   turnName,
   onDraw,
   left,
+  noteText,
+  noteVisible,
+  wildPulse,
 }: {
   view: Pub;
   myTurn: boolean;
   turnName: string;
   onDraw?: () => void;
   left: number;
+  noteText?: string;
+  noteVisible: boolean;
+  wildPulse: boolean;
 }) {
   return (
-    <div className="relative min-h-[200px] shrink-0 overflow-hidden border-b-[3px] border-ink px-3 pb-4 pt-3" style={TABLE_GRID}>
-      <TurnSticker myTurn={myTurn} name={turnName} />
+    <div className="relative min-h-0 flex-[0.42] overflow-hidden border-b-[3px] border-ink px-2 pb-3 pt-2" style={TABLE_GRID}>
+      <Sparkle className="absolute left-2 top-2 z-20 text-ink" />
+      <Sparkle className="absolute right-[38%] top-1 z-20 text-ink opacity-80" />
+      <TurnSticker myTurn={myTurn} />
+      {!myTurn && (
+        <div className="absolute right-2 top-2 z-20 max-w-[44%] border-[3px] border-ink bg-paper px-2 py-1 text-right font-display text-[9px] font-extrabold uppercase leading-tight shadow-[4px_4px_0_0_var(--ink)]">
+          {turnName}
+        </div>
+      )}
       <div
-        className={`absolute left-3 top-3 border-[3px] border-ink px-2 py-0.5 font-display text-xs font-extrabold tabular-nums shadow-[3px_3px_0_0_var(--ink)] ${
+        className={`absolute left-2 top-9 border-[3px] border-ink px-2 py-0.5 font-display text-[11px] font-extrabold tabular-nums shadow-[3px_3px_0_0_var(--ink)] ${
           left <= 5 ? "bg-vermilion text-paper" : "bg-paper text-ink"
         }`}
         role="timer"
@@ -105,20 +147,30 @@ function PlayTable({
       </div>
       <motion.div
         animate={{ rotate: view.direction === 1 ? 0 : 180 }}
-        className="absolute left-3 bottom-3 rounded-md border-[3px] border-ink bg-turmeric p-1.5 text-ink shadow-[3px_3px_0_0_var(--ink)]"
+        transition={snapSpring}
+        className="absolute bottom-2 left-2 rounded-md border-[3px] border-ink bg-turmeric p-1.5 text-ink shadow-[3px_3px_0_0_var(--ink)]"
         aria-label="Direction"
       >
         <ArrowDown className="h-4 w-4" strokeWidth={3} />
       </motion.div>
-      <div className="flex items-end justify-center gap-6 pt-10">
-        <CardBack size="pile" onClick={onDraw} />
-        <DiscardSpread top={view.top} under={view.discardUnder} wildColor={view.wildColor} />
+      <AnimatePresence>
+        {noteVisible && noteText && (
+          <motion.div
+            key={noteText}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="pointer-events-none absolute left-1/2 top-[38%] z-40 max-w-[92%] -translate-x-1/2 border-[3px] border-ink bg-card/95 px-2 py-1 text-center font-display text-[9px] font-extrabold uppercase shadow-[3px_3px_0_0_var(--ink)]"
+          >
+            {noteText}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div className="flex h-full items-end justify-center gap-4 pb-1 pt-12">
+        <DeckStack onClick={onDraw} />
+        <DiscardSpread top={view.top} under={view.discardUnder} wildColor={view.wildColor} pulse={wildPulse} />
       </div>
-      {view.stackPending && (
-        <div className="absolute bottom-3 right-1/4 z-30 border-[3px] border-ink bg-vermilion px-2 py-1 font-display text-[10px] font-extrabold uppercase text-paper shadow-[4px_4px_0_0_var(--ink)]">
-          +{view.stackTotal}
-        </div>
-      )}
+      {view.stackPending && view.stackTotal > 0 && <StackBadge total={view.stackTotal} />}
     </div>
   );
 }
@@ -140,8 +192,8 @@ function PlayerFooter({
 }) {
   const others = seats.filter((s) => s.playerId !== meId);
   return (
-    <footer className="shrink-0 border-t-[3px] border-ink bg-ink px-2 py-2">
-      <div className="flex gap-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <footer className="z-50 shrink-0 border-t-[3px] border-ink bg-ink px-2 py-2.5">
+      <div className="flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {others.map((s) => {
           const p = players.find((x) => x.id === s.playerId);
           const on = s.playerId === turnPlayerId;
@@ -150,14 +202,14 @@ function PlayerFooter({
           return (
             <div
               key={s.playerId}
-              className={`relative flex min-w-[5.5rem] shrink-0 items-center gap-1.5 border-[2px] bg-paper px-1.5 py-1 ${
-                on ? "border-turmeric shadow-[0_0_0_2px_var(--turmeric)]" : "border-ink"
+              className={`relative flex min-w-[6.5rem] shrink-0 items-center gap-2 rounded-md border-[2.5px] bg-paper px-2 py-1.5 ${
+                on ? "border-turmeric shadow-[0_0_0_2px_var(--turmeric)]" : "border-paper"
               }`}
             >
               <MiniCardBack />
               <div className="min-w-0 flex-1">
-                <div className="truncate font-display text-[10px] font-extrabold uppercase leading-tight">{p?.name ?? "…"}</div>
-                <div className="font-display text-[11px] font-extrabold tabular-nums">{counts[s.playerId] ?? 0}</div>
+                <div className="truncate font-display text-[10px] font-extrabold uppercase leading-tight text-ink">{p?.name ?? "…"}</div>
+                <div className="font-display text-xs font-extrabold tabular-nums text-ink">{counts[s.playerId] ?? 0}</div>
               </div>
               {(oneLeft || catchMe) && (
                 <span className="absolute -top-2 right-0 border border-ink bg-turmeric px-1 text-[7px] font-extrabold uppercase text-ink">Ek!</span>
@@ -172,60 +224,107 @@ function PlayerFooter({
 
 function ColorPicker({ open, onPick, onClose }: { open: boolean; onPick: (c: PunoColor) => void; onClose: () => void }) {
   const colors: PunoColor[] = ["haldi", "sindoor", "mehndi", "neel"];
+  const reduce = useReducedMotion();
   return (
     <PaperSheet open={open} onClose={onClose} title="RANG CHUNO">
-      <div className="grid grid-cols-1 gap-3 p-1">
+      <motion.div
+        initial={reduce ? undefined : { y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={snapSpring}
+        className="grid grid-cols-1 gap-3 p-1"
+      >
         {colors.map((c) => (
           <ColorSwatch key={c} color={c} label={TAG_CAPS[c]} onClick={() => onPick(c)} />
         ))}
-      </div>
+      </motion.div>
     </PaperSheet>
   );
 }
 
-function fanLayout(n: number, i: number) {
-  const spread = n <= 5 ? 11 : n <= 8 ? 7.5 : n <= 11 ? 5.5 : 4;
-  const start = -((n - 1) * spread) / 2;
-  const rot = start + i * spread;
-  const tuck = n <= 7 ? -22 : n <= 10 ? -18 : -14;
-  return { rot, tuck };
+function fanAngle(n: number, i: number) {
+  if (n <= 1) return 0;
+  const t = i / (n - 1);
+  return -20 + t * 40;
 }
+
+function fanOverlap(n: number) {
+  if (n <= 4) return -FAN_CARD.w * 0.52;
+  if (n <= 7) return -FAN_CARD.w * 0.58;
+  return -FAN_CARD.w * 0.62;
+}
+
+type FlyState = { cardId: string; mode: "play" | "jump"; wildColor?: PunoColor } | null;
 
 function SwipeableCard({
   card,
   playable,
   selected,
   onPick,
-  onThrow,
+  onBeginThrow,
   wildTint,
   rotate,
   marginLeft,
+  selectedLift,
+  resetDrag,
+  flying,
 }: {
   card: PunoCard;
   playable: boolean;
   selected: boolean;
   onPick: () => void;
-  onThrow: () => void;
+  onBeginThrow: (vx: number, vy: number) => void;
   wildTint?: PunoColor | null;
   rotate: number;
   marginLeft: number;
+  selectedLift: boolean;
+  resetDrag: number;
+  flying: boolean;
 }) {
+  const reduce = useReducedMotion();
+  const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const scale = useTransform(y, [-140, 0], [0.9, 1]);
+  const dragRotate = useTransform(y, [-160, 0], [rotate - 6, rotate]);
+
+  useEffect(() => {
+    x.set(0);
+    y.set(0);
+  }, [resetDrag, x, y]);
+
   const onEnd = (_: unknown, info: PanInfo) => {
-    if (selected && info.offset.y < -72) onThrow();
-    else y.set(0);
+    if (!selected || flying) {
+      animate(y, 0, reduce ? { duration: 0.15 } : throwSpring);
+      return;
+    }
+    const speed = Math.hypot(info.velocity.x, info.velocity.y);
+    if (info.offset.y < -64 || (info.velocity.y < -420 && info.offset.y < -28)) {
+      onBeginThrow(info.velocity.x, info.velocity.y);
+      return;
+    }
+    animate(y, 0, reduce ? { duration: 0.15 } : fanSpring);
+    if (speed > 80) animate(x, 0, fanSpring);
   };
+
+  const lift = selected && selectedLift ? -28 : 0;
+  const scale = selected ? 1.04 : 1;
+
   return (
     <motion.div
-      style={{ y, scale, rotate, marginLeft, zIndex: selected ? 40 : undefined, transformOrigin: "50% 120%" }}
+      style={{ x, y, rotate: reduce ? rotate : dragRotate, marginLeft, zIndex: selected ? 50 : undefined, transformOrigin: "50% 115%" }}
       className="shrink-0"
-      drag={selected ? "y" : false}
-      dragConstraints={{ top: -180, bottom: 0 }}
-      dragElastic={0.12}
+      drag={selected && !flying ? true : false}
+      dragConstraints={{ top: -200, bottom: 12, left: -40, right: 40 }}
+      dragElastic={0.14}
       onDragEnd={onEnd}
+      animate={
+        flying
+          ? reduce
+            ? { opacity: 0 }
+            : { y: -240, x: 110, rotate: rotate + 18, scale: 0.78, opacity: 0.35 }
+          : { scale, y: lift }
+      }
+      transition={flying ? throwSpring : fanSpring}
     >
-      <CardFace card={card} wildTint={wildTint} size="hero" dim={!playable} selected={selected} onClick={playable ? onPick : undefined} />
+      <CardFace card={card} wildTint={wildTint} size="fan" dim={!playable} selected={selected && selectedLift} onClick={playable ? onPick : undefined} />
     </motion.div>
   );
 }
@@ -234,16 +333,22 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   const hand = priv?.hand ?? [];
   const playable = new Set(priv?.playable ?? []);
   const jumpable = new Set(priv?.jumpable ?? []);
+  const canPass = priv?.canPass ?? false;
   const myTurn = view.turnPlayerId === me.id;
   const [picked, setPicked] = useState<string | null>(null);
   const [wildPick, setWildPick] = useState<{ cardId: string; mode: "play" | "jump" } | null>(null);
   const [sheet, setSheet] = useState<"help" | null>(null);
   const [scrollHint, setScrollHint] = useState(false);
+  const [dragReset, setDragReset] = useState(0);
+  const [fly, setFly] = useState<FlyState>(null);
+  const [wildPulse, setWildPulse] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fanX = useMotionValue(0);
+  const reduce = useReducedMotion();
   const sfx = useSfx();
   const left = Math.max(0, Math.ceil((view.deadline - now) / 1000));
   const turnName = nameOf(players, view.turnPlayerId);
-  const tuck = fanLayout(hand.length, 0).tuck;
+  const overlap = fanOverlap(hand.length);
 
   useOnChange(view.turnPlayerId, (id) => {
     if (id === me.id) {
@@ -257,9 +362,13 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   }, [myTurn, view.turn]);
 
   useEffect(() => {
+    if (wildPick) setDragReset((n) => n + 1);
+  }, [wildPick]);
+
+  useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const check = () => setScrollHint(el.scrollWidth > el.clientWidth + 8);
+    const check = () => setScrollHint(el.scrollWidth > el.clientWidth + 4);
     check();
     const ro = new ResizeObserver(check);
     ro.observe(el);
@@ -269,26 +378,41 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   const ekGlow = myTurn && hand.length === 2;
   const catchTarget = view.ekBacha && view.ekBacha.playerId !== me.id && !view.ekBachaSaid.includes(view.ekBacha.playerId);
   const jumpReady = !myTurn && jumpable.size > 0;
+  const noteVisible = !!(view.note && now - view.note.at < 3800);
+  const noteText = view.note?.text;
 
   const result = useMemo(() => (view.phase === "over" ? summarizeGame("puno", view, players, now) : null), [view, players, now]);
 
-  const throwCard = (cardId: string, mode: "play" | "jump", wildColor?: PunoColor) => {
+  const completeThrow = (cardId: string, mode: "play" | "jump", wildColor?: PunoColor) => {
     send(mode, { cardId, wildColor });
     setPicked(null);
+    setFly(null);
     sfx.mine("whoosh");
     vibrate(20);
   };
 
-  const onThrowPicked = () => {
-    if (!picked) return;
-    const card = hand.find((c) => c.id === picked);
+  const throwCard = (cardId: string, mode: "play" | "jump", wildColor?: PunoColor) => {
+    const card = hand.find((c) => c.id === cardId);
     if (!card) return;
-    const mode: "play" | "jump" = jumpable.has(picked) && !myTurn ? "jump" : "play";
-    if (card.color === "wild" && !wildPick) {
-      setWildPick({ cardId: picked, mode });
+    if (card.color === "wild" && !wildColor && !wildPick) {
+      setWildPick({ cardId, mode });
       return;
     }
-    throwCard(picked, mode);
+    setFly({ cardId, mode, wildColor });
+    window.setTimeout(() => completeThrow(cardId, mode, wildColor), reduce ? 120 : 420);
+  };
+
+  const onBeginThrow = (cardId: string, vx: number, vy: number) => {
+    const mode: "play" | "jump" = jumpable.has(cardId) && !myTurn ? "jump" : "play";
+    const card = hand.find((c) => c.id === cardId);
+    if (!card) return;
+    if (card.color === "wild") {
+      setWildPick({ cardId, mode });
+      return;
+    }
+    throwCard(cardId, mode);
+    void vx;
+    void vy;
   };
 
   if (view.phase === "over") {
@@ -301,34 +425,41 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
     );
   }
 
+  const overflowN = Math.max(0, hand.length - Math.floor(393 / (FAN_CARD.w + overlap)));
+
   return (
     <MotionConfig transition={spring.settle}>
       <InkDefs />
-      <motion.div {...screenIn} className="mx-auto flex min-h-dvh w-full max-w-[393px] flex-col bg-bg">
-        {view.note && now - view.note.at < 4000 && (
-          <div className="shrink-0 border-b-[3px] border-ink bg-card px-3 py-1.5 text-center text-[10px] font-extrabold uppercase">{view.note.text}</div>
-        )}
-
-        <PlayTable view={view} myTurn={myTurn} turnName={turnName} onDraw={myTurn ? () => send("draw") : undefined} left={left} />
+      <motion.div {...screenIn} className="flex h-full min-h-0 w-full max-w-[393px] flex-col overflow-hidden bg-bg">
+        <PlayTable
+          view={view}
+          myTurn={myTurn}
+          turnName={turnName}
+          onDraw={myTurn ? () => send("draw") : undefined}
+          left={left}
+          noteText={noteText}
+          noteVisible={noteVisible}
+          wildPulse={wildPulse}
+        />
 
         {jumpReady && (
-          <p className="shrink-0 bg-turmeric/40 py-1 text-center text-[10px] font-extrabold uppercase tracking-wide">Jump-in · tap matching card</p>
+          <p className="shrink-0 bg-turmeric/35 py-0.5 text-center text-[9px] font-extrabold uppercase tracking-wide">Jump · tap match</p>
         )}
 
-        <section aria-label="Your hand" className="relative mt-auto min-h-0 flex-1">
+        <section aria-label="Your hand" className="relative z-10 -mb-[72px] min-h-0 flex-[0.48] overflow-hidden">
           <motion.div
             ref={scrollRef}
-            className="relative flex h-full min-h-[42vh] items-end overflow-x-auto overflow-y-visible pb-[18vh] pt-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            style={{
-              maskImage: scrollHint
-                ? "linear-gradient(90deg, transparent 0%, #000 12%, #000 88%, transparent 100%)"
-                : undefined,
-            }}
+            className="flex h-full w-full items-end overflow-x-auto overflow-y-visible pb-[78px] pt-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            drag={hand.length > 5 ? "x" : false}
+            dragConstraints={{ left: -Math.max(0, hand.length * 48 - 360), right: 0 }}
+            style={{ x: fanX }}
+            dragElastic={0.08}
           >
-            <motion.div className="mx-auto flex items-end justify-start px-4 pr-16" style={{ minWidth: hand.length > 8 ? `${hand.length * 42}px` : "100%" }}>
+            <div className="mx-auto flex items-end justify-start px-3 pr-24" style={{ minWidth: hand.length > 5 ? `${hand.length * (FAN_CARD.w + overlap + 8)}px` : "100%" }}>
               {hand.map((card, i) => {
                 const can = playable.has(card.id) || jumpable.has(card.id);
-                const { rot } = fanLayout(hand.length, i);
+                const rot = fanAngle(hand.length, i);
+                const isFlying = fly?.cardId === card.id;
                 return (
                   <SwipeableCard
                     key={card.id}
@@ -337,23 +468,31 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
                     selected={picked === card.id}
                     wildTint={view.wildColor}
                     rotate={rot}
-                    marginLeft={i === 0 ? 0 : tuck}
+                    marginLeft={i === 0 ? 0 : overlap}
+                    selectedLift={!isFlying}
+                    resetDrag={dragReset}
+                    flying={isFlying}
                     onPick={() => setPicked((p) => (p === card.id ? null : card.id))}
-                    onThrow={onThrowPicked}
+                    onBeginThrow={(vx, vy) => onBeginThrow(card.id, vx, vy)}
                   />
                 );
               })}
-            </motion.div>
+            </div>
           </motion.div>
 
-          {scrollHint && hand.length > 9 && (
-            <span className="pointer-events-none absolute bottom-[20vh] right-3 border-2 border-ink bg-paper px-1.5 py-0.5 text-[10px] font-extrabold shadow-[3px_3px_0_0_var(--ink)]">
-              +{hand.length - 9}
+          {scrollHint && overflowN > 0 && (
+            <span className="pointer-events-none absolute bottom-[86px] left-2 border-2 border-ink bg-paper px-1.5 py-0.5 text-[10px] font-extrabold shadow-[3px_3px_0_0_var(--ink)]">
+              +{overflowN} · swipe
             </span>
           )}
 
-          <div className="pointer-events-none absolute bottom-[19vh] right-0 z-50 flex flex-col gap-2 p-2">
-            <div className="pointer-events-auto flex flex-col gap-2">
+          <div className="pointer-events-none absolute bottom-[82px] right-1 z-50 flex flex-col items-end gap-1.5">
+            <div className="pointer-events-auto flex flex-col items-stretch gap-1.5">
+              {canPass && (
+                <NeoButton className="!min-h-9 !px-3 !text-[11px]" variant="ink" onClick={() => send("pass")}>
+                  Pass
+                </NeoButton>
+              )}
               <NeoButton className="!min-h-9 !px-2 !text-[10px]" variant={ekGlow ? "turmeric" : "paper"} onClick={() => send("ek-bacha")}>
                 <Megaphone className="mr-0.5 inline h-3.5 w-3.5" /> Ek Bacha!
               </NeoButton>
@@ -362,7 +501,7 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
                   <Pointer className="mr-0.5 inline h-3.5 w-3.5" /> Pakdo!
                 </NeoButton>
               )}
-              <button type="button" className="text-right text-[9px] font-bold uppercase text-muted underline" onClick={() => setSheet("help")}>
+              <button type="button" className="self-end text-[9px] font-bold uppercase text-ink underline" onClick={() => setSheet("help")}>
                 Hint
               </button>
             </div>
@@ -380,17 +519,22 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
 
         <PaperSheet open={sheet === "help"} onClose={() => setSheet(null)} title="PUNO">
           <ul className="list-disc space-y-2 pl-5 text-p-note font-semibold">
-            <li>Match pile colour or number. Stack Do Le / Chaar Le or draw the full stack.</li>
-            <li>Tap a card, swipe up to play. Deck (left) to draw on your turn.</li>
-            <li>Shout Ek Bacha! at one card; Pakdo! if someone forgets.</li>
+            <li>Match colour or number. Stack Do Le / Chaar Le or draw full stack.</li>
+            <li>Tap card, swipe up to play. Deck to draw. Pass after draw if nothing fits.</li>
+            <li>Ek Bacha! at one card; Pakdo! if someone forgets.</li>
           </ul>
         </PaperSheet>
 
         <ColorPicker
           open={!!wildPick}
-          onClose={() => setWildPick(null)}
+          onClose={() => {
+            setWildPick(null);
+            setDragReset((n) => n + 1);
+          }}
           onPick={(c) => {
             if (!wildPick) return;
+            setWildPulse(true);
+            window.setTimeout(() => setWildPulse(false), 400);
             throwCard(wildPick.cardId, wildPick.mode, c);
             setWildPick(null);
           }}

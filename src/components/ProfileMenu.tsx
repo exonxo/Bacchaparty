@@ -160,8 +160,15 @@ export function ProfileMenu({
 }
 
 /** Shown on the host's screen while test mode is on, so nobody mistakes the room for a real one. */
-export function TestBanner({ on }: { on: boolean }) {
+export function TestBanner({ on, compact }: { on: boolean; compact?: boolean }) {
   if (!on) return null;
+  if (compact) {
+    return (
+      <p role="status" className="mb-1 text-center text-[9px] font-extrabold uppercase tracking-widest text-muted">
+        Test mode · bots in room
+      </p>
+    );
+  }
   return (
     <div role="status" className="cut mb-4 flex items-center gap-2 rounded-cut bg-turmeric px-3 py-2 text-p-note font-bold text-ink">
       <span className="h-2 w-2 shrink-0 rounded-full bg-ink" />

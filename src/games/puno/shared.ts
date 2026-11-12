@@ -100,4 +100,6 @@ export interface Priv {
   playable: string[];
   /** You may jump in with these ids right now. */
   jumpable: string[];
+  /** Drew this turn and may end without playing. */
+  canPass: boolean;
 }

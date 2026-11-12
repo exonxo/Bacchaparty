@@ -141,7 +141,7 @@ export function PlayerScreen({ code }: { code: string }) {
         </>
       ) : (
         <>
-          {lateJoin && info && (
+          {lateJoin && info && mod?.id !== "puno" && (
             <div className="rise-in cut mb-4 flex items-start gap-3 rounded-cut bg-card p-3">
               <div className="min-w-0 flex-1">
                 <div className="font-display text-p-body font-extrabold">Aa gaye! {info.name} has already started</div>
