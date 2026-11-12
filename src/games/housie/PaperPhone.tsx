@@ -61,7 +61,7 @@ function CallCard({ view, now, isHost, hostAct }: { view: Pub; now: number; isHo
         <div className="min-w-0 flex-1">
           <div className="text-p-note font-bold uppercase tracking-[0.16em] opacity-75">{first ? "Taiyaar ho jao" : `Number ${view.called.length} of 90`}</div>
           <div className="font-display mt-0.5 text-p-lead font-extrabold leading-tight text-balance">
-            {view.call ?? (auto ? "Pehla number aa raha hai…" : isHost ? "Tap “Call a number” to begin" : "Host pehla number bulayega")}
+            {view.call ?? (auto ? "Pehla number aa raha hai…" : isHost ? "Tap “Call a number” to begin" : "Host pehla number bulayenge")}
           </div>
           {earlier.length > 0 && (
             <div className="mt-2 flex items-center gap-1">

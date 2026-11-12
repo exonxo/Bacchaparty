@@ -1,16 +1,15 @@
 "use client";
-import { Avatar } from "@/components/Avatar";
-import { Button, LevelPicker, Panel, PlayerChip, Stopwatch } from "@/components/ui";
+import { LevelPicker } from "@/components/ui";
 import { CHARADES } from "@/content/charades";
-import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player, type ScreenProps } from "@/lib/types";
+import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player } from "@/lib/types";
 import { Phone } from "./PaperPhone";
+import { TvScreen } from "./TvScreen";
 import { shuffle } from "@/lib/util";
 
 export type Team = "A" | "B";
 export const TEAM_NAMES: Record<Team, string> = { A: "Team Laddoo", B: "Team Jalebi" };
 /** How long the actor's phone may be offline before the turn passes to a teammate. */
 export const AWAY_MS = 10_000;
-const TEAM_COLORS: Record<Team, string> = { A: "#ff9933", B: "#ff4fa3" };
 
 interface Options {
   level: Level;
@@ -101,81 +100,6 @@ function name(players: Player[], id: string | null) {
   return players.find((p) => p.id === id)?.name ?? "Someone";
 }
 
-function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
-  const actor = players.find((p) => p.id === view.actorId);
-  const teamName = TEAM_NAMES[view.turnTeam];
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_24rem]">
-      <Panel className="flex min-h-[26rem] flex-col items-center justify-center gap-5 text-center">
-        <div className="rounded-full px-5 py-1.5 text-xl font-extrabold text-bg" style={{ background: TEAM_COLORS[view.turnTeam] }}>
-          {teamName}&apos;s turn
-        </div>
-        {actor ? (
-          <>
-            <div className="text-8xl"><Avatar id={actor.avatar} /></div>
-            <div className="text-5xl font-extrabold">{actor.name}</div>
-            {view.phase === "ready" ? (
-              <div className="text-2xl text-muted">is getting ready… tap “Show my movie” on your phone!</div>
-            ) : (
-              <>
-                <div className="text-3xl font-bold text-gold">is acting! No talking!</div>
-                <div className="flex items-center gap-3 text-2xl">
-                  <Stopwatch since={view.turnStart} now={now} />
-                  {view.passes > 0 && <span className="text-muted">{view.passes} pass{view.passes > 1 ? "es" : ""}</span>}
-                </div>
-              </>
-            )}
-          </>
-        ) : (
-          <div className="text-2xl text-muted">No one from {teamName} is connected.</div>
-        )}
-        {view.lastResult && now - view.lastResult.at < 6000 && (
-          <div className={`pop-in rounded-2xl px-5 py-2 text-xl font-bold ${view.lastResult.good ? "bg-green text-bg" : "bg-white/10"}`}>{view.lastResult.text}</div>
-        )}
-        {!spectator && (
-          <div className="mt-2 flex flex-wrap justify-center gap-3">
-            {view.phase === "acting" && (
-              <>
-                <Button tone="green" onClick={() => act("got")}>
-                  Got it
-                </Button>
-                <Button tone="ghost" onClick={() => act("pass")}>
-                  New movie
-                </Button>
-              </>
-            )}
-            <Button tone="ghost" onClick={() => act("skipActor")}>
-              Different actor
-            </Button>
-            <Button tone="ghost" onClick={() => act("nextTurn")}>
-              Other team’s turn
-            </Button>
-          </div>
-        )}
-      </Panel>
-      <div className="space-y-4">
-        {(["A", "B"] as Team[]).map((t) => (
-          <Panel key={t} className={view.turnTeam === t ? "ring-4" : ""}>
-            <div className="flex items-center justify-between">
-              <div className="text-2xl font-extrabold" style={{ color: TEAM_COLORS[t] }}>
-                {TEAM_NAMES[t]}
-              </div>
-              <div className="text-5xl font-extrabold text-gold">{view.scores[t]}</div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {view.teams[t].map((id) => {
-                const p = players.find((x) => x.id === id);
-                return p ? <PlayerChip key={id} player={p} highlight={id === view.actorId} /> : null;
-              })}
-            </div>
-          </Panel>
-        ))}
-        <div className="text-center text-muted">No timer — take your time! Turns played: {view.turns}</div>
-      </div>
-    </div>
-  );
-}
-
 /** Phones use the paper view; this keeps the classic controller path working without host controls. */
 function Controller(props: ControllerProps<Pub, Priv>) {
   return <Phone {...props} isHost={false} hostAct={() => {}} together />;
@@ -193,6 +117,7 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
 const charades: GameModule<State, Pub, Priv, Options> = {
   id: "charades",
   paper: true,
+  tvPaper: true,
   defaultOptions: { level: "family" },
   OptionsForm,
   init({ players, options }) {
@@ -305,7 +230,7 @@ const charades: GameModule<State, Pub, Priv, Options> = {
     if (id !== s.actorId || s.phase !== "acting" || !s.movie) return undefined;
     return { movie: s.movie };
   },
-  Screen,
+  Screen: TvScreen,
   Controller,
   Phone,
 };

@@ -363,7 +363,7 @@ function Solvers({ view, players, me, reveal }: { view: Pub; players: Player[]; 
   return (
     <section aria-label="Who has solved it">
       <div className="mb-2 flex items-baseline justify-between">
-        <h3 className="text-p-note font-semibold uppercase tracking-[0.14em] text-muted">{reveal ? "Kisne bujha" : "Kaun bujh gaya"}</h3>
+        <h3 className="text-p-note font-semibold uppercase tracking-[0.14em] text-muted">{reveal ? "Kisne bujha" : "Kaun bujh chuke"}</h3>
         <span className="text-p-note font-bold tabular-nums">
           {solved.length}/{inGame.length} solved
         </span>
@@ -493,7 +493,7 @@ function Results({ view, players, me, isHost }: { view: Pub; players: Player[]; 
           <AnimatePresence mode="wait" initial={false}>
             {announced ? (
               <motion.div key="winner" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: dur.screen, ease: ease.out }}>
-                <h2 className="text-p-show font-extrabold text-balance">{iWon ? "Aap jeet gaye!" : winner ? `${winner.p.name} jeet gaya!` : "Khel khatam!"}</h2>
+                <h2 className="text-p-show font-extrabold text-balance">{iWon ? "Aap jeet gaye!" : winner ? `${winner.p.name} jeet gaye!` : "Khel khatam!"}</h2>
                 <p className="mt-1 text-p-lead text-muted">
                   {myPlace > 0 ? (iWon ? `Shabash! ${view.scores[me.id] ?? 0} points.` : `Aap #${myPlace} rahe — ${view.scores[me.id] ?? 0} points.`) : "Thanks for watching."}
                 </p>
@@ -512,7 +512,7 @@ function Results({ view, players, me, isHost }: { view: Pub; players: Player[]; 
           <ScoreList rows={rows.slice(3)} meId={me.id} from={3} />
         </section>
       )}
-      <p className="text-center text-p-body text-muted">{isHost ? "Agla game? Tap the home button at the top." : "Host agla game chun raha hai…"}</p>
+      <p className="text-center text-p-body text-muted">{isHost ? "Agla game? Tap the home button at the top." : "Host agla game chun rahe hain…"}</p>
     </div>
   );
 }

@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useRef } from "react";
-import { Button, NumberPicker, Panel, Scoreboard, Toggle } from "@/components/ui";
+import { NumberPicker, Toggle } from "@/components/ui";
 import { callFor } from "@/content/housieCalls";
-import { HOST_ID, type ControllerProps, type GameModule, type ScreenProps } from "@/lib/types";
-import { PRIZES, speak, type Prize, type Ticket } from "./helpers";
+import { HOST_ID, type ControllerProps, type GameModule } from "@/lib/types";
+import { PRIZES, type Prize, type Ticket } from "./helpers";
 import { Phone } from "./PaperPhone";
+import { TvScreen } from "./TvScreen";
 import { shuffle } from "@/lib/util";
 
 export interface Options {
@@ -116,84 +116,6 @@ function callNext(s: State, now: number): State {
 }
 
 
-function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
-  const spoken = useRef<number | null>(null);
-  const { current, call } = view;
-  useEffect(() => {
-    if (current && spoken.current !== current) {
-      spoken.current = current;
-      speak(call ?? String(current));
-    }
-  }, [current, call]);
-  const calledSet = new Set(view.called);
-  const left = view.nextCallAt ? Math.max(0, Math.ceil((view.nextCallAt - now) / 1000)) : null;
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-      <div className="space-y-6">
-        <Panel className="flex flex-col items-center gap-3 py-8 text-center">
-          {view.current ? (
-            <>
-              <div key={view.current} className="pop-in flex h-40 w-40 items-center justify-center rounded-full bg-saffron font-display text-8xl font-black text-black shadow-[0_0_60px_-10px_var(--saffron)]">
-                {view.current}
-              </div>
-              <div className="text-3xl font-bold">{view.call}</div>
-            </>
-          ) : (
-            <div className="text-3xl font-bold">Ready? Tap “Next number” to start!</div>
-          )}
-          <div className="text-muted">{view.called.length} of 90 called</div>
-          <div className={`flex flex-wrap justify-center gap-3 ${spectator ? "hidden" : ""}`}>
-            {!view.done && (
-              <Button size="lg" onClick={() => act("next")}>
-                Next number
-              </Button>
-            )}
-            {view.autoCall > 0 && !view.done && (
-              <Button size="lg" tone="ghost" onClick={() => act("pause")}>
-                {view.paused ? "▶ Resume auto-call" : `⏸ Pause${left !== null ? ` (${left}s)` : ""}`}
-              </Button>
-            )}
-          </div>
-          {view.lastEvent && now - view.lastEvent.at < 8000 && (
-            <div className="pop-in rounded-xl bg-white/10 px-5 py-2 text-xl font-bold">{view.lastEvent.text}</div>
-          )}
-        </Panel>
-        <Panel>
-          <div className="grid grid-cols-10 gap-1.5">
-            {Array.from({ length: 90 }, (_, i) => i + 1).map((n) => (
-              <div
-                key={n}
-                className={`flex aspect-square items-center justify-center rounded-lg text-lg font-bold ${
-                  n === view.current ? "bg-saffron text-black" : calledSet.has(n) ? "bg-white/20 text-white" : "bg-white/[0.04] text-white/25"
-                }`}
-              >
-                {n}
-              </div>
-            ))}
-          </div>
-        </Panel>
-      </div>
-      <div className="space-y-6">
-        <Panel>
-          <div className="mb-3 text-sm font-bold uppercase tracking-widest text-muted">Prizes</div>
-          <ul className="space-y-2">
-            {PRIZES.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-2 text-lg">
-                <span className="font-semibold">
-                  {p.label} <span className="text-sm text-muted">({p.points})</span>
-                </span>
-                <span className={view.winners[p.id] ? "font-bold text-gold" : "text-muted"}>{view.winners[p.id]?.name ?? "open"}</span>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-        <Scoreboard players={players} scores={view.scores} />
-      </div>
-    </div>
-  );
-}
-
-
 /** With a big screen, the phone is the same view without the host's controls. */
 function Controller(props: ControllerProps<Pub, Priv>) {
   return <Phone {...props} isHost={false} hostAct={() => {}} together />;
@@ -217,6 +139,7 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
 export const housie: GameModule<State, Pub, Priv, Options> = {
   id: "housie",
   paper: true,
+  tvPaper: true,
   defaultOptions: { autoCall: 10, autoMark: false },
   OptionsForm,
   init({ players, options, now }) {
@@ -308,7 +231,7 @@ export const housie: GameModule<State, Pub, Priv, Options> = {
     if (!s.tickets[id]) return undefined;
     return { ticket: s.tickets[id], marks: s.marks[id] ?? [], bogeyAt: s.bogey[id] ?? null };
   },
-  Screen,
+  Screen: TvScreen,
   Controller,
   Phone,
 };
