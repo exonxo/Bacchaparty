@@ -712,7 +712,7 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
           <section aria-label="Your cards" className="relative z-10 min-h-0 overflow-hidden">
           <div
             ref={scrollRef}
-            className="flex h-full w-full touch-pan-x items-end overflow-x-auto overflow-y-visible overscroll-x-contain px-3 pb-2 pt-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex h-full w-full touch-pan-x items-end overflow-x-auto overflow-y-visible overscroll-x-contain pl-[5rem] pr-3 pb-2 pt-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             <motion.div
               className="mx-auto flex items-end justify-start pl-2 pr-20"

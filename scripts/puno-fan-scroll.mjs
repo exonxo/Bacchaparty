@@ -22,24 +22,47 @@ async function waitForServer(base, attempts = 24) {
   return false;
 }
 
+async function tapProfileMenu(page) {
+  const btn = page.locator('button[aria-haspopup="menu"]').first();
+  await btn.waitFor({ state: "visible", timeout: 10000 });
+  const box = await btn.boundingBox();
+  if (!box) throw new Error("profile menu button missing");
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.touchscreen.tap(x, y);
+}
+
 async function enableTestMode(page) {
-  await page.locator('button[aria-haspopup="menu"]').first().click();
-  const toggle = page.getByRole("switch", { name: /Test mode/i });
+  await page.waitForTimeout(1200);
+  await tapProfileMenu(page);
+  const toggle = page.getByRole("switch").first();
   await toggle.waitFor({ state: "visible", timeout: 10000 });
-  if ((await toggle.getAttribute("aria-checked")) !== "true") await toggle.click();
-  await page.locator('button[aria-haspopup="menu"]').first().click();
+  if ((await toggle.getAttribute("aria-checked")) !== "true") {
+    const tbox = await toggle.boundingBox();
+    if (tbox) await page.touchscreen.tap(tbox.x + tbox.width / 2, tbox.y + tbox.height / 2);
+    else await toggle.click();
+  }
+  await page.keyboard.press("Escape");
   await page.waitForTimeout(500);
 }
 
+async function createRoomCode() {
+  const r = await fetch(`${BASE}/api/rooms`, { method: "POST" });
+  const data = await r.json();
+  if (!r.ok || !data.code) throw new Error(data.error ?? "Could not create room");
+  return data.code;
+}
+
 async function startPunoHost(page) {
-  await page.goto(`${BASE}/host`, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await page.waitForURL(/\/room\/[A-Z]{4}\/host/, { timeout: 60000 });
+  const code = await createRoomCode();
+  await page.goto(`${BASE}/room/${code}/host`, { waitUntil: "domcontentloaded", timeout: 60000 });
   const nameInput = page.locator("#player-name");
-  if (await nameInput.isVisible().catch(() => false)) {
+  if (await nameInput.isEnabled().catch(() => false)) {
     await nameInput.fill("Host");
     await page.getByRole("button", { name: /Open the lobby/i }).click();
   }
-  await page.getByText(/Waiting for friends|Kaun kaun|Aaj kya khelein/i).first().waitFor({ timeout: 30000 });
+  await page.locator('button[aria-haspopup="menu"]').first().waitFor({ state: "visible", timeout: 30000 });
+  await page.getByText(/Waiting for friends/i).waitFor({ timeout: 30000 });
   await enableTestMode(page);
   await page.waitForTimeout(1200);
   await page.getByRole("button", { name: /Puno/i }).first().click({ timeout: 15000 });
@@ -60,6 +83,9 @@ async function main() {
     viewport: { width: W, height: H },
     hasTouch: true,
     isMobile: true,
+  });
+  await ctx.addInitScript(() => {
+    sessionStorage.setItem("bacchaparty-me", JSON.stringify({ id: "host-qa", name: "Host", avatar: "cat" }));
   });
   const page = await ctx.newPage();
   page.setDefaultTimeout(30000);
@@ -113,6 +139,22 @@ async function main() {
   const okChips = layout.chips.every((c) => !c.clipped);
   const okFan = metrics.max < 20 || afterScroll > 20 || afterScroll > metrics.max * 0.45;
 
+  const lobbyBtn = page.getByRole("button", { name: "Back to lobby" });
+  const lb = await lobbyBtn.boundingBox();
+  if (lb) await page.touchscreen.tap(lb.x + lb.width / 2, lb.y + lb.height / 2);
+  else await lobbyBtn.click();
+  await page.getByRole("dialog", { name: /End this game/i }).waitFor({ timeout: 10000 });
+  await page.waitForTimeout(900);
+  const endBtn = page.getByRole("button", { name: "End game", exact: true });
+  await endBtn.waitFor({ state: "visible" });
+  const sheetHit = await endBtn.evaluate((btn) => {
+    const r = btn.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    const top = document.elementFromPoint(x, y);
+    return top === btn || (top != null && btn.contains(top));
+  });
+
   console.log(
     JSON.stringify(
       {
@@ -129,11 +171,14 @@ async function main() {
         fanScrollMax: metrics.max,
         fanScrollAfter: afterScroll,
         horizontalScrollOk: okFan,
+        endGameButtonTappable: sheetHit,
       },
       null,
       2,
     ),
   );
+
+  if (!sheetHit) throw new Error("End game button covered by footer or another layer (elementFromPoint miss)");
 
   if (!okFooter) {
     throw new Error(`footer bottom ${layout.footerBottom} !== innerHeight ${layout.innerHeight} (slack ${slack}px)`);
