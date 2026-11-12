@@ -88,6 +88,8 @@ export interface GameModule<S = any, Pub = any, Priv = any, Opt = any> {
   Controller: ComponentType<ControllerProps<Pub, Priv>>;
   /** Redesigned in the paper style. Other games render under the dark theme for now. */
   paper?: boolean;
+  /** The big-screen (TV) view is redesigned in paper too. Others keep the night palette on the TV. */
+  tvPaper?: boolean;
   /** Phone-first view. When present, phones (host included) show this instead. */
   Phone?: ComponentType<PhoneProps<Pub, Priv>>;
 }

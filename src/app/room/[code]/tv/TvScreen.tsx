@@ -52,8 +52,8 @@ export function TvScreen({ code }: { code: string }) {
   }, [code]);
 
   const mod = room?.gameId ? getGameModule(room.gameId) : null;
-  // Big-screen game views still use the night palette.
-  const playing = room?.phase === "playing";
+  // Big-screen game views that haven't been redesigned keep the night palette.
+  const playing = room?.phase === "playing" && !mod?.tvPaper;
   useEffect(() => {
     if (!playing) return;
     document.documentElement.dataset.theme = "dark";
