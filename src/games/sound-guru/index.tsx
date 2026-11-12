@@ -1,10 +1,10 @@
 "use client";
-import { Avatar } from "@/components/Avatar";
-import { Button, LevelPicker, NumberPicker, Panel, Scoreboard } from "@/components/ui";
+import { LevelPicker, NumberPicker } from "@/components/ui";
 import { SOUNDS, type SoundPrompt } from "@/content/sound-guru";
-import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player, type ScreenProps } from "@/lib/types";
+import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player } from "@/lib/types";
 import { answerMatches, shuffle } from "@/lib/util";
 import { Phone } from "./PaperPhone";
+import { TvScreen } from "./Tv";
 
 export interface Options {
   level: Level;
@@ -105,78 +105,6 @@ function guessersLeft(s: State, players: Player[]): number {
   return players.filter((p) => p.connected && p.id !== maker && !s.correct.includes(p.id)).length;
 }
 
-/* ------------------------------------------------------------------ */
-/* Big screen (TV) — read-only when `spectator`                         */
-/* ------------------------------------------------------------------ */
-
-function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
-  const maker = players.find((p) => p.id === view.makerId);
-  if (view.phase === "over") {
-    return (
-      <div className="mx-auto max-w-xl space-y-6 text-center">
-        <div className="text-5xl font-extrabold">Sound Guru results</div>
-        <Scoreboard players={players} scores={view.scores} big title="Final scores" />
-      </div>
-    );
-  }
-  const left = view.deadline ? Math.max(0, Math.ceil((view.deadline - now) / 1000)) : null;
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-      <Panel className="flex min-h-[26rem] flex-col items-center justify-center gap-4 text-center">
-        <div className="text-muted">
-          Sound {view.turn + 1} of {view.totalTurns}
-        </div>
-        {maker && (
-          <div className="text-8xl">
-            <Avatar id={maker.avatar} />
-          </div>
-        )}
-        <div className="text-4xl font-extrabold">{maker?.name ?? "…"}</div>
-        {view.phase === "ready" && <div className="text-2xl text-muted">is the Sound Maker — getting ready…</div>}
-        {view.phase === "making" && (
-          <>
-            <div className="text-3xl font-bold">is making a sound — guess on your phones!</div>
-            {left !== null && <div className="text-5xl font-extrabold tabular-nums">{left}s</div>}
-            <div className="text-xl text-muted">{view.correct.length} guessed it</div>
-          </>
-        )}
-        {view.phase === "reveal" && (
-          <>
-            <div className="text-xl text-muted">The sound was</div>
-            <div className="pop-in text-5xl font-extrabold">{view.answer}</div>
-            <div className="text-lg">{view.correct.length} guessed it!</div>
-          </>
-        )}
-        {!spectator && (
-          <div className="mt-2 flex flex-wrap justify-center gap-3">
-            {view.phase === "ready" && (
-              <Button tone="ghost" onClick={() => act("skip")}>
-                Different sound
-              </Button>
-            )}
-            {view.phase === "making" && (
-              <Button tone="ghost" onClick={() => act("reveal")}>
-                Reveal
-              </Button>
-            )}
-            {view.phase === "reveal" && (
-              <Button size="lg" onClick={() => act("next")}>
-                Next round
-              </Button>
-            )}
-            {view.phase !== "reveal" && (
-              <Button tone="ghost" onClick={() => act("skipMaker")}>
-                Skip this player
-              </Button>
-            )}
-          </div>
-        )}
-      </Panel>
-      <Scoreboard players={players} scores={view.scores} />
-    </div>
-  );
-}
-
 const noop = () => {};
 
 /** Older "with a TV" controller: same phone view, without host controls. */
@@ -203,6 +131,7 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
 const soundGuru: GameModule<State, Pub, Priv, Options> = {
   id: "sound-guru",
   paper: true,
+  tvPaper: true,
   defaultOptions: { level: "family", roundsPerPlayer: 1, seconds: 60 },
   OptionsForm,
   init({ players, options }) {
@@ -304,7 +233,7 @@ const soundGuru: GameModule<State, Pub, Priv, Options> = {
     const w = s.wrong[id];
     return { role: "guesser", tries: w?.tries ?? 0, lastWrong: w?.text ?? null, at: w?.at ?? 0 };
   },
-  Screen,
+  Screen: TvScreen,
   Controller,
   Phone,
 };

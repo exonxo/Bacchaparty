@@ -108,7 +108,20 @@ export interface BoardRow {
 }
 
 /** Ranked scoreboard; rows slide into their new order when scores change. */
-export function TvBoard({ title = "Points", rows, max = 8, accent = "var(--turmeric)" }: { title?: string; rows: BoardRow[]; max?: number; accent?: string }) {
+export function TvBoard({
+  title = "Points",
+  rows,
+  max = 8,
+  accent = "var(--turmeric)",
+  accentInk = "var(--ink)",
+}: {
+  title?: string;
+  rows: BoardRow[];
+  max?: number;
+  accent?: string;
+  /** Text colour on the highlighted row (use cream on dark accents). */
+  accentInk?: string;
+}) {
   const sorted = [...rows].sort((a, b) => b.score - a.score || a.p.name.localeCompare(b.p.name)).slice(0, max);
   return (
     <section aria-label={title} className="cut flex min-h-0 flex-1 flex-col overflow-hidden rounded-soft bg-card px-[2vh] py-[1.6vh]">
@@ -121,18 +134,24 @@ export function TvBoard({ title = "Points", rows, max = 8, accent = "var(--turme
               layout
               transition={spring.settle}
               className="flex items-center gap-[1.2vh] rounded-cut px-[1vh] py-[0.6vh]"
-              style={{ background: active ? accent : undefined, opacity: p.connected ? 1 : 0.5, boxShadow: active ? "2px 2px 0 0 var(--ink)" : undefined, border: active ? "1.5px solid var(--ink)" : "1.5px solid transparent" }}
+              style={{
+                background: active ? accent : undefined,
+                color: active ? accentInk : undefined,
+                opacity: p.connected ? 1 : 0.5,
+                boxShadow: active ? "2px 2px 0 0 var(--ink)" : undefined,
+                border: active ? "1.5px solid var(--ink)" : "1.5px solid transparent",
+              }}
             >
-              <span className="font-display w-[2.4vh] shrink-0 text-right font-extrabold text-muted tabular-nums" style={{ fontSize: "clamp(0.9rem, 2.2vh, 1.4rem)" }}>
+              <span className={`font-display w-[2.4vh] shrink-0 text-right font-extrabold tabular-nums ${active ? "opacity-70" : "text-muted"}`} style={{ fontSize: "clamp(0.9rem, 2.2vh, 1.4rem)" }}>
                 {i + 1}
               </span>
-              <Sticker id={p.avatar} size={Math.round(Math.max(30, Math.min(52, typeof window === "undefined" ? 40 : window.innerHeight * 0.05)))} />
+              <Sticker id={p.avatar} size={44} />
               <span className="min-w-0 flex-1">
                 <span className="font-display block truncate font-extrabold leading-tight" style={{ fontSize: "clamp(1.05rem, 2.8vh, 1.9rem)" }}>
                   {p.name}
                 </span>
                 {note && (
-                  <span className="block truncate font-semibold text-muted" style={{ fontSize: "clamp(0.8rem, 1.8vh, 1.15rem)" }}>
+                  <span className={`block truncate font-semibold ${active ? "opacity-80" : "text-muted"}`} style={{ fontSize: "clamp(0.8rem, 1.8vh, 1.15rem)" }}>
                     {note}
                   </span>
                 )}
@@ -175,11 +194,14 @@ export function TvPodium({
   rows,
   headline,
   accent = "var(--turmeric)",
+  accentInk = "var(--ink)",
   note,
 }: {
   rows: { p: Player; score: number; sub?: ReactNode }[];
   headline: (winner: Player | null) => ReactNode;
   accent?: string;
+  /** Text colour on the winner's block (use cream on dark accents). */
+  accentInk?: string;
   note?: ReactNode;
 }) {
   const sorted = [...rows].sort((a, b) => b.score - a.score || a.p.name.localeCompare(b.p.name));
@@ -226,7 +248,7 @@ export function TvPodium({
                 </motion.div>
                 <motion.div
                   className="cut mt-[1vh] flex w-full flex-col items-center justify-start rounded-t-cut pt-[1.2vh]"
-                  style={{ background: i === 0 ? accent : "var(--paper)", transformOrigin: "bottom" }}
+                  style={{ background: i === 0 ? accent : "var(--paper)", color: i === 0 ? accentInk : "var(--ink)", transformOrigin: "bottom" }}
                   initial={{ height: 0 }}
                   animate={{ height: heights[i], transition: { delay: riseDelay[i], duration: dur.reveal, ease: ease.expo } }}
                 >

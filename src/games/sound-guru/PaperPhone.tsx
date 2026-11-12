@@ -14,7 +14,7 @@ import { AWAY_MS, pointsFor, type Priv, type Pub } from "./index";
 
 const INK = "#1e1a17";
 /** The game's paper (coral) and a deeper shade that reads as text. */
-const CORAL = "#f27b5b";
+export const CORAL = "#f27b5b";
 const CORAL_DEEP = "#a8401f";
 const HINT_KEY = "bacchaparty-sound-peeked";
 
@@ -36,7 +36,7 @@ function smallConfetti(color: string) {
 /* ------------------------------------------------------------------ */
 
 /** A folded paper megaphone. Sound arcs ripple out while a sound is being made. */
-function Megaphone({ size = 150, loud = false, onCoral = false }: { size?: number; loud?: boolean; onCoral?: boolean }) {
+export function Megaphone({ size = 150, loud = false, onCoral = false }: { size?: number; loud?: boolean; onCoral?: boolean }) {
   const reduce = useReducedMotion();
   // On the coral card the cone is cream paper, so it doesn't vanish into the background.
   const face = onCoral ? "#fffdf8" : CORAL;
@@ -343,7 +343,7 @@ function Solvers({ view, players, me, reveal }: { view: Pub; players: Player[]; 
   return (
     <section aria-label="Who has guessed it">
       <div className="mb-2 flex items-baseline justify-between">
-        <h3 className="text-p-note font-semibold uppercase tracking-[0.14em] text-muted">{reveal ? "Kisne pehchana" : "Kaun bujh gaya"}</h3>
+        <h3 className="text-p-note font-semibold uppercase tracking-[0.14em] text-muted">{reveal ? "Kisne pehchana" : "Kisne bujha"}</h3>
         <span className="text-p-note font-bold tabular-nums">
           {solved.length}/{inGame.length} bujh gaye
         </span>
@@ -443,7 +443,7 @@ function ListenerStage({ view, maker, me, priv, send }: { view: Pub; maker: Play
           <Megaphone size={130} loud={making} />
         </div>
         <h2 className="mt-2 font-display text-p-title font-extrabold text-balance">
-          {making ? `${maker?.name ?? "Sound Maker"} kya bol raha hai?` : `${maker?.name ?? "Sound Maker"} taiyaar ho raha hai…`}
+          {making ? `${maker?.name ?? "Sound Maker"} kya bol rahe hain?` : `${maker?.name ?? "Sound Maker"} taiyaar ho rahe hain…`}
         </h2>
         <p className="mt-1 text-p-lead text-ink/80 text-balance">
           <Ear className="-mt-1 mr-1 inline h-5 w-5" strokeWidth={2.4} aria-hidden />
@@ -585,7 +585,7 @@ function Results({ view, players, me, isHost }: { view: Pub; players: Player[]; 
           <ScoreList rows={rows.slice(3)} meId={me.id} from={3} />
         </section>
       )}
-      <p className="text-center text-p-body text-muted">{isHost ? "Agla game? Tap the home button at the top." : "Host agla game chun raha hai…"}</p>
+      <p className="text-center text-p-body text-muted">{isHost ? "Agla game? Tap the home button at the top." : "Host agla game chun rahe hain…"}</p>
     </div>
   );
 }

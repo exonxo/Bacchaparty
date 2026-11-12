@@ -585,7 +585,7 @@ function Results({ view, players, me, isHost }: { view: Pub; players: Player[]; 
         )}
       </div>
       {rows.length > 3 && <ScoreList rows={rows.slice(3)} meId={me.id} from={3} />}
-      <p className="text-center text-p-body text-muted">{isHost ? "Agla game? Tap the home button at the top." : "Host agla game chun raha hai…"}</p>
+      <p className="text-center text-p-body text-muted">{isHost ? "Agla game? Tap the home button at the top." : "Host agla game chun rahe hain…"}</p>
     </div>
   );
 }
@@ -655,9 +655,9 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
 
   const timer =
     view.phase === "choosing" ? (
-      <TimeStrip deadline={view.deadline} total={20_000} now={now} label={iDraw ? "Chuno" : "Soch raha"} />
+      <TimeStrip deadline={view.deadline} total={20_000} now={now} label={iDraw ? "Chuno" : "Soch rahe"} />
     ) : view.phase === "drawing" ? (
-      <TimeStrip deadline={view.deadline} total={view.seconds * 1000} now={now} label={iDraw ? "Samay" : "Bana raha"} />
+      <TimeStrip deadline={view.deadline} total={view.seconds * 1000} now={now} label={iDraw ? "Samay" : "Bana rahe"} />
     ) : view.phase === "reveal" && view.revealUntil ? (
       <p className="flex h-7 items-center justify-end text-p-body font-semibold text-muted tabular-nums">
         {view.turn + 1 >= view.totalTurns ? "Result" : "Agla page"} · {Math.max(0, Math.ceil((view.revealUntil - now) / 1000))}s
@@ -739,7 +739,7 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
                       <motion.span animate={{ rotate: [-8, 8, -8] }} transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}>
                         <Pencil className="h-10 w-10 text-muted" strokeWidth={2} />
                       </motion.span>
-                      <p className="font-display text-p-lead font-extrabold">{drawerName} chit chun raha hai…</p>
+                      <p className="font-display text-p-lead font-extrabold">{drawerName} chit chun rahe hain…</p>
                       <p className="text-p-body text-muted">Taiyaar raho — jaldi guess karne pe zyada points!</p>
                     </div>
                   ) : (
