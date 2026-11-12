@@ -62,7 +62,7 @@ async function startPunoHost(page) {
     await page.getByRole("button", { name: /Open the lobby/i }).click();
   }
   await page.locator('button[aria-haspopup="menu"]').first().waitFor({ state: "visible", timeout: 30000 });
-  await page.getByText(/Waiting for friends/i).waitFor({ timeout: 30000 });
+  await page.getByText(/Waiting for friends|Kaun kaun aaya|Aaj kya khelein/i).first().waitFor({ timeout: 30000 });
   await enableTestMode(page);
   await page.waitForTimeout(1200);
   await page.getByRole("button", { name: /Puno/i }).first().click({ timeout: 15000 });

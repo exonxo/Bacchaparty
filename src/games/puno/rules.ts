@@ -34,14 +34,6 @@ export interface PunoState {
   ekBacha: EkBachaState | null;
   ekBachaSaid: string[];
   drawnThisTurn: boolean;
-  paused: boolean;
-  pausedBy: string | null;
-  pauseRemainingMs: number | null;
-  pausedAt: number | null;
-}
-
-function guardPaused(s: PunoState): boolean {
-  return s.paused;
 }
 
 let cardSerial = 0;
@@ -322,29 +314,6 @@ export function newGame(playerIds: string[], now: number): PunoState {
     ekBacha: null,
     ekBachaSaid: [],
     drawnThisTurn: false,
-    paused: false,
-    pausedBy: null,
-    pauseRemainingMs: null,
-    pausedAt: null,
-  };
-}
-
-export function reducePause(s: PunoState, playerId: string, now: number): PunoState {
-  if (s.phase !== "playing" || s.paused) return s;
-  const remaining = Math.max(0, s.turnStartedAt + TURN_MS - now);
-  return { ...s, paused: true, pausedBy: playerId, pauseRemainingMs: remaining, pausedAt: now };
-}
-
-export function reduceResume(s: PunoState, playerId: string, now: number): PunoState {
-  if (s.phase !== "playing" || !s.paused || s.pauseRemainingMs == null) return s;
-  const turnStartedAt = now - (TURN_MS - s.pauseRemainingMs);
-  return {
-    ...s,
-    paused: false,
-    pausedBy: null,
-    pauseRemainingMs: null,
-    pausedAt: null,
-    turnStartedAt,
   };
 }
 
@@ -356,7 +325,7 @@ export function reducePlay(
   now: number,
   nameOf: (id: string) => string,
 ): PunoState {
-  if (s.phase !== "playing" || guardPaused(s)) return s;
+  if (s.phase !== "playing") return s;
   const hand = s.hands[playerId] ?? [];
   const card = hand.find((c) => c.id === cardId);
   if (!card) return s;
@@ -376,7 +345,7 @@ export function reduceJump(
   now: number,
   nameOf: (id: string) => string,
 ): PunoState {
-  if (s.phase !== "playing" || guardPaused(s) || s.stackTotal > 0) return s;
+  if (s.phase !== "playing" || s.stackTotal > 0) return s;
   if (currentPlayer(s) === playerId) return s;
   const hand = s.hands[playerId] ?? [];
   const card = hand.find((c) => c.id === cardId);
@@ -386,7 +355,7 @@ export function reduceJump(
 }
 
 export function reduceDraw(s: PunoState, playerId: string, now: number, nameOf: (id: string) => string): PunoState {
-  if (s.phase !== "playing" || guardPaused(s) || currentPlayer(s) !== playerId) return s;
+  if (s.phase !== "playing" || currentPlayer(s) !== playerId) return s;
   if (s.drawnThisTurn && s.stackTotal === 0) return s;
   let next = closeEkBachaWindow(s);
   const n = next.stackTotal > 0 ? next.stackTotal : 1;
@@ -403,12 +372,11 @@ export function reduceDraw(s: PunoState, playerId: string, now: number, nameOf: 
 }
 
 export function reducePass(s: PunoState, playerId: string, now: number): PunoState {
-  if (s.phase !== "playing" || guardPaused(s) || currentPlayer(s) !== playerId || !s.drawnThisTurn) return s;
+  if (s.phase !== "playing" || currentPlayer(s) !== playerId || !s.drawnThisTurn) return s;
   return advanceTurn(closeEkBachaWindow(s), now, 1);
 }
 
 export function reduceEkBacha(s: PunoState, playerId: string, now: number, nameOf: (id: string) => string): PunoState {
-  if (guardPaused(s)) return s;
   const hand = s.hands[playerId] ?? [];
   if (hand.length > 2 && !s.ekBacha?.playerId) return s;
   if (s.ekBachaSaid.includes(playerId)) return s;
@@ -422,7 +390,7 @@ export function reduceEkBacha(s: PunoState, playerId: string, now: number, nameO
 }
 
 export function reducePakdo(s: PunoState, catcherId: string, targetId: string, now: number, nameOf: (id: string) => string): PunoState {
-  if (s.phase !== "playing" || guardPaused(s) || catcherId === targetId) return s;
+  if (s.phase !== "playing" || catcherId === targetId) return s;
   if (!s.ekBacha || s.ekBacha.playerId !== targetId) return s;
   if (s.ekBachaSaid.includes(targetId)) return s;
   const { state, drawn } = drawFromDeck(s, 2);
@@ -437,7 +405,7 @@ export function reducePakdo(s: PunoState, catcherId: string, targetId: string, n
 }
 
 export function reduceTimeout(s: PunoState, now: number, nameOf: (id: string) => string): PunoState {
-  if (s.phase !== "playing" || s.paused) return s;
+  if (s.phase !== "playing") return s;
   const pid = currentPlayer(s);
   if (!pid) return s;
   if (now - s.turnStartedAt < TURN_MS) return s;

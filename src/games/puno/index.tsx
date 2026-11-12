@@ -10,9 +10,7 @@ import {
   reduceJump,
   reducePakdo,
   reducePass,
-  reducePause,
   reducePlay,
-  reduceResume,
   reduceTimeout,
   type PunoState,
 } from "./rules";
@@ -42,10 +40,7 @@ function toPub(s: PunoState): Pub {
     stackPending: s.stackTotal > 0,
     turnPlayerId,
     turnStartedAt: s.turnStartedAt,
-    deadline: s.paused && s.pausedAt != null && s.pauseRemainingMs != null ? s.pausedAt + s.pauseRemainingMs : s.turnStartedAt + TURN_MS,
-    paused: s.paused,
-    pausedBy: s.pausedBy,
-    pauseRemainingMs: s.pauseRemainingMs,
+    deadline: s.turnStartedAt + TURN_MS,
     winner: s.winner,
     ranking: s.ranking,
     note: s.note,
@@ -91,8 +86,6 @@ const puno: GameModule<PunoState, Pub, Priv, Record<string, never>> = {
     }
     if (a.type === "draw") return reduceDraw(s, a.playerId, now, names);
     if (a.type === "pass") return reducePass(s, a.playerId, now);
-    if (a.type === "pause") return reducePause(s, a.playerId, now);
-    if (a.type === "resume") return reduceResume(s, a.playerId, now);
     if (a.type === "ek-bacha") return reduceEkBacha(s, a.playerId, now, names);
     if (a.type === "pakdo") {
       const target = String((a.payload as { who?: string })?.who ?? "");
@@ -102,7 +95,7 @@ const puno: GameModule<PunoState, Pub, Priv, Record<string, never>> = {
     return s;
   },
   tick(s, { now, players }) {
-    if (s.phase !== "playing" || s.paused) return s;
+    if (s.phase !== "playing") return s;
     const pid = s.seats[s.turn]?.playerId;
     if (!pid) return s;
     const p = players.find((x) => x.id === pid);

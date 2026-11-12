@@ -85,10 +85,6 @@ export interface Pub {
   turnPlayerId: string;
   turnStartedAt: number;
   deadline: number;
-  paused: boolean;
-  pausedBy: string | null;
-  /** Ms left on the current turn when pause began (frozen countdown). */
-  pauseRemainingMs: number | null;
   winner: string | null;
   ranking: string[];
   note: PunoNote | null;

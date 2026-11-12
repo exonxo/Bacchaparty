@@ -11,9 +11,7 @@ import {
   reduceJump,
   reducePakdo,
   reducePass,
-  reducePause,
   reducePlay,
-  reduceResume,
   reduceTimeout,
   reshuffleDiscard,
 } from "../src/games/puno/rules.ts";
@@ -122,24 +120,4 @@ const activePass = s.seats[s.turn].playerId;
 s = reducePass(s, activePass, 800);
 assert(s.turn !== turnBefore, "pass advances");
 assert(!s.drawnThisTurn, "pass clears drawn flag");
-
-// pause freezes turn clock and blocks plays; resume restores remaining time
-s = newGame(["p1", "p2"], 1000);
-s = { ...s, turnStartedAt: 1000 };
-const pauseAt = 1000 + 12_000;
-s = reducePause(s, "p2", pauseAt);
-assert(s.paused && s.pausedBy === "p2", "pause sets state");
-assert(s.pauseRemainingMs === 8000, "pause stores remaining ms");
-const pauseCard = s.hands.p1[0];
-if (pauseCard) {
-  const blocked = reducePlay(s, "p1", pauseCard.id, null, pauseAt + 100, () => "P");
-  assert(blocked === s, "play blocked while paused");
-}
-s = reduceTimeout(s, pauseAt + TURN_MS, () => "T");
-assert(s.paused, "timeout skipped while paused");
-const resumeAt = pauseAt + 5_000;
-s = reduceResume(s, "p1", resumeAt);
-assert(!s.paused, "resume clears pause");
-assert(s.turnStartedAt === resumeAt - 12_000, "resume shifts turnStartedAt by frozen slice");
-
 console.log("puno-rules-unit: OK");

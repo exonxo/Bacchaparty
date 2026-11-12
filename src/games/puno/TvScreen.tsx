@@ -67,22 +67,10 @@ export function TvScreen({ view, players, now }: ScreenProps<Pub>) {
           <TvLabel>Baari</TvLabel>
           <p className={`font-display font-extrabold uppercase text-[var(--blue)] ${tv.hero}`}>{nameOf(players, view.turnPlayerId)}</p>
           <div
-            className={`inline-flex w-fit items-center gap-2 border-[4px] border-ink px-[1.2vw] py-[0.5vh] font-display font-extrabold tabular-nums shadow-[5px_5px_0_0_var(--ink)] ${tv.lead} ${
-              view.paused ? "bg-turmeric text-ink" : "bg-paper text-ink"
-            }`}
+            className={`inline-flex w-fit items-center gap-2 border-[4px] border-ink bg-paper px-[1.2vw] py-[0.5vh] font-display font-extrabold tabular-nums text-ink shadow-[5px_5px_0_0_var(--ink)] ${tv.lead}`}
             role="timer"
           >
-            {view.paused ? (
-              <span className="uppercase">
-                Paused 0:
-                {String(
-                  Math.max(0, Math.ceil((view.pauseRemainingMs ?? 0) / 1000)),
-                ).padStart(2, "0")}{" "}
-                · {nameOf(players, view.pausedBy ?? "")} ne roka
-              </span>
-            ) : (
-              <span>0:{String(Math.max(0, Math.ceil((view.deadline - now) / 1000))).padStart(2, "0")}</span>
-            )}
+            <span>0:{String(Math.max(0, Math.ceil((view.deadline - now) / 1000))).padStart(2, "0")}</span>
           </div>
           <TvBoard
             title="Cards bachi"

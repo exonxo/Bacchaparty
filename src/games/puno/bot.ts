@@ -8,7 +8,7 @@ type BotMove = { playerId: string; type: string; payload?: unknown };
 export function botMoves(raw: unknown, view: unknown, bots: string[]): BotMove[] {
   const s = raw as PunoState | null;
   const v = view as Pub | null;
-  if (!s || !v || v.phase !== "playing" || v.paused) return [];
+  if (!s || !v || v.phase !== "playing") return [];
   const out: BotMove[] = [];
   const turnId = v.turnPlayerId;
 
