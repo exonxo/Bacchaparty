@@ -9,17 +9,19 @@
 export const BOT_PREFIX = "bot-";
 export const isBot = (id: string) => id.startsWith(BOT_PREFIX);
 
+/** Three bots: with the host that makes 4, which every game accepts (Raja Mantri needs exactly 4). */
 export const BOTS = [
   { id: "bot-1", name: "Bunty", avatar: "panda" },
   { id: "bot-2", name: "Pinky", avatar: "rabbit" },
   { id: "bot-3", name: "Golu", avatar: "turtle" },
-  { id: "bot-4", name: "Rani", avatar: "flower" },
 ] as const;
 
 import { botMoves as antakshariBot } from "@/games/antakshari/bot";
 import { botMoves as charadesBot } from "@/games/charades/bot";
 import { botMoves as drawGuessBot } from "@/games/draw-guess/bot";
 import { botMoves as kbcBot } from "@/games/kaun-banega-champion/bot";
+import { botMoves as rajaBot } from "@/games/raja-mantri/bot";
+import { botMoves as soundGuruBot } from "@/games/sound-guru/bot";
 
 /** Games whose bot logic lives next to the game. */
 const GAME_BOTS: Record<string, (raw: unknown, view: unknown, bots: string[]) => BotAction[]> = {
@@ -27,6 +29,8 @@ const GAME_BOTS: Record<string, (raw: unknown, view: unknown, bots: string[]) =>
   charades: charadesBot,
   "draw-guess": drawGuessBot,
   "kaun-banega-champion": kbcBot,
+  "raja-mantri": rajaBot,
+  "sound-guru": soundGuruBot,
 };
 
 export interface BotAction {
