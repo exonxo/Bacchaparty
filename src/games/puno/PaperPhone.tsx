@@ -67,7 +67,7 @@ function DiscardSpread({
   return (
     <motion.div
       ref={pileRef}
-      className="relative h-[138px] w-[148px]"
+      className="relative h-[138px] w-[148px] select-none [-webkit-tap-highlight-color:transparent]"
       aria-label="Discard pile"
       animate={pulse && !reduce ? { scale: [1, 1.05, 0.98, 1] } : undefined}
       transition={{ duration: 0.38 }}
@@ -150,7 +150,7 @@ function PlayTable({
   pileRef: RefCallback<HTMLDivElement>;
 }) {
   return (
-    <div className="relative min-h-0 shrink-0 overflow-visible px-2 pb-0 pt-1">
+    <div className="relative flex h-full min-h-0 flex-col justify-end overflow-visible px-2 pb-0 pt-1">
       <Sparkle className="absolute left-2 top-2 z-20 text-ink" />
       <Sparkle className="absolute right-[38%] top-1 z-20 text-ink opacity-80" />
       <TurnSticker myTurn={myTurn} />
@@ -188,7 +188,7 @@ function PlayTable({
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="flex min-h-[8.25rem] items-end justify-center gap-3 pb-0 pt-3">
+      <div className="flex min-h-[7.5rem] flex-1 items-end justify-center gap-3 pb-0 pt-2">
         <DeckStack innerRef={deckRef} onClick={onDraw} />
         <DiscardSpread top={view.top} under={view.discardUnder} wildColor={view.wildColor} pulse={wildPulse} pileRef={pileRef} />
       </div>
@@ -217,8 +217,11 @@ function PlayerFooter({
   countPulse: string | null;
 }) {
   return (
-    <footer data-testid="puno-footer" className="z-50 mt-auto shrink-0 border-t-[3px] border-ink bg-ink px-2 py-2">
-      <div className="flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <footer data-testid="puno-footer" className="relative z-[400] mt-auto shrink-0 border-t-[3px] border-ink bg-ink px-1.5 py-1.5">
+      <div
+        className="grid gap-1"
+        style={{ gridTemplateColumns: `repeat(${Math.max(1, seats.length)}, minmax(0, 1fr))` }}
+      >
         {seats.map((s) => {
           const p = players.find((x) => x.id === s.playerId);
           const on = s.playerId === turnPlayerId;
@@ -228,13 +231,13 @@ function PlayerFooter({
             <div
               key={s.playerId}
               ref={(el) => setChipRef(s.playerId, el)}
-              className={`relative flex min-w-[6rem] shrink-0 items-center gap-2 rounded-md border-[2.5px] bg-paper px-2 py-1.5 ${
-                s.playerId === meId ? "border-ink ring-1 ring-ink/20" : on ? "border-turmeric shadow-[0_0_0_2px_var(--turmeric)]" : "border-paper"
+              className={`relative flex min-w-0 items-center gap-1 rounded-md border-[2px] bg-paper px-1 py-1 ${
+                s.playerId === meId ? "border-ink ring-1 ring-ink/20" : on ? "border-turmeric shadow-[0_0_0_1px_var(--turmeric)]" : "border-paper"
               }`}
             >
-              <MiniCardBack />
+              <MiniCardBack className="!h-7 !w-5" />
               <div className="min-w-0 flex-1">
-                <div className="truncate font-display text-[10px] font-extrabold uppercase leading-tight text-ink">{p?.name ?? "…"}</div>
+                <div className="truncate font-display text-[8px] font-extrabold uppercase leading-tight text-ink">{p?.name ?? "…"}</div>
                 <motion.div
                   key={`${s.playerId}-${counts[s.playerId] ?? 0}`}
                   animate={countPulse === s.playerId ? { scale: [1, 1.35, 1] } : undefined}
@@ -651,8 +654,8 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   return (
     <MotionConfig transition={spring.settle}>
       <InkDefs />
-      <motion.div {...screenIn} className="flex h-full min-h-0 w-full max-w-[393px] flex-col overflow-hidden bg-bg-2 pb-0">
-        <div className="relative grid min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden" style={TABLE_GRID}>
+      <motion.div {...screenIn} className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-bg-2 pb-0">
+        <div className="relative grid min-h-0 flex-1 grid-rows-[minmax(0,1.05fr)_auto_minmax(0,1.25fr)] overflow-hidden" style={TABLE_GRID}>
           <PlayTable
             view={view}
             myTurn={myTurn}
@@ -672,11 +675,27 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
             </p>
           )}
 
-          <div className="z-20 flex shrink-0 flex-col gap-1.5 px-2 py-1">
-            {canPass && (
-              <NeoButton className="!min-h-8 w-full !px-2 !text-[10px]" variant="ink" onClick={() => send("pass")}>
-                Pass
-              </NeoButton>
+          <div className="z-20 flex shrink-0 flex-wrap items-center gap-2 px-2 py-1">
+            <div className="flex min-w-0 flex-1 items-stretch gap-2">
+              {canPass && (
+                <NeoButton className="!min-h-8 min-w-0 flex-1 !px-2 !text-[10px]" variant="ink" onClick={() => send("pass")}>
+                  Pass
+                </NeoButton>
+              )}
+              <button
+                type="button"
+                className={`min-h-8 shrink-0 rounded-md border-[2.5px] border-ink bg-paper px-2 text-[9px] font-extrabold uppercase text-ink shadow-[2px_2px_0_0_var(--ink)] select-none [-webkit-tap-highlight-color:transparent] ${
+                  canPass ? "" : "flex-1"
+                }`}
+                onClick={() => setSheet("help")}
+              >
+                Hint
+              </button>
+            </div>
+            {scrollHint && overflowN > 0 && (
+              <span className="shrink-0 border-2 border-ink bg-paper px-1.5 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0_0_var(--ink)]">
+                +{overflowN} · swipe
+              </span>
             )}
             {ekGlow && (
               <NeoButton className="!min-h-8 w-full !px-2 !text-[10px]" variant="turmeric" onClick={() => send("ek-bacha")}>
@@ -688,9 +707,6 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
                 <Pointer className="mr-0.5 inline h-3.5 w-3.5" /> Pakdo!
               </NeoButton>
             )}
-            <button type="button" className="w-fit text-left text-[9px] font-bold uppercase text-ink underline" onClick={() => setSheet("help")}>
-              Hint
-            </button>
           </div>
 
           <section aria-label="Your cards" className="relative z-10 min-h-0 overflow-hidden">
@@ -734,11 +750,6 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
             </motion.div>
           </div>
 
-          {scrollHint && overflowN > 0 && (
-            <span className="pointer-events-none absolute right-3 top-0 z-20 border-2 border-ink bg-paper px-1.5 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0_0_var(--ink)]">
-              +{overflowN} · swipe
-            </span>
-          )}
         </section>
         </div>
 

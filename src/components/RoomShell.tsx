@@ -82,7 +82,10 @@ export function RoomShell({
     identity ?? (me ? { id: me.id, name: me.name, avatar: me.avatar } : null);
 
   return (
-    <div className={fillViewport ? "flex min-h-dvh flex-col" : "min-h-dvh"} style={{ ["--me" as string]: playerColor(me?.avatar) }}>
+    <div
+      className={fillViewport ? "flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden" : "min-h-dvh"}
+      style={{ ["--me" as string]: playerColor(me?.avatar) }}
+    >
       <header className="sticky top-0 z-30 border-b-[1.5px] border-line bg-bg pt-[env(safe-area-inset-top)]">
         <div className={`mx-auto flex ${shell} items-center justify-between gap-3 px-4 py-2`}>
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">

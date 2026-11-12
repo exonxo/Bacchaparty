@@ -52,7 +52,7 @@ export function GameStage({
     <div className={punoFill ? "flex min-h-0 min-w-0 flex-1 flex-col" : undefined}>
       <RoomAudioProvider value={{ together, isStage: isHost, tvOn }}>
       {mod.Phone ? (
-        <div className={punoFill ? "-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden sm:-mx-0" : undefined}>
+        <div className={punoFill ? "-mx-4 flex h-full min-h-0 flex-1 flex-col overflow-hidden sm:-mx-0" : undefined}>
           <mod.Phone view={view} priv={priv} me={me} players={players} send={send} now={now} isHost={isHost} hostAct={hostAct} together={together} tvOn={tvOn} />
         </div>
       ) : isHost ? (

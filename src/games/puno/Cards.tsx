@@ -386,7 +386,7 @@ export function CardFace({
         onPointerDown={() => setPressed(true)}
         onPointerUp={() => setPressed(false)}
         onPointerLeave={() => setPressed(false)}
-        className={frameClass}
+        className={`${frameClass} select-none [-webkit-tap-highlight-color:transparent]`}
         style={frameStyle}
       >
         {inner}
@@ -470,7 +470,16 @@ export function CardBack({ size = "pile", onClick }: { size?: CardSize; onClick?
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} onPointerDown={() => setPressed(true)} onPointerUp={() => setPressed(false)} onPointerLeave={() => setPressed(false)} className={cls} style={style} aria-label="Draw from deck">
+      <button
+        type="button"
+        onClick={onClick}
+        onPointerDown={() => setPressed(true)}
+        onPointerUp={() => setPressed(false)}
+        onPointerLeave={() => setPressed(false)}
+        className={`${cls} select-none [-webkit-tap-highlight-color:transparent]`}
+        style={style}
+        aria-label="Draw from deck"
+      >
         {inner}
       </button>
     );

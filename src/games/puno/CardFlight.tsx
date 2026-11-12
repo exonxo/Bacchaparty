@@ -48,7 +48,7 @@ function OneFlight({ spec, onDone }: { spec: CardFlightRequest; onDone: () => vo
 
   return (
     <motion.div
-      className="pointer-events-none fixed left-0 top-0 z-[300]"
+      className="pointer-events-none fixed left-0 top-0 z-[85]"
       style={{ width: w, height: h, perspective: 900 }}
       initial={
         reduce
