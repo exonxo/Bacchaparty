@@ -1,65 +1,24 @@
 "use client";
 import { Avatar } from "@/components/Avatar";
-import { useEffect, useRef, useState } from "react";
-import { Button, Countdown, NumberPicker, Panel, PhoneMessage, Scoreboard } from "@/components/ui";
-import { HOST_ID, type GameModule, type Player } from "@/lib/types";
+import { Button, Countdown, NumberPicker, Panel, Scoreboard } from "@/components/ui";
+import { HOST_ID, type ControllerProps, type GameModule, type Player, type ScreenProps } from "@/lib/types";
 import { normalize, shuffle } from "@/lib/util";
-
-const CATEGORIES = [
-  { id: "name", label: "Name", emoji: "🙋" },
-  { id: "place", label: "City / Place", emoji: "🏙️" },
-  { id: "animal", label: "Animal", emoji: "🐘" },
-  { id: "food", label: "Food", emoji: "🍛" },
-  { id: "film", label: "Film", emoji: "🎬" },
-] as const;
-const N = CATEGORIES.length;
-
-/** Rare starting letters (Q, X, Z, Y) are skipped. */
-const LETTERS = "ABCDEFGHIJKLMNOPRSTUVW".split("");
-
-interface Options {
-  seconds: number;
-  rounds: number;
-}
-
-type Phase = "answering" | "review" | "final";
+import { Phone } from "./PaperPhone";
+import { CATEGORIES, LETTERS, N, SHUFFLE_MS, startsWithLetter, type Options, type Phase, type Priv, type Pub } from "./shared";
 
 interface State {
   options: Options;
   phase: Phase;
   round: number;
   letters: string[];
+  /** When the shuffled letter lands and writing starts. */
+  revealAt: number;
   deadline: number | null;
   answers: Record<string, string[]>;
   done: Record<string, boolean>;
   struck: Record<string, boolean>; // key `${playerId}:${cat}`
   scores: Record<string, number>;
   participants: string[];
-}
-
-interface Pub {
-  phase: Phase;
-  round: number;
-  rounds: number;
-  letter: string;
-  deadline: number | null;
-  participants: string[];
-  done: string[];
-  /** Only filled during review/final. */
-  answers: Record<string, string[]>;
-  points: Record<string, number[]>;
-  struck: string[];
-  scores: Record<string, number>;
-}
-
-interface Priv {
-  answers: string[];
-  done: boolean;
-}
-
-function startsWithLetter(answer: string, letter: string) {
-  const n = normalize(answer);
-  return n.length > 0 && n[0] === letter.toLowerCase();
 }
 
 /** Points per player per category for the current round. */
@@ -82,14 +41,16 @@ export function roundPoints(s: Pick<State, "answers" | "struck" | "participants"
 }
 
 function startRound(s: State, round: number, now: number): State {
-  return { ...s, phase: "answering", round, deadline: now + s.options.seconds * 1000, answers: {}, done: {}, struck: {} };
+  const revealAt = now + SHUFFLE_MS;
+  return { ...s, phase: "answering", round, revealAt, deadline: revealAt + s.options.seconds * 1000, answers: {}, done: {}, struck: {} };
 }
 
 function toReview(s: State): State {
   return { ...s, phase: "review", deadline: null };
 }
 
-function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act: (t: string, p?: unknown) => void; now: number }) {
+/** Optional big screen (TV). Read-only when `spectator`. */
+function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
   const people = view.participants.map((id) => players.find((p) => p.id === id)).filter((p): p is Player => !!p);
   if (view.phase === "answering") {
     return (
@@ -99,7 +60,7 @@ function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act
             Round {view.round} of {view.rounds} · Everything starts with…
           </div>
           <div key={view.letter} className="pop-in flex h-48 w-48 items-center justify-center rounded-[2.5rem] bg-saffron text-[8rem] font-extrabold text-bg">
-            {view.letter}
+            {now < view.revealAt ? "?" : view.letter}
           </div>
           <Countdown deadline={view.deadline} now={now} big />
           <div className="flex flex-wrap justify-center gap-2 text-lg">
@@ -116,9 +77,11 @@ function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act
               </span>
             ))}
           </div>
-          <Button tone="ghost" onClick={() => act("stop")}>
-            Stop the round now
-          </Button>
+          {!spectator && (
+            <Button tone="ghost" onClick={() => act("stop")}>
+              Stop the round now
+            </Button>
+          )}
         </Panel>
         <Scoreboard players={players} scores={view.scores} />
       </div>
@@ -127,7 +90,6 @@ function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act
   if (view.phase === "final") {
     return (
       <div className="mx-auto max-w-2xl space-y-6 text-center">
-        <div className="text-6xl">🏁</div>
         <div className="text-4xl font-extrabold">Final scores</div>
         <Scoreboard players={players} scores={view.scores} big />
       </div>
@@ -139,12 +101,14 @@ function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act
         <div className="text-3xl font-extrabold">
           Letter <span className="text-saffron">{view.letter}</span> · Round {view.round} of {view.rounds}
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-muted">Tap an answer to strike it out if it doesn’t count.</span>
-          <Button size="lg" onClick={() => act("next")}>
-            {view.round >= view.rounds ? "Final scores ▶" : "Next letter ▶"}
-          </Button>
-        </div>
+        {!spectator && (
+          <div className="flex items-center gap-3">
+            <span className="text-muted">Tap an answer to strike it out if it doesn’t count.</span>
+            <Button size="lg" onClick={() => act("next")}>
+              {view.round >= view.rounds ? "Final scores ▶" : "Next letter ▶"}
+            </Button>
+          </div>
+        )}
       </div>
       <Panel className="overflow-x-auto p-3">
         <table className="w-full border-separate border-spacing-1 text-lg">
@@ -174,7 +138,7 @@ function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act
                     return (
                       <td key={c.id}>
                         <button
-                          disabled={!ans.trim()}
+                          disabled={!ans.trim() || spectator}
                           onClick={() => act("strike", { playerId: p.id, cat: i })}
                           className={`w-full rounded-xl px-2 py-1.5 text-left ${
                             !ans.trim() ? "bg-white/5 text-muted" : struck ? "bg-red/20 text-red line-through" : pt === 10 ? "bg-green/40" : pt === 5 ? "bg-gold/40" : "bg-white/10 text-muted"
@@ -199,101 +163,9 @@ function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act
   );
 }
 
-function Controller({ view, priv, me, send, now }: { view: Pub; priv: Priv | undefined; me: Player; players: Player[]; send: (t: string, p?: unknown) => void; now: number }) {
-  const [vals, setVals] = useState<string[]>(() => priv?.answers ?? Array(N).fill(""));
-  const roundRef = useRef(view.round);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // New round: clear the form. Reconnect: restore what the host has.
-  useEffect(() => {
-    if (roundRef.current !== view.round) {
-      roundRef.current = view.round;
-      setVals(Array(N).fill(""));
-    }
-  }, [view.round]);
-  useEffect(() => {
-    if (priv?.answers && priv.answers.some((a) => a) && vals.every((v) => !v)) setVals(priv.answers);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [priv?.answers]);
-
-  if (!view.participants.includes(me.id)) return <PhoneMessage emoji="👀" title="Watch this round">You’ll join from the next game.</PhoneMessage>;
-
-  if (view.phase === "final") return <PhoneMessage emoji="🏁" title={`Your score: ${view.scores[me.id] ?? 0}`}>Check the big screen for the winner!</PhoneMessage>;
-
-  if (view.phase === "review") {
-    const pts = view.points[me.id] ?? [];
-    return (
-      <div className="space-y-3">
-        <div className="text-2xl font-extrabold">
-          Letter {view.letter} · +{pts.reduce((a, b) => a + b, 0)} points
-        </div>
-        {CATEGORIES.map((c, i) => (
-          <div key={c.id} className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3">
-            <span>
-              <span className="text-sm text-muted">
-                {c.emoji} {c.label}
-              </span>
-              <br />
-              <span className={`text-lg font-bold ${view.struck.includes(`${me.id}:${i}`) ? "text-red line-through" : ""}`}>{view.answers[me.id]?.[i] || "—"}</span>
-            </span>
-            <span className="text-2xl font-extrabold text-gold">{pts[i] ?? 0}</span>
-          </div>
-        ))}
-        <div className="text-center text-muted">The host is checking answers on the big screen…</div>
-      </div>
-    );
-  }
-
-  const done = priv?.done ?? false;
-  const update = (i: number, v: string) => {
-    const next = vals.slice();
-    next[i] = v.slice(0, 40);
-    setVals(next);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => send("answers", next), 400);
-  };
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="text-2xl font-extrabold">
-          Starts with <span className="rounded-xl bg-saffron px-3 text-bg">{view.letter}</span>
-        </div>
-        <Countdown deadline={view.deadline} now={now} />
-      </div>
-      {CATEGORIES.map((c, i) => {
-        const v = vals[i] ?? "";
-        const wrongLetter = v.trim() && !startsWithLetter(v, view.letter);
-        return (
-          <label key={c.id} className="block">
-            <span className="text-sm font-semibold text-muted">
-              {c.emoji} {c.label}
-            </span>
-            <input
-              value={v}
-              disabled={done}
-              autoComplete="off"
-              onChange={(e) => update(i, e.target.value)}
-              placeholder={`${view.letter}…`}
-              className={`mt-1 w-full rounded-2xl border bg-white/10 px-4 py-3 text-lg outline-none focus:border-gold ${wrongLetter ? "border-red" : "border-white/15"}`}
-            />
-          </label>
-        );
-      })}
-      <Button
-        size="lg"
-        tone={done ? "ghost" : "green"}
-        className="w-full"
-        disabled={done}
-        onClick={() => {
-          if (timer.current) clearTimeout(timer.current);
-          send("answers", vals);
-          send("done");
-        }}
-      >
-        {done ? "Submitted ✓ — waiting for others" : "Done! ✋"}
-      </Button>
-    </div>
-  );
+/** Phones that still render the old controller get the new phone view, without host buttons. */
+function Controller(props: ControllerProps<Pub, Priv>) {
+  return <Phone {...props} isHost={false} hostAct={() => {}} together />;
 }
 
 function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Options) => void }) {
@@ -307,6 +179,7 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
 
 const game: GameModule<State, Pub, Priv, Options> = {
   id: "jaldi-bolo",
+  paper: true,
   defaultOptions: { seconds: 60, rounds: 5 },
   OptionsForm,
   init({ players, options, now }) {
@@ -315,6 +188,7 @@ const game: GameModule<State, Pub, Priv, Options> = {
       phase: "answering",
       round: 1,
       letters: shuffle(LETTERS).slice(0, options.rounds),
+      revealAt: now,
       deadline: null,
       answers: {},
       done: {},
@@ -333,7 +207,7 @@ const game: GameModule<State, Pub, Priv, Options> = {
       if (a.type === "stop" && s.phase === "answering") return toReview(s);
       if (a.type === "strike" && s.phase === "review") {
         const { playerId, cat } = (a.payload ?? {}) as { playerId?: string; cat?: number };
-        if (!playerId || typeof cat !== "number") return s;
+        if (!playerId || typeof cat !== "number" || cat < 0 || cat >= N || !s.answers[playerId]?.[cat]?.trim()) return s;
         const key = `${playerId}:${cat}`;
         const struck = { ...s.struck };
         if (struck[key]) delete struck[key];
@@ -357,6 +231,7 @@ const game: GameModule<State, Pub, Priv, Options> = {
       return { ...s, answers: { ...s.answers, [a.playerId]: arr } };
     }
     if (a.type === "done") {
+      if (s.done[a.playerId]) return s;
       const done = { ...s.done, [a.playerId]: true };
       const next = { ...s, done };
       return s.participants.every((id) => done[id]) ? toReview(next) : next;
@@ -378,6 +253,8 @@ const game: GameModule<State, Pub, Priv, Options> = {
       round: s.round,
       rounds: s.options.rounds,
       letter: s.letters[s.round - 1],
+      seconds: s.options.seconds,
+      revealAt: s.revealAt ?? 0,
       deadline: s.deadline,
       participants: s.participants,
       done: Object.keys(s.done),
@@ -392,6 +269,7 @@ const game: GameModule<State, Pub, Priv, Options> = {
   },
   Screen,
   Controller,
+  Phone,
 };
 
 export default game;
