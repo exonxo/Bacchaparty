@@ -1,5 +1,5 @@
 "use client";
-import { ArrowDown, Megaphone, Pointer } from "lucide-react";
+import { ArrowDown, Megaphone, Pause, Play, Pointer } from "lucide-react";
 import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useReducedMotion, useTransform, type PanInfo } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefCallback } from "react";
 import { screenIn, spring } from "@/components/paper/motion";
@@ -130,7 +130,9 @@ function PlayTable({
   view,
   myTurn,
   turnName,
+  pausedByName,
   onDraw,
+  onTogglePause,
   left,
   noteText,
   noteVisible,
@@ -141,7 +143,9 @@ function PlayTable({
   view: Pub;
   myTurn: boolean;
   turnName: string;
+  pausedByName: string;
   onDraw?: () => void;
+  onTogglePause: () => void;
   left: number;
   noteText?: string;
   noteVisible: boolean;
@@ -159,13 +163,23 @@ function PlayTable({
           {turnName}
         </div>
       )}
-      <div
-        className={`absolute left-2 top-9 border-[3px] border-ink px-2 py-0.5 font-display text-[11px] font-extrabold tabular-nums shadow-[3px_3px_0_0_var(--ink)] ${
-          left <= 5 ? "bg-vermilion text-paper" : "bg-paper text-ink"
-        }`}
-        role="timer"
-      >
-        0:{String(left).padStart(2, "0")}
+      <div className="absolute left-2 top-9 z-20 flex items-stretch gap-1">
+        <div
+          className={`flex min-h-[26px] items-center border-[3px] border-ink px-2 py-0.5 font-display text-[11px] font-extrabold tabular-nums shadow-[3px_3px_0_0_var(--ink)] ${
+            view.paused ? "bg-turmeric text-ink" : left <= 5 ? "bg-vermilion text-paper" : "bg-paper text-ink"
+          }`}
+          role="timer"
+        >
+          0:{String(left).padStart(2, "0")}
+        </div>
+        <button
+          type="button"
+          aria-label={view.paused ? "Resume" : "Pause"}
+          onClick={onTogglePause}
+          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center border-[3px] border-ink bg-paper text-ink shadow-[3px_3px_0_0_var(--ink)] select-none [-webkit-tap-highlight-color:transparent]"
+        >
+          {view.paused ? <Play className="h-3.5 w-3.5" fill="currentColor" strokeWidth={0} /> : <Pause className="h-3.5 w-3.5" strokeWidth={3} />}
+        </button>
       </div>
       <motion.div
         animate={{ rotate: view.direction === 1 ? 0 : 180 }}
@@ -188,10 +202,26 @@ function PlayTable({
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="flex min-h-[7.5rem] flex-1 items-end justify-center gap-3 pb-0 pt-2">
-        <DeckStack innerRef={deckRef} onClick={onDraw} />
+      <div className={`flex min-h-[7.5rem] flex-1 items-end justify-center gap-3 pb-0 pt-2 transition-opacity ${view.paused ? "opacity-55" : ""}`}>
+        <DeckStack innerRef={deckRef} onClick={view.paused ? undefined : onDraw} />
         <DiscardSpread top={view.top} under={view.discardUnder} wildColor={view.wildColor} pulse={wildPulse} pileRef={pileRef} />
       </div>
+      {view.paused && (
+        <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
+          <div className="pointer-events-auto border-[3px] border-ink bg-paper px-3 py-2 text-center shadow-[4px_4px_0_0_var(--ink)]">
+            <div className="font-display text-[11px] font-extrabold uppercase tracking-wide text-ink">Paused</div>
+            <p className="mt-0.5 font-display text-[9px] font-bold uppercase text-muted">{pausedByName} ne roka</p>
+            <button
+              type="button"
+              aria-label="Resume"
+              onClick={onTogglePause}
+              className="mx-auto mt-2 flex h-8 w-8 items-center justify-center border-[2.5px] border-ink bg-turmeric text-ink shadow-[2px_2px_0_0_var(--ink)] select-none [-webkit-tap-highlight-color:transparent]"
+            >
+              <Play className="h-4 w-4" fill="currentColor" strokeWidth={0} />
+            </button>
+          </div>
+        </div>
+      )}
       {view.stackPending && view.stackTotal > 0 && <StackBadge total={view.stackTotal} />}
     </div>
   );
@@ -411,7 +441,10 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   const pendingSelfDraw = useRef(false);
   const reduce = useReducedMotion();
   const sfx = useSfx();
-  const left = Math.max(0, Math.ceil((view.deadline - now) / 1000));
+  const left =
+    view.paused && view.pauseRemainingMs != null
+      ? Math.max(0, Math.ceil(view.pauseRemainingMs / 1000))
+      : Math.max(0, Math.ceil((view.deadline - now) / 1000));
   const turnName = nameOf(players, view.turnPlayerId);
   const overlap = fanOverlap(hand.length);
 
@@ -603,7 +636,7 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   };
 
   const onThrowPan = (cardId: string, el: HTMLDivElement | null, vx: number, vy: number, offsetX: number, offsetY: number): boolean => {
-    if (!el) return false;
+    if (view.paused || !el) return false;
     const mode: "play" | "jump" = jumpable.has(cardId) && !myTurn ? "jump" : "play";
     const card = hand.find((c) => c.id === cardId);
     if (!card) return false;
@@ -634,7 +667,7 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   };
 
   const handleDraw = () => {
-    if (!myTurn) return;
+    if (view.paused || !myTurn) return;
     pendingSelfDraw.current = true;
     send("draw");
   };
@@ -660,7 +693,9 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
             view={view}
             myTurn={myTurn}
             turnName={turnName}
-            onDraw={myTurn ? handleDraw : undefined}
+            pausedByName={nameOf(players, view.pausedBy ?? "")}
+            onDraw={myTurn && !view.paused ? handleDraw : undefined}
+            onTogglePause={() => send(view.paused ? "resume" : "pause")}
             left={left}
             noteText={noteText}
             noteVisible={noteVisible && !myTurn}
@@ -677,11 +712,11 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
 
           <div className="z-20 flex shrink-0 flex-wrap items-center gap-2 px-2 py-1">
             <div className="flex min-w-0 flex-1 items-stretch gap-2">
-              {canPass && (
-                <NeoButton className="!min-h-8 min-w-0 flex-1 !px-2 !text-[10px]" variant="ink" onClick={() => send("pass")}>
-                  Pass
-                </NeoButton>
-              )}
+            {canPass && !view.paused && (
+              <NeoButton className="!min-h-8 min-w-0 flex-1 !px-2 !text-[10px]" variant="ink" onClick={() => send("pass")}>
+                Pass
+              </NeoButton>
+            )}
               <button
                 type="button"
                 className={`min-h-8 shrink-0 rounded-md border-[2.5px] border-ink bg-paper px-2 text-[9px] font-extrabold uppercase text-ink shadow-[2px_2px_0_0_var(--ink)] select-none [-webkit-tap-highlight-color:transparent] ${
@@ -709,7 +744,7 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
             )}
           </div>
 
-          <section aria-label="Your cards" className="relative z-10 min-h-0 overflow-hidden">
+          <section aria-label="Your cards" className={`relative z-10 min-h-0 overflow-hidden transition-opacity ${view.paused ? "opacity-55" : ""}`}>
           <div
             ref={scrollRef}
             className="flex h-full w-full touch-pan-x items-end overflow-x-auto overflow-y-visible overscroll-x-contain pl-[5rem] pr-3 pb-2 pt-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
