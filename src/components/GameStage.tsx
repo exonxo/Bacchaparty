@@ -50,7 +50,7 @@ export function GameStage({
   return (
     <RoomAudioProvider value={{ together, isStage: isHost, tvOn }}>
       {mod.Phone ? (
-        <mod.Phone view={view} priv={priv} me={me} players={players} send={send} now={now} isHost={isHost} hostAct={hostAct} together={together} />
+        <mod.Phone view={view} priv={priv} me={me} players={players} send={send} now={now} isHost={isHost} hostAct={hostAct} together={together} tvOn={tvOn} />
       ) : isHost ? (
         <div className="space-y-6">
           <div className="rounded-xl bg-tint px-4 py-3 text-sm text-muted">

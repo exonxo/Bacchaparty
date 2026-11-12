@@ -26,7 +26,7 @@ import { useOnChange } from "@/lib/roomAudio";
 /** Games that need people to see/hear each other — remote players need a video call. */
 const NEEDS_CALL = new Set(["charades", "antakshari", "sound-guru", "raja-mantri", "chor-kaun", "odd-word-out"]);
 /** Redesigned games first, then the rest. */
-const ORDER = ["chor-kaun", "housie", "emoji-picture", "charades", "antakshari", "draw-guess", "kaun-banega-champion", "raja-mantri", "odd-word-out", "ludo-yatra", "sound-guru", "jaldi-bolo"];
+const ORDER = ["chor-kaun", "housie", "emoji-picture", "charades", "antakshari", "draw-guess", "kaun-banega-champion", "raja-mantri", "odd-word-out", "ludo-yatra", "sound-guru", "jaldi-bolo", "puno"];
 
 function useInvite(code: string) {
   const [url, setUrl] = useState("");

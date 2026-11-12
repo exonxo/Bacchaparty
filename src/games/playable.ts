@@ -15,6 +15,7 @@ export const PLAYABLE_IDS: readonly string[] = [
   "housie",
   "ludo-yatra",
   "jaldi-bolo",
+  "puno",
 ];
 
 export function isPlayable(id: string): boolean {
