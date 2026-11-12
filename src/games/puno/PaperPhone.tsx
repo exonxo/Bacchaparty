@@ -59,11 +59,10 @@ function DiscardSpread({ top, under, wildColor, pulse }: { top: PunoCard; under:
           <motion.div
             key={c.id}
             layout={false}
-            className="pointer-events-none absolute left-1/2 top-1/2"
+            className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
             initial={false}
             animate={{ x: pose.x, y: pose.y, rotate: pose.rotate, scale: pose.scale }}
             transition={pileSpring}
-            className="-translate-x-1/2 -translate-y-1/2"
             style={{ zIndex: pose.zIndex }}
           >
             <CardFace card={c} wildTint={wildColor} size="pile" />
