@@ -69,7 +69,7 @@ export default function PrivacyPage() {
         <Section title="We don’t sell or share your data">
           <p>
             We don’t sell, rent or share your data with anyone. We don’t show ads and we don’t use tracking or advertising cookies. The only
-            services that handle data are the ones that run the app: Google (sign-in), Supabase (database and real-time) and Vercel (hosting).
+            services that handle data are the ones that run the app: Google (sign-in), Supabase (database and real-time) and Vercel (hosting). When a host taps a ✨ suggestion button, we ask Google’s Gemini AI for game ideas; that request contains only game settings (such as the number of players and games already played), never names or other personal details.
           </p>
         </Section>
 

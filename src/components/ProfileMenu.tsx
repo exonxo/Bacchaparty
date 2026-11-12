@@ -96,7 +96,7 @@ export function ProfileMenu({
                 >
                   <span>
                     <span className="font-display block text-p-body font-extrabold">Test mode</span>
-                    <span className="block text-p-note text-muted">Adds four simulated players who join and play.</span>
+                    <span className="block text-p-note text-muted">Adds three simulated players who join and play.</span>
                   </span>
                   <span
                     className={`relative h-7 w-12 shrink-0 rounded-full border-[1.5px] border-ink transition-colors duration-200 ${testMode ? "bg-green" : "bg-paper"}`}
@@ -108,7 +108,7 @@ export function ProfileMenu({
                 </button>
                 {testMode && (
                   <p className="mt-2 text-p-note text-muted">
-                    Simulated: {BOTS.map((b) => b.name).join(", ")}. They show up on every phone in this room, and in Chor Kaun?, Emoji Picture and Housie they play along.
+                    Simulated: {BOTS.map((b) => b.name).join(", ")}. They show up on every phone in this room and play along in most games.
                   </p>
                 )}
               </div>

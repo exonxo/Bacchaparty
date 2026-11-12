@@ -1,27 +1,35 @@
 "use client";
 import { Avatar } from "@/components/Avatar";
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Button, Countdown, LevelPicker, NumberPicker, Panel, PhoneMessage, Scoreboard, TextAnswer } from "@/components/ui";
+import { Button, Countdown, LevelPicker, NumberPicker, Panel, Scoreboard } from "@/components/ui";
 import { DRAW_WORDS } from "@/content/draw-guess";
 import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player, type ScreenProps } from "@/lib/types";
 import { answerMatches, shuffle } from "@/lib/util";
+import { Phone } from "./PaperPhone";
+import { PadDrawing } from "./pad";
+import {
+  COLORS,
+  DRAWER_AWAY_SKIP,
+  KEYFRAME_EVERY,
+  KEYFRAME_FOR,
+  MAX_POINTS,
+  MAX_STROKE_POINTS,
+  TAIL_OPS,
+  WIDTHS,
+  applyOp,
+  encodeDrawing,
+  encodePoints,
+  type FeedEntry,
+  type LoggedOp,
+  type Op,
+  type Options,
+  type Phase,
+  type Priv,
+  type Pub,
+  type Stroke,
+} from "./shared";
+import { usePadStrokes } from "./usePad";
 
-interface Options {
-  level: Level;
-  roundsPerPlayer: number;
-  seconds: number;
-}
-
-type Phase = "choosing" | "drawing" | "reveal" | "over";
-
-/** A stroke: colour, width and flat [x0,y0,x1,y1,…] in 0–1000 units. */
-interface Stroke {
-  c: string;
-  w: number;
-  p: number[];
-}
-
-interface State {
+export interface State {
   level: Level;
   seconds: number;
   deck: string[];
@@ -34,40 +42,26 @@ interface State {
   startedAt: number;
   deadline: number;
   revealUntil: number | null;
+  /** The drawing so far (host only; phones rebuild it from ops). */
   strokes: Stroke[];
+  /** The last few drawing ops, with their index in the turn's log. */
+  ops: LoggedOp[];
+  /** Ops logged so far this turn. */
+  opN: number;
+  /** A keyframe (full drawing) is in updates while this is set. */
+  kfOn: boolean;
+  kfAt: number;
   correct: string[];
-  feed: { playerId: string; text: string | null }[];
+  feed: FeedEntry[];
   scores: Record<string, number>;
-}
-
-interface Pub {
-  drawerId: string | null;
-  turn: number;
-  totalTurns: number;
-  phase: Phase;
-  deadline: number;
-  hintAt: number;
-  mask: string;
-  firstLetter: string;
-  strokes: Stroke[];
-  correct: string[];
-  feed: State["feed"];
-  scores: Record<string, number>;
-  answer: string | null;
-}
-
-interface Priv {
-  choices?: string[];
-  word?: string;
+  gains: Record<string, number>;
+  drawerAwaySince: number | null;
 }
 
 const CHOOSE_FOR = 20_000;
-const REVEAL_FOR = 6_000;
-const MAX_POINTS = 12_000; // total coordinates kept per drawing
-const COLORS = ["#1a0b2e", "#ff5a5f", "#4f9dff", "#36c96a", "#ff9933", "#8b5a2b", "#ff4fa3", "#ffd23f"];
-const WIDTHS = [6, 14, 28];
+const REVEAL_FOR = 7_000;
 
-const display = (entry: string) => entry.split("|")[0];
+export const display = (entry: string) => entry.split("|")[0];
 const accepted = (entry: string) => entry.split("|");
 const maskOf = (word: string) => word.replace(/[A-Za-z0-9]/g, "_");
 
@@ -76,12 +70,12 @@ function deckFor(level: Level): string[] {
   return shuffle(lists.flat());
 }
 
-function drawerOf(s: State): string | null {
+export function drawerOf(s: State): string | null {
   return s.drawers.length ? s.drawers[s.turn % s.drawers.length] : null;
 }
 
 function startTurn(s: State, turn: number, now: number): State {
-  if (turn >= s.totalTurns) return { ...s, turn, phase: "over", revealUntil: null };
+  if (turn >= s.totalTurns) return { ...s, turn, phase: "over", revealUntil: null, kfOn: false, drawerAwaySince: null };
   let deck = s.deck;
   if (deck.length < 3) deck = deckFor(s.level);
   return {
@@ -95,69 +89,63 @@ function startTurn(s: State, turn: number, now: number): State {
     deadline: now + CHOOSE_FOR,
     revealUntil: null,
     strokes: [],
+    ops: [],
+    opN: 0,
+    kfOn: false,
+    kfAt: now,
     correct: [],
     feed: [],
+    gains: {},
+    drawerAwaySince: null,
   };
 }
 
 function choose(s: State, i: number, now: number): State {
   const word = s.choices[i] ?? s.choices[0];
-  return { ...s, word, phase: "drawing", startedAt: now, deadline: now + s.seconds * 1000 };
+  return { ...s, word, phase: "drawing", startedAt: now, deadline: now + s.seconds * 1000, kfAt: now, kfOn: false };
 }
 
 function reveal(s: State, now: number): State {
-  return { ...s, phase: "reveal", revealUntil: now + REVEAL_FOR };
+  return { ...s, phase: "reveal", revealUntil: now + REVEAL_FOR, kfOn: false };
+}
+
+function logOp(s: State, op: Op): State {
+  return { ...s, strokes: applyOp(s.strokes, op), ops: [...s.ops, { ...op, i: s.opN } as LoggedOp].slice(-TAIL_OPS), opN: s.opN + 1 };
 }
 
 function isPointList(v: unknown): v is number[] {
   return Array.isArray(v) && v.length % 2 === 0 && v.length <= 400 && v.every((n) => Number.isInteger(n) && n >= 0 && n <= 1000);
 }
 
-function Drawing({ strokes, className = "" }: { strokes: Stroke[]; className?: string }) {
-  return (
-    <svg viewBox="0 0 1000 1000" className={`aspect-square w-full rounded-3xl bg-white ${className}`}>
-      {strokes.map((s, i) =>
-        s.p.length === 2 ? (
-          <circle key={i} cx={s.p[0]} cy={s.p[1]} r={s.w / 2} fill={s.c} />
-        ) : (
-          <polyline key={i} points={s.p.join(" ")} fill="none" stroke={s.c} strokeWidth={s.w} strokeLinecap="round" strokeLinejoin="round" />
-        ),
-      )}
-    </svg>
-  );
+function index(v: unknown, list: unknown[], fallback: number): number {
+  if (typeof v === "number" && Number.isInteger(v) && v >= 0 && v < list.length) return v;
+  if (typeof v === "string") {
+    const i = list.indexOf(v);
+    if (i >= 0) return i;
+  }
+  return fallback;
 }
 
-function WordHint({ view, now }: { view: Pub; now: number }) {
-  if (view.phase !== "drawing") return null;
-  const mask = now >= view.hintAt && view.firstLetter ? view.firstLetter + view.mask.slice(1) : view.mask;
-  return <div className="font-mono text-3xl font-bold tracking-[0.3em] whitespace-pre">{mask}</div>;
+/* ------------------------------------------------------------------ */
+/* Big screen (TV) — still the night palette                            */
+/* ------------------------------------------------------------------ */
+
+function TvPad({ view }: { view: Pub }) {
+  const { strokes } = usePadStrokes(view.pad);
+  return <PadDrawing strokes={strokes} className="rounded-3xl bg-white" />;
 }
 
-function Feed({ view, players }: { view: Pub; players: Player[] }) {
-  return (
-    <div className="flex max-h-64 flex-col-reverse gap-1 overflow-hidden">
-      {[...view.feed].reverse().slice(0, 10).map((f, i) => {
-        const p = players.find((x) => x.id === f.playerId);
-        return (
-          <div key={view.feed.length - i} className={`rounded-xl px-3 py-1 ${f.text === null ? "bg-green font-bold text-bg" : "bg-white/5"}`}>
-            <Avatar id={p?.avatar} /> {p?.name ?? "?"}: {f.text === null ? "guessed it! ✅" : f.text}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function Screen({ view, players, act, now }: ScreenProps<Pub>) {
+function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
   const drawer = players.find((p) => p.id === view.drawerId);
   if (view.phase === "over") {
     return (
       <div className="mx-auto max-w-xl space-y-6 text-center">
-        <div className="text-5xl font-extrabold">🏆 Draw & Guess results</div>
+        <div className="text-5xl font-extrabold">Draw & Guess results</div>
         <Scoreboard players={players} scores={view.scores} big title="Final scores" />
       </div>
     );
   }
+  const mask = view.phase === "drawing" ? (now >= view.hintAt && view.firstLetter ? view.firstLetter + view.mask.slice(1) : view.mask) : "";
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
       <div className="space-y-4">
@@ -165,38 +153,49 @@ function Screen({ view, players, act, now }: ScreenProps<Pub>) {
           <div className="text-2xl font-bold">
             <Avatar id={drawer?.avatar} /> {drawer?.name ?? "…"} {view.phase === "choosing" ? "is choosing a word…" : view.phase === "drawing" ? "is drawing" : ""}
           </div>
-          <WordHint view={view} now={now} />
+          <div className="font-mono text-3xl font-bold tracking-[0.3em] whitespace-pre">{mask}</div>
           {view.phase !== "reveal" && <Countdown deadline={view.deadline} now={now} big />}
         </div>
         <div className="mx-auto max-w-[min(100%,56vh)]">
-          <Drawing strokes={view.strokes} />
+          <TvPad view={view} />
         </div>
         {view.phase === "reveal" && (
           <div className="pop-in text-center text-4xl font-extrabold">
             It was <span className="text-gold">{view.answer}</span>!
           </div>
         )}
-        <div className="flex flex-wrap justify-center gap-3">
-          {view.phase === "drawing" && (
-            <Button tone="ghost" onClick={() => act("reveal")}>
-              👀 Reveal word
-            </Button>
-          )}
-          {view.phase === "reveal" ? (
-            <Button onClick={() => act("next")}>Next turn ▶</Button>
-          ) : (
-            <Button tone="ghost" onClick={() => act("skip")}>
-              ⏭ Skip this drawer
-            </Button>
-          )}
-        </div>
+        {!spectator && (
+          <div className="flex flex-wrap justify-center gap-3">
+            {view.phase === "drawing" && (
+              <Button tone="ghost" onClick={() => act("reveal")}>
+                Reveal word
+              </Button>
+            )}
+            {view.phase === "reveal" ? (
+              <Button onClick={() => act("next")}>Next turn</Button>
+            ) : (
+              <Button tone="ghost" onClick={() => act("skip")}>
+                Skip this drawer
+              </Button>
+            )}
+          </div>
+        )}
       </div>
       <div className="space-y-4">
         <Panel>
           <div className="mb-2 text-sm font-bold uppercase tracking-widest text-muted">
             Turn {view.turn + 1} of {view.totalTurns} · Guesses
           </div>
-          <Feed view={view} players={players} />
+          <div className="flex flex-col gap-1">
+            {view.feed.slice(-10).map((f, i) => {
+              const p = players.find((x: Player) => x.id === f.playerId);
+              return (
+                <div key={i} className={`rounded-xl px-3 py-1 ${f.text === null ? "bg-green font-bold text-bg" : "bg-white/5"}`}>
+                  <Avatar id={p?.avatar} /> {p?.name ?? "?"}: {f.text === null ? "guessed it!" : f.text}
+                </div>
+              );
+            })}
+          </div>
         </Panel>
         <Scoreboard players={players} scores={view.scores} />
       </div>
@@ -204,202 +203,9 @@ function Screen({ view, players, act, now }: ScreenProps<Pub>) {
   );
 }
 
-function DrawPad({ turn, send }: { turn: number; send: (t: string, p?: unknown) => void }) {
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
-  const [color, setColor] = useState(COLORS[0]);
-  const [width, setWidth] = useState(WIDTHS[1]);
-  const svgRef = useRef<SVGSVGElement>(null);
-  const drawing = useRef(false);
-  const buffer = useRef<number[]>([]);
-  const current = useRef<{ index: number; c: string; w: number } | null>(null);
-  const strokesRef = useRef<Stroke[]>([]);
-  const update = (next: Stroke[]) => {
-    strokesRef.current = next;
-    setStrokes(next);
-  };
-
-  useEffect(() => {
-    strokesRef.current = [];
-    setStrokes([]);
-    buffer.current = [];
-    current.current = null;
-  }, [turn]);
-
-  useEffect(() => {
-    const flush = () => {
-      const cur = current.current;
-      if (!cur || buffer.current.length === 0) return;
-      const pts = buffer.current.splice(0, 400);
-      send("stroke", { s: cur.index, c: cur.c, w: cur.w, p: pts });
-    };
-    const t = setInterval(flush, 250);
-    return () => clearInterval(t);
-  }, [send]);
-
-  const point = (e: ReactPointerEvent<SVGSVGElement>) => {
-    const r = svgRef.current!.getBoundingClientRect();
-    const x = Math.round(((e.clientX - r.left) / r.width) * 1000);
-    const y = Math.round(((e.clientY - r.top) / r.height) * 1000);
-    return [Math.min(1000, Math.max(0, x)), Math.min(1000, Math.max(0, y))];
-  };
-
-  const down = (e: ReactPointerEvent<SVGSVGElement>) => {
-    e.preventDefault();
-    svgRef.current?.setPointerCapture(e.pointerId);
-    drawing.current = true;
-    // Finish sending the previous stroke before starting a new one.
-    if (current.current && buffer.current.length) {
-      send("stroke", { s: current.current.index, c: current.current.c, w: current.current.w, p: buffer.current.splice(0) });
-    }
-    const [x, y] = point(e);
-    const prev = strokesRef.current;
-    current.current = { index: prev.length, c: color, w: width };
-    update([...prev, { c: color, w: width, p: [x, y] }]);
-    buffer.current = [x, y];
-  };
-  const move = (e: ReactPointerEvent<SVGSVGElement>) => {
-    if (!drawing.current) return;
-    const [x, y] = point(e);
-    const prev = strokesRef.current;
-    if (!prev.length) return;
-    const last = prev[prev.length - 1];
-    const lx = last.p[last.p.length - 2];
-    const ly = last.p[last.p.length - 1];
-    if (Math.abs(lx - x) + Math.abs(ly - y) < 6) return;
-    buffer.current.push(x, y);
-    update([...prev.slice(0, -1), { ...last, p: [...last.p, x, y] }]);
-  };
-  const up = () => {
-    drawing.current = false;
-  };
-
-  return (
-    <div className="space-y-3">
-      <svg
-        ref={svgRef}
-        viewBox="0 0 1000 1000"
-        className="aspect-square w-full touch-none rounded-3xl bg-white select-none"
-        style={{ touchAction: "none" }}
-        onPointerDown={down}
-        onPointerMove={move}
-        onPointerUp={up}
-        onPointerCancel={up}
-        onPointerLeave={up}
-      >
-        {strokes.map((s, i) =>
-          s.p.length === 2 ? (
-            <circle key={i} cx={s.p[0]} cy={s.p[1]} r={s.w / 2} fill={s.c} />
-          ) : (
-            <polyline key={i} points={s.p.join(" ")} fill="none" stroke={s.c} strokeWidth={s.w} strokeLinecap="round" strokeLinejoin="round" />
-          ),
-        )}
-      </svg>
-      <div className="flex flex-wrap items-center gap-2">
-        {COLORS.map((c) => (
-          <button
-            key={c}
-            aria-label={`Colour ${c}`}
-            onClick={() => setColor(c)}
-            className={`h-9 w-9 rounded-full border-2 ${color === c ? "border-gold ring-2 ring-gold" : "border-white/30"}`}
-            style={{ background: c }}
-          />
-        ))}
-      </div>
-      <div className="flex items-center gap-2">
-        {WIDTHS.map((w) => (
-          <button key={w} onClick={() => setWidth(w)} className={`flex h-10 w-10 items-center justify-center rounded-xl ${width === w ? "bg-gold" : "bg-white/10"}`}>
-            <span className="rounded-full bg-ink" style={{ width: w / 2 + 2, height: w / 2 + 2, background: width === w ? "#1a0b2e" : undefined }} />
-          </button>
-        ))}
-        <div className="flex-1" />
-        <Button
-          tone="ghost"
-          size="sm"
-          onClick={() => {
-            buffer.current = [];
-            current.current = null;
-            update(strokesRef.current.slice(0, -1));
-            send("undo");
-          }}
-        >
-          ↩ Undo
-        </Button>
-        <Button
-          tone="red"
-          size="sm"
-          onClick={() => {
-            buffer.current = [];
-            current.current = null;
-            update([]);
-            send("clear");
-          }}
-        >
-          🗑 Clear
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function Controller({ view, priv, me, players, send, now }: ControllerProps<Pub, Priv>) {
-  const isDrawer = view.drawerId === me.id;
-  const drawerName = players.find((p) => p.id === view.drawerId)?.name ?? "The drawer";
-  const score = view.scores[me.id] ?? 0;
-  if (view.phase === "over") return <PhoneMessage emoji="🏆" title="Game over!">You scored {score} points.</PhoneMessage>;
-  if (view.phase === "reveal") {
-    return (
-      <PhoneMessage emoji={view.correct.includes(me.id) || isDrawer ? "🎉" : "🙈"} title={`It was: ${view.answer}`}>
-        Score: {score}
-      </PhoneMessage>
-    );
-  }
-  if (isDrawer) {
-    if (view.phase === "choosing") {
-      return (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-2xl font-extrabold">Pick a word to draw</div>
-            <Countdown deadline={view.deadline} now={now} />
-          </div>
-          {(priv?.choices ?? []).map((c, i) => (
-            <Button key={i} size="lg" tone="teal" className="w-full" onClick={() => send("choose", i)}>
-              {c}
-            </Button>
-          ))}
-          <p className="text-center text-muted">No letters or numbers in your drawing!</p>
-        </div>
-      );
-    }
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <div className="text-xs font-bold uppercase tracking-widest text-muted">Draw</div>
-            <div className="text-2xl font-extrabold text-gold">{priv?.word ?? "…"}</div>
-          </div>
-          <div className="text-right text-sm text-muted">{view.correct.length} guessed</div>
-          <Countdown deadline={view.deadline} now={now} />
-        </div>
-        <DrawPad turn={view.turn} send={send} />
-      </div>
-    );
-  }
-  if (view.phase === "choosing") return <PhoneMessage emoji="✏️" title={`${drawerName} is choosing a word…`} />;
-  const got = view.correct.includes(me.id);
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <WordHint view={view} now={now} />
-        <Countdown deadline={view.deadline} now={now} />
-      </div>
-      <Drawing strokes={view.strokes} />
-      {got ? (
-        <div className="rounded-2xl bg-green px-4 py-3 text-center text-xl font-bold text-bg">✅ You got it! Score: {score}</div>
-      ) : (
-        <TextAnswer onSubmit={(t) => send("guess", t)} placeholder="What is it?" buttonLabel="Guess" />
-      )}
-    </div>
-  );
+/** Older code path (a phone without the phone-first view): same screen, no host controls. */
+function Controller(props: ControllerProps<Pub, Priv>) {
+  return <Phone {...props} isHost={false} hostAct={() => {}} together />;
 }
 
 function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Options) => void }) {
@@ -414,6 +220,7 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
 
 const drawGuess: GameModule<State, Pub, Priv, Options> = {
   id: "draw-guess",
+  paper: true,
   defaultOptions: { level: "family", roundsPerPlayer: 1, seconds: 80 },
   OptionsForm,
   init({ players, options, now }) {
@@ -432,9 +239,15 @@ const drawGuess: GameModule<State, Pub, Priv, Options> = {
       deadline: now,
       revealUntil: null,
       strokes: [],
+      ops: [],
+      opN: 0,
+      kfOn: false,
+      kfAt: now,
       correct: [],
       feed: [],
       scores: Object.fromEntries(players.map((p) => [p.id, 0])),
+      gains: {},
+      drawerAwaySince: null,
     };
     return startTurn(base, 0, now);
   },
@@ -456,21 +269,22 @@ const drawGuess: GameModule<State, Pub, Priv, Options> = {
         if (!m || typeof m.s !== "number" || !isPointList(m.p) || m.p.length === 0) return s;
         const total = s.strokes.reduce((n, st) => n + st.p.length, 0);
         if (total + m.p.length > MAX_POINTS) return s;
-        const c = typeof m.c === "string" && COLORS.includes(m.c) ? m.c : COLORS[0];
-        const w = typeof m.w === "number" && WIDTHS.includes(m.w) ? m.w : WIDTHS[1];
-        if (m.s === s.strokes.length) return { ...s, strokes: [...s.strokes, { c, w, p: m.p }] };
+        if (m.s === s.strokes.length) {
+          return logOp(s, { k: "a", s: m.s, c: index(m.c, COLORS, 0), w: index(m.w, WIDTHS, 1), p: encodePoints(m.p) });
+        }
         if (m.s === s.strokes.length - 1) {
           const last = s.strokes[s.strokes.length - 1];
-          return { ...s, strokes: [...s.strokes.slice(0, -1), { ...last, p: [...last.p, ...m.p] }] };
+          if (last.p.length + m.p.length > MAX_STROKE_POINTS) return s;
+          return logOp(s, { k: "a", s: m.s, c: last.c, w: last.w, p: encodePoints(m.p) });
         }
         return s;
       }
       case "undo":
-        if (!isDrawer || !s.strokes.length) return s;
-        return { ...s, strokes: s.strokes.slice(0, -1) };
+        if (!isDrawer || s.phase !== "drawing" || !s.strokes.length) return s;
+        return logOp(s, { k: "u" });
       case "clear":
-        if (!isDrawer || !s.strokes.length) return s;
-        return { ...s, strokes: [] };
+        if (!isDrawer || s.phase !== "drawing" || !s.strokes.length) return s;
+        return logOp(s, { k: "x" });
       case "reveal":
         if (!isHost || s.phase !== "drawing") return s;
         return reveal(s, now);
@@ -482,6 +296,7 @@ const drawGuess: GameModule<State, Pub, Priv, Options> = {
         return startTurn(s, s.turn + 1, now);
       case "guess": {
         if (s.phase !== "drawing" || isHost || isDrawer || !s.word || s.correct.includes(a.playerId)) return s;
+        if (!(a.playerId in s.scores)) return s;
         const text = String(a.payload ?? "").slice(0, 40).trim();
         if (!text) return s;
         if (answerMatches(text, accepted(s.word))) {
@@ -489,10 +304,14 @@ const drawGuess: GameModule<State, Pub, Priv, Options> = {
           const left = Math.max(0, s.deadline - now);
           const pts = Math.max(2, Math.round((10 * left) / total));
           const scores = { ...s.scores, [a.playerId]: (s.scores[a.playerId] ?? 0) + pts };
-          if (drawer) scores[drawer] = (scores[drawer] ?? 0) + 2;
-          const next: State = { ...s, scores, correct: [...s.correct, a.playerId], feed: [...s.feed, { playerId: a.playerId, text: null }].slice(-30) };
-          const left2 = players.filter((p) => p.connected && p.id !== drawer && !next.correct.includes(p.id)).length;
-          return left2 === 0 ? reveal(next, now) : next;
+          const gains = { ...s.gains, [a.playerId]: pts };
+          if (drawer) {
+            scores[drawer] = (scores[drawer] ?? 0) + 2;
+            gains[drawer] = (gains[drawer] ?? 0) + 2;
+          }
+          const next: State = { ...s, scores, gains, correct: [...s.correct, a.playerId], feed: [...s.feed, { playerId: a.playerId, text: null }].slice(-30) };
+          const waiting = players.filter((p) => p.connected && p.id !== drawer && p.id in next.scores && !next.correct.includes(p.id)).length;
+          return waiting === 0 ? reveal(next, now) : next;
         }
         return { ...s, feed: [...s.feed, { playerId: a.playerId, text }].slice(-30) };
       }
@@ -501,30 +320,47 @@ const drawGuess: GameModule<State, Pub, Priv, Options> = {
   },
   tick(s, { now, players }) {
     if (s.phase === "over") return s;
-    const drawer = drawerOf(s);
-    if (s.phase !== "reveal" && drawer && !players.some((p) => p.id === drawer)) return startTurn(s, s.turn + 1, now);
-    if (s.phase === "choosing" && now >= s.deadline) return choose(s, 0, now);
-    if (s.phase === "drawing" && now >= s.deadline) return reveal(s, now);
-    if (s.phase === "reveal" && s.revealUntil && now >= s.revealUntil) return startTurn(s, s.turn + 1, now);
-    return s;
+    const drawerId = drawerOf(s);
+    const drawer = players.find((p) => p.id === drawerId);
+    if (s.phase !== "reveal" && drawerId && !drawer) return startTurn(s, s.turn + 1, now);
+    let next = s;
+    // The drawer's phone dropped: wait a little, then move on so the game doesn't stall.
+    if (s.phase !== "reveal" && drawer) {
+      if (!drawer.connected && s.drawerAwaySince === null) next = { ...next, drawerAwaySince: now };
+      else if (drawer.connected && s.drawerAwaySince !== null) next = { ...next, drawerAwaySince: null };
+      else if (!drawer.connected && s.drawerAwaySince !== null && now - s.drawerAwaySince >= DRAWER_AWAY_SKIP) return startTurn(s, s.turn + 1, now);
+    }
+    if (next.phase === "choosing" && now >= next.deadline) return choose(next, 0, now);
+    if (next.phase === "drawing" && now >= next.deadline) return reveal(next, now);
+    if (next.phase === "reveal" && next.revealUntil && now >= next.revealUntil) return startTurn(next, next.turn + 1, now);
+    if (next.phase === "drawing") {
+      if (!next.kfOn && now - next.kfAt >= KEYFRAME_EVERY) next = { ...next, kfOn: true, kfAt: now };
+      else if (next.kfOn && now - next.kfAt >= KEYFRAME_FOR) next = { ...next, kfOn: false };
+    }
+    return next;
   },
   publicView(s) {
     const word = s.word ? display(s.word) : "";
+    const full = s.phase === "reveal" || s.phase === "over" || s.kfOn ? encodeDrawing(s.strokes) : null;
     return {
       drawerId: drawerOf(s),
       turn: s.turn,
       totalTurns: s.totalTurns,
       phase: s.phase,
+      seconds: s.seconds,
       deadline: s.deadline,
       hintAt: s.startedAt + (s.seconds * 1000) / 2,
       mask: maskOf(word),
-      // Revealed by the clients only after hintAt.
+      // Revealed by the phones only after hintAt.
       firstLetter: s.phase === "drawing" ? word.charAt(0) : "",
-      strokes: s.strokes,
+      pad: { turn: s.turn, n: s.opN, tail: s.ops, full },
       correct: s.correct,
       feed: s.feed,
       scores: s.scores,
+      gains: s.gains,
       answer: s.phase === "reveal" ? word : null,
+      revealUntil: s.phase === "reveal" ? s.revealUntil : null,
+      drawerAwaySince: s.drawerAwaySince,
     };
   },
   privateView(s, id) {
@@ -535,6 +371,7 @@ const drawGuess: GameModule<State, Pub, Priv, Options> = {
   },
   Screen,
   Controller,
+  Phone,
 };
 
 export default drawGuess;

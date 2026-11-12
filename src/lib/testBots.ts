@@ -9,12 +9,35 @@
 export const BOT_PREFIX = "bot-";
 export const isBot = (id: string) => id.startsWith(BOT_PREFIX);
 
+/** Three bots: with the host that makes 4, which every game accepts (Raja Mantri needs exactly 4). */
 export const BOTS = [
   { id: "bot-1", name: "Bunty", avatar: "panda" },
   { id: "bot-2", name: "Pinky", avatar: "rabbit" },
   { id: "bot-3", name: "Golu", avatar: "turtle" },
-  { id: "bot-4", name: "Rani", avatar: "flower" },
 ] as const;
+
+import { botMoves as antakshariBot } from "@/games/antakshari/bot";
+import { botMoves as charadesBot } from "@/games/charades/bot";
+import { botMoves as drawGuessBot } from "@/games/draw-guess/bot";
+import { botMoves as jaldiBot } from "@/games/jaldi-bolo/bot";
+import { botMoves as kbcBot } from "@/games/kaun-banega-champion/bot";
+import { botMoves as ludoBot } from "@/games/ludo-yatra/bot";
+import { botMoves as oddWordBot } from "@/games/odd-word-out/bot";
+import { botMoves as rajaBot } from "@/games/raja-mantri/bot";
+import { botMoves as soundGuruBot } from "@/games/sound-guru/bot";
+
+/** Games whose bot logic lives next to the game. */
+const GAME_BOTS: Record<string, (raw: unknown, view: unknown, bots: string[]) => BotAction[]> = {
+  antakshari: antakshariBot,
+  charades: charadesBot,
+  "draw-guess": drawGuessBot,
+  "jaldi-bolo": jaldiBot,
+  "kaun-banega-champion": kbcBot,
+  "ludo-yatra": ludoBot,
+  "odd-word-out": oddWordBot,
+  "raja-mantri": rajaBot,
+  "sound-guru": soundGuruBot,
+};
 
 export interface BotAction {
   playerId: string;
@@ -30,6 +53,8 @@ type Rec = Record<string, unknown>;
  * Uses the same action types a real phone sends, so the game logic is what's tested.
  */
 export function botActions(gameId: string, raw: unknown, view: unknown, bots: string[]): BotAction[] {
+  const own = GAME_BOTS[gameId];
+  if (own) return own(raw, view, bots);
   const out: BotAction[] = [];
   const s = (raw ?? {}) as Rec;
   const v = (view ?? {}) as Rec;
@@ -70,4 +95,4 @@ export function botActions(gameId: string, raw: unknown, view: unknown, bots: st
   return out;
 }
 
-export const BOT_GAMES = ["chor-kaun", "emoji-picture", "housie"] as const;
+export const BOT_GAMES = ["chor-kaun", "emoji-picture", "housie", ...Object.keys(GAME_BOTS)];
