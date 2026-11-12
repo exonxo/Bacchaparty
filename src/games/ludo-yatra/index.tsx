@@ -1,21 +1,23 @@
 "use client";
 import { Avatar } from "@/components/Avatar";
-import { Button, Panel, PhoneMessage } from "@/components/ui";
-import { HOST_ID, type GameModule, type Player } from "@/lib/types";
-import { COLORS, HOME, LANES, LAST_LOOP, LOOP, SAFE, START, YARD, YARD_SPOTS, tokenXY, type Color } from "./board";
-import { applyMove, applyRoll, newGame, nextTurn, type LudoState } from "./rules";
+import { Button, Panel } from "@/components/ui";
+import { HOST_ID, type ControllerProps, type GameModule, type Player, type ScreenProps } from "@/lib/types";
+import { COLORS, HOME, LANES, LOOP, SAFE, START, YARD, YARD_SPOTS, tokenXY, type Color } from "./board";
+import { AWAY_SKIP_MS, TURN_MS, type Note, type Pub, type State } from "./helpers";
+import { Phone } from "./PaperPhone";
+import { applyMove, applyRoll, newGame, nextTurn } from "./rules";
+
+export type { Pub, State } from "./helpers";
 
 const HEX: Record<Color, string> = { red: "#e53935", green: "#43a047", yellow: "#fbc02d", blue: "#1e88e5" };
-const LABEL: Record<Color, string> = { red: "Red", green: "Green", yellow: "Yellow", blue: "Blue" };
-/** A disconnected player's turn is skipped after this long. */
-const AWAY_SKIP_MS = 10_000;
-
-type State = LudoState;
-type Pub = LudoState;
 
 function nameOf(players: Player[], id: string) {
   return players.find((p) => p.id === id)?.name ?? "Player";
 }
+
+/* ------------------------------------------------------------------ */
+/* Big-screen (TV) view — still the classic look                        */
+/* ------------------------------------------------------------------ */
 
 function Dice({ value, rollId, size = 72 }: { value: number | null; rollId: number; size?: number }) {
   const pips: Record<number, [number, number][]> = {
@@ -38,7 +40,6 @@ function Dice({ value, rollId, size = 72 }: { value: number | null; rollId: numb
 function Board({ view, players }: { view: Pub; players: Player[] }) {
   const current = view.seats[view.turn];
   const seated = new Set(view.seats.map((s) => s.color));
-  // Group tokens by drawn position so stacked pieces fan out.
   const groups = new Map<string, { color: Color; idx: number; x: number; y: number }[]>();
   for (const seat of view.seats) {
     view.tokens[seat.color]!.forEach((p, idx) => {
@@ -117,40 +118,35 @@ function Board({ view, players }: { view: Pub; players: Player[] }) {
   );
 }
 
-function progressLabel(p: number) {
-  if (p === YARD) return "in yard";
-  if (p >= HOME) return "home 🏠";
-  if (p > LAST_LOOP) return `home lane ${p - LAST_LOOP}/5`;
-  return `square ${p + 1}`;
-}
-
-function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act: (t: string, p?: unknown) => void; now: number }) {
+function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
   const current = view.seats[view.turn];
+  const note = view.note && now - view.note.at < 6000 ? view.note : null;
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
       <Board view={view} players={players} />
       <div className="space-y-4">
         {view.phase === "over" ? (
           <Panel className="text-center">
-            <div className="text-5xl">🏆</div>
-            <div className="mt-2 text-3xl font-extrabold">{nameOf(players, view.finished[0])} wins!</div>
+            <div className="mt-2 text-3xl font-extrabold">{nameOf(players, view.finished[0])} jeet gaye!</div>
           </Panel>
         ) : (
           current && (
             <Panel>
-              <div className="text-sm font-bold uppercase tracking-widest text-muted">Turn</div>
+              <div className="text-sm font-bold uppercase tracking-widest text-muted">Baari</div>
               <div className="mt-1 flex items-center gap-3 text-2xl font-extrabold">
                 <span className="h-6 w-6 rounded-full" style={{ background: HEX[current.color] }} />
                 {nameOf(players, current.playerId)}
               </div>
               <div className="mt-3 flex items-center gap-4">
                 <Dice value={view.dice} rollId={view.rollId} />
-                <div className="text-lg text-muted">{view.phase === "roll" ? "Roll on your phone 🎲" : "Choose a piece to move"}</div>
+                <div className="text-lg text-muted">{view.phase === "roll" ? "Phone pe dice ghumao" : "Goti chuno"}</div>
               </div>
-              {view.event && now - view.event.at < 6000 && <div className="pop-in mt-3 rounded-xl bg-pink px-3 py-2 font-bold">{view.event.text}</div>}
-              <Button tone="ghost" size="sm" className="mt-4" onClick={() => act("skip")}>
-                Skip this turn
-              </Button>
+              {note && <div className="pop-in mt-3 rounded-xl bg-pink px-3 py-2 font-bold">{note.text}</div>}
+              {!spectator && (
+                <Button tone="ghost" size="sm" className="mt-4" onClick={() => act("skip")}>
+                  Skip this turn
+                </Button>
+              )}
             </Panel>
           )
         )}
@@ -178,76 +174,73 @@ function Screen({ view, players, act, now }: { view: Pub; players: Player[]; act
   );
 }
 
-function Controller({ view, me, players, send, now }: { view: Pub; priv: undefined; me: Player; players: Player[]; send: (t: string, p?: unknown) => void; now: number }) {
-  const seat = view.seats.find((s) => s.playerId === me.id);
-  if (!seat) return <PhoneMessage emoji="👀" title="Watching this game">Ludo is for 2–4 players — you can play the next one!</PhoneMessage>;
-  const myTokens = view.tokens[seat.color]!;
-  const current = view.seats[view.turn];
-  const myTurn = current?.playerId === me.id && view.phase !== "over";
-  const place = view.finished.indexOf(me.id);
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-2xl px-4 py-3 text-xl font-extrabold text-white" style={{ background: HEX[seat.color] }}>
-        <span>You are {LABEL[seat.color]}</span>
-        <span>{myTokens.filter((p) => p >= HOME).length}/4 home</span>
-      </div>
-      {view.phase === "over" ? (
-        <PhoneMessage emoji={place === 0 ? "🏆" : "🎲"} title={place === 0 ? "You won!" : `You finished #${place + 1}`} />
-      ) : place >= 0 ? (
-        <PhoneMessage emoji="🎉" title={`You finished #${place + 1}!`}>Cheer on the others.</PhoneMessage>
-      ) : myTurn ? (
-        <div className="space-y-4">
-          <div className="flex items-center justify-center gap-4">
-            <Dice value={view.dice} rollId={view.rollId} size={88} />
-          </div>
-          {view.phase === "roll" ? (
-            <Button size="xl" className="w-full" onClick={() => send("roll")}>
-              🎲 Roll!
-            </Button>
-          ) : (
-            <div className="space-y-2">
-              <div className="text-center text-lg font-bold">You rolled {view.dice}. Which piece?</div>
-              {view.movable
-                .filter((i, k, arr) => arr.findIndex((j) => myTokens[j] === myTokens[i]) === k)
-                .map((i) => (
-                <Button key={i} size="lg" tone="teal" className="w-full" onClick={() => send("move", i)}>
-                  Piece {i + 1} · {progressLabel(myTokens[i])} → {progressLabel(myTokens[i] === YARD ? 0 : myTokens[i] + (view.dice ?? 0))}
-                </Button>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-3 text-center">
-          <div className="text-xl font-bold">{current ? `${nameOf(players, current.playerId)}'s turn` : "Waiting…"}</div>
-          <div className="flex justify-center">
-            <Dice value={view.dice} rollId={view.rollId} />
-          </div>
-        </div>
-      )}
-      {view.event && now - view.event.at < 6000 && <div className="rounded-xl bg-white/10 px-3 py-2 text-center font-semibold">{view.event.text}</div>}
-      <Panel>
-        <div className="mb-2 text-sm font-bold uppercase tracking-widest text-muted">Your pieces</div>
-        <ul className="grid grid-cols-2 gap-2 text-base">
-          {myTokens.map((p, i) => (
-            <li key={i} className="rounded-xl bg-white/5 px-3 py-2">
-              <b>#{i + 1}</b> {progressLabel(p)}
-            </li>
-          ))}
-        </ul>
-      </Panel>
-    </div>
-  );
+/* ------------------------------------------------------------------ */
+/* Rules wrapper                                                        */
+/* ------------------------------------------------------------------ */
+
+const noop = () => {};
+
+/** Phones without host controls (the classic controller path) still get the paper view. */
+function Controller(props: ControllerProps<Pub, undefined>) {
+  return <Phone {...props} isHost={false} hostAct={noop} together />;
 }
+
+/** Works out what just happened, for the animation and the note everyone sees. */
+function describe(prev: State, next: State, now: number, players: Player[], auto = false): State {
+  const seat = prev.seats[prev.turn];
+  if (!seat || next === prev) return next;
+  const name = nameOf(players, seat.playerId);
+  const rolled = next.rollId !== prev.rollId;
+  const before = prev.tokens[seat.color]!;
+  const after = next.tokens[seat.color]!;
+  const idx = after.findIndex((p, i) => p !== before[i]);
+  const again = next.phase === "roll" && next.turn === prev.turn && !next.finished.includes(seat.playerId);
+  let note: Note | null = null;
+  let lastMove = next.lastMove;
+
+  if (idx >= 0) {
+    const captured: { color: Color; idx: number; from: number }[] = [];
+    for (const other of prev.seats) {
+      if (other.color === seat.color) continue;
+      prev.tokens[other.color]!.forEach((p, i) => {
+        if (p !== YARD && next.tokens[other.color]![i] === YARD) captured.push({ color: other.color, idx: i, from: p });
+      });
+    }
+    const from = before[idx];
+    const to = after[idx];
+    lastMove = { id: (prev.lastMove?.id ?? 0) + 1, color: seat.color, idx, from, to, captured, at: now };
+    const finished = next.finished.length > prev.finished.length && next.finished.includes(seat.playerId);
+    if (finished) note = { kind: "finish", text: `${name} #${next.finished.indexOf(seat.playerId) + 1} pe finish!`, at: now, playerId: seat.playerId };
+    else if (captured.length) {
+      const victims = [...new Set(captured.map((c) => nameOf(players, prev.seats.find((x) => x.color === c.color)!.playerId)))].join(" aur ");
+      note = { kind: "capture", text: `Kat gaya! ${name} ne ${victims} ki goti kaati`, at: now, playerId: seat.playerId };
+    } else if (to >= HOME) note = { kind: "home", text: `${name} ki goti ghar pahunchi!`, at: now, playerId: seat.playerId };
+    else if (from === YARD) note = { kind: "out", text: `${name} ki goti bahar aayi!`, at: now, playerId: seat.playerId };
+    else note = { kind: "move", text: `${name} ne ${to - from} khane chale`, at: now, playerId: seat.playerId };
+  } else if (rolled) {
+    const three = prev.sixes >= 2 && next.dice === 6;
+    note = three
+      ? { kind: "three6", text: `Teen baar 6! ${name} ki baari gayi`, at: now, playerId: seat.playerId }
+      : { kind: "nomove", text: `${name} ka ${next.dice} — koi chaal nahi`, at: now, playerId: seat.playerId };
+  }
+
+  const phaseChanged = next.turn !== prev.turn || next.phase !== prev.phase || next.rollId !== prev.rollId;
+  return {
+    ...next,
+    lastMove,
+    note: note ? { ...note, auto, again } : next.note,
+    phaseStartedAt: phaseChanged ? now : next.phaseStartedAt,
+  };
+}
+
+const rollDie = () => 1 + Math.floor(Math.random() * 6);
 
 const game: GameModule<State, Pub, undefined, Record<string, never>> = {
   id: "ludo-yatra",
+  paper: true,
   defaultOptions: {},
   init({ players, now }) {
-    return newGame(
-      players.map((p) => p.id),
-      now,
-    );
+    return { ...newGame(players.map((p) => p.id), now), phaseStartedAt: now, note: null, lastMove: null };
   },
   reduce(s, a, { now, players }) {
     const name = (id: string) => nameOf(players, id);
@@ -255,25 +248,36 @@ const game: GameModule<State, Pub, undefined, Record<string, never>> = {
     if (a.playerId === HOST_ID) {
       if (a.type === "skip" && s.phase !== "over") {
         const seat = s.seats[s.turn];
-        return nextTurn({ ...s, event: { text: `${name(seat.playerId)}'s turn was skipped`, at: now } }, now, present);
+        const next = nextTurn(s, now, present) as State;
+        return { ...next, phaseStartedAt: now, note: { kind: "skip", text: `${name(seat.playerId)} ki baari skip`, at: now, playerId: seat.playerId } };
       }
       return s;
     }
     const seat = s.seats[s.turn];
     if (!seat || seat.playerId !== a.playerId) return s;
-    if (a.type === "roll") return applyRoll(s, 1 + Math.floor(Math.random() * 6), now, name);
-    if (a.type === "move") return applyMove(s, Number(a.payload), now, name);
+    if (a.type === "roll") return describe(s, applyRoll(s, rollDie(), now, name) as State, now, players);
+    if (a.type === "move") return describe(s, applyMove(s, Number(a.payload), now, name) as State, now, players);
     return s;
   },
   tick(s, { now, players }) {
     if (s.phase === "over") return s;
     const seat = s.seats[s.turn];
-    const p = players.find((x) => x.id === seat?.playerId);
-    if (seat && (!p || !p.connected) && now - s.turnStartedAt > AWAY_SKIP_MS) {
-      const present = (id: string) => !!players.find((x) => x.id === id)?.connected;
+    if (!seat) return s;
+    const p = players.find((x) => x.id === seat.playerId);
+    const present = (id: string) => !!players.find((x) => x.id === id)?.connected;
+    if (!p || !p.connected) {
+      if (now - s.turnStartedAt <= AWAY_SKIP_MS) return s;
       // If nobody else is around either, just wait.
       if (!s.seats.some((x) => x.playerId !== seat.playerId && present(x.playerId) && !s.finished.includes(x.playerId))) return s;
-      return nextTurn({ ...s, event: { text: `${p?.name ?? "A player"} is away — turn skipped`, at: now } }, now, present);
+      const next = nextTurn(s, now, present) as State;
+      return { ...next, phaseStartedAt: now, note: { kind: "away", text: `${p?.name ?? "Koi"} offline hai — baari skip`, at: now, playerId: seat.playerId } };
+    }
+    // Time's up for a player who is here: the game plays their turn for them.
+    if (now - (s.phaseStartedAt ?? s.turnStartedAt) >= TURN_MS) {
+      const name = (id: string) => nameOf(players, id);
+      let next = s.phase === "roll" ? (applyRoll(s, rollDie(), now, name) as State) : s;
+      if (next.phase === "move" && next.turn === s.turn && next.movable.length) next = applyMove(next, next.movable[0], now, name) as State;
+      return describe(s, next, now, players, true);
     }
     return s;
   },
@@ -282,6 +286,7 @@ const game: GameModule<State, Pub, undefined, Record<string, never>> = {
   },
   Screen,
   Controller,
+  Phone,
 };
 
 export default game;
