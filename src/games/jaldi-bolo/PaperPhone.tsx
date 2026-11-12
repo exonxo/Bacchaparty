@@ -12,14 +12,14 @@ import type { PhoneProps, Player } from "@/lib/types";
 import { CATEGORIES, LETTERS, N, startsWithLetter, type Priv, type Pub } from "./shared";
 
 /* Notebook palette */
-const COVER = "#cfe0f5";
-const BLUE_INK = "#1d3f78";
-const RULE = "rgba(70, 120, 200, 0.32)";
-const MARGIN = "rgba(214, 72, 56, 0.7)";
-const PAGE = "#fffef8";
-const RED_PEN = "#c8281e";
+export const COVER = "#cfe0f5";
+export const BLUE_INK = "#1d3f78";
+export const RULE = "rgba(70, 120, 200, 0.32)";
+export const MARGIN = "rgba(214, 72, 56, 0.7)";
+export const PAGE = "#fffef8";
+export const RED_PEN = "#c8281e";
 
-function ranked(players: Player[], scores: Record<string, number>) {
+export function ranked(players: Player[], scores: Record<string, number>) {
   return players
     .filter((p) => p.id in scores)
     .map((p) => ({ p, s: scores[p.id] ?? 0 }))
@@ -107,7 +107,7 @@ function ConfirmButton({ label, confirmLabel, onConfirm, icon, now }: { label: s
 }
 
 /** The letter, rubber-stamped in blue ink. While shuffling it flicks through letters. */
-function LetterStamp({ letter, shuffling, now, size = 92 }: { letter: string; shuffling: boolean; now: number; size?: number }) {
+export function LetterStamp({ letter, shuffling, now, size = 92 }: { letter: string; shuffling: boolean; now: number; size?: number }) {
   const shown = shuffling ? LETTERS[Math.floor(now / 90) % LETTERS.length] : letter;
   return (
     <motion.div
@@ -136,7 +136,7 @@ function LetterStamp({ letter, shuffling, now, size = 92 }: { letter: string; sh
 }
 
 /** A school notebook page: blue ruled lines, a red margin and a little paper grain. */
-function NotebookPage({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function NotebookPage({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <div
       className={`cut relative overflow-hidden rounded-cut ${className}`}
@@ -603,7 +603,7 @@ function Review({ view, players, me, now, isHost, hostAct, onScores }: { view: P
           </PaperButton>
         </section>
       ) : (
-        <p className="text-center text-p-body font-semibold text-muted">Host copy check kar raha hai… {last ? "phir result!" : "phir agla akshar."}</p>
+        <p className="text-center text-p-body font-semibold text-muted">Host copy check kar rahe hain… {last ? "phir result!" : "phir agla akshar."}</p>
       )}
     </div>
   );
@@ -613,7 +613,7 @@ function Review({ view, players, me, now, isHost, hostAct, onScores }: { view: P
 /* Final: podium                                                        */
 /* ------------------------------------------------------------------ */
 
-function Crown() {
+export function Crown() {
   return (
     <svg aria-hidden width="38" height="24" viewBox="0 0 38 24">
       <path d="M3 21 L1 6 L11 13 L19 2 L27 13 L37 6 L35 21 Z" fill="#f2b632" stroke="var(--ink)" strokeWidth="1.5" strokeLinejoin="round" />
@@ -728,7 +728,7 @@ function Results({ view, players, me, isHost }: { view: Pub; players: Player[]; 
           <ScoreList rows={rows.slice(3)} meId={me.id} from={3} />
         </section>
       )}
-      <p className="text-center text-p-body text-muted">{isHost ? "Agla game? Tap the home button at the top." : "Host agla game chun raha hai…"}</p>
+      <p className="text-center text-p-body text-muted">{isHost ? "Agla game? Tap the home button at the top." : "Host agla game chun rahe hain…"}</p>
     </div>
   );
 }

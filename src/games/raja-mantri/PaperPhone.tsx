@@ -14,17 +14,17 @@ import { ROLE_INFO, type Priv, type Pub, type Role } from "./index";
 const HINT_KEY = "bacchaparty-raja-peeked";
 const INK = "#1e1a17";
 /** The game's paper colour: the red cloth the chits are tossed on. */
-const MAT = "#b3261e";
+export const MAT = "#b3261e";
 const CHIT_TILT = [-7, 5, -3, 8];
 
-const ROLE_PAPER: Record<Role, { bg: string; fg: string }> = {
+export const ROLE_PAPER: Record<Role, { bg: string; fg: string }> = {
   raja: { bg: "#f2b632", fg: INK },
   mantri: { bg: "#23407a", fg: "#fffdf8" },
   chor: { bg: "#1e1a17", fg: "#fffdf8" },
   sipahi: { bg: "#2f7d4f", fg: "#fffdf8" },
 };
 
-function RoleGlyph({ role, size = 28 }: { role: Role; size?: number }) {
+export function RoleGlyph({ role, size = 28 }: { role: Role; size?: number }) {
   if (role === "chor") return <MaskGlyph size={size * 1.15} />;
   const Icon = role === "raja" ? Crown : role === "mantri" ? ScrollText : Shield;
   return <Icon style={{ width: size, height: size }} strokeWidth={2.2} aria-hidden />;
@@ -113,7 +113,7 @@ function ScoreList({ players, scores, seats }: { players: Player[]; scores: Reco
 /* ------------------------------------------------------------------ */
 
 /** A folded paper chit: two halves, a dog-eared corner and a red wax dot. Same for every role. */
-function FoldedChitArt({ className = "" }: { className?: string }) {
+export function FoldedChitArt({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 120 80" className={`block h-full w-full ${className}`} aria-hidden style={{ filter: `drop-shadow(2px 2px 0 ${INK})` }}>
       <path d="M3 4 H100 L117 21 V76 H3 Z" fill="#fffdf8" stroke={INK} strokeWidth="1.6" strokeLinejoin="round" />
@@ -128,7 +128,7 @@ function FoldedChitArt({ className = "" }: { className?: string }) {
 }
 
 /** The red cloth the chits are tossed on. */
-function Mat({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function Mat({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <div className={`cut relative overflow-hidden rounded-soft ${className}`} style={{ background: MAT }}>
       <div
@@ -142,7 +142,7 @@ function Mat({ children, className = "" }: { children: ReactNode; className?: st
 }
 
 /** Where each chit lies on the cloth: a loose, uneven toss rather than a neat grid. */
-const SCATTER = [
+export const SCATTER = [
   { x: "4%", y: "6%", r: -9 },
   { x: "52%", y: "2%", r: 6 },
   { x: "10%", y: "52%", r: 4 },
@@ -420,7 +420,7 @@ function Reveal({ view, players, me, onAgain, canDeal }: { view: Pub; players: P
       <div className="flex flex-col items-center text-center">
         <motion.div initial={{ scale: 1.6, opacity: 0 }} animate={{ scale: 1, opacity: 1, transition: { ...spring.settle, delay: 0.15 } }}>
           <VerdictSlip tone={view.correct ? "leaf" : "vermilion"} seed={view.round * 11} tilt={view.correct ? -3 : 3}>
-            {view.correct ? "Pakda gaya!" : "Bach nikla!"}
+            {view.correct ? "Pakde gaye!" : "Bach nikle!"}
           </VerdictSlip>
         </motion.div>
         <p className="mt-3 text-p-lead font-semibold text-balance">
@@ -623,7 +623,7 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
             <>
               <div className="cut rounded-cut bg-paper px-3 py-3 text-center">
                 <div className="font-display text-p-lead font-extrabold">
-                  {myRole === "raja" ? "Ab dekho Mantri kya karta hai" : "Mantri aapko dekh raha hai… chehra seedha!"}
+                  {myRole === "raja" ? "Ab dekho Mantri kya karte hain" : "Mantri aapko dekh rahe hain… chehra seedha!"}
                 </div>
                 <div className="mt-2 flex items-center justify-center gap-3">
                   {view.suspects.map((id) => {

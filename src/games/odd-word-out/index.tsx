@@ -1,10 +1,10 @@
 "use client";
-import { Avatar } from "@/components/Avatar";
-import { Button, LevelPicker, NumberPicker, Panel, PlayerChip, Scoreboard } from "@/components/ui";
+import { LevelPicker, NumberPicker } from "@/components/ui";
 import { pairsFor } from "@/content/odd-word-out";
-import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player, type ScreenProps } from "@/lib/types";
+import { HOST_ID, type ControllerProps, type GameModule, type Level, type Player } from "@/lib/types";
 import { answerMatches, pick, shuffle } from "@/lib/util";
 import { Phone } from "./PaperPhone";
+import { Screen } from "./TvScreen";
 
 export interface Options {
   level: Level;
@@ -158,113 +158,12 @@ function allPresentVoted(s: State, players: Player[]): boolean {
 }
 
 export const nameOf = (players: Player[], id: string | null) => players.find((p) => p.id === id)?.name ?? "Someone";
-const findP = (players: Player[], id: string): Player => players.find((p) => p.id === id) ?? { id, name: "Left", avatar: "", connected: false };
 
 export function revealLine(r: NonNullable<Pub["reveal"]>, players: Player[]) {
   const imp = nameOf(players, r.imposterId);
   if (!r.caught) return `${imp} was the Imposter, and got away!`;
   if (r.guessCorrect) return `${imp} was caught, but guessed “${r.majorityWord}”. Imposter steals the round!`;
   return `Caught! ${imp} was the Imposter${r.imposterGuess ? ` (guessed “${r.imposterGuess}”)` : ""}.`;
-}
-
-/** Big-screen (TV) view. Host controls are hidden when it's a read-only spectator. */
-function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
-  const secs = (d: number | null) => (d ? Math.max(0, Math.ceil((d - now) / 1000)) : null);
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-      <div className="space-y-6">
-        {view.phase === "clues" && (
-          <Panel className="space-y-5 py-8 text-center">
-            <div className="text-muted">
-              Round {view.round} · Clue round {view.clueRound}
-            </div>
-            <div className="text-3xl font-bold">Say ONE word about your secret word</div>
-            <div className="text-5xl font-extrabold">
-              <Avatar id={findP(players, view.order[view.speaker]).avatar} /> {nameOf(players, view.order[view.speaker])}
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              {view.order.map((id, i) => (
-                <PlayerChip key={id} player={findP(players, id)} highlight={i === view.speaker} extra={<span className="text-sm">{i < view.speaker ? "done" : i + 1}</span>} />
-              ))}
-            </div>
-            {!spectator && (
-              <div className="flex flex-wrap justify-center gap-3">
-                {view.speaker < view.order.length - 1 ? (
-                  <Button size="lg" onClick={() => act("nextSpeaker")}>
-                    Next speaker
-                  </Button>
-                ) : (
-                  <Button size="lg" tone="ghost" onClick={() => act("anotherRound")}>
-                    Another clue round
-                  </Button>
-                )}
-                <Button size="lg" tone="pink" onClick={() => act("startVote")}>
-                  Start voting
-                </Button>
-              </div>
-            )}
-          </Panel>
-        )}
-        {view.phase === "vote" && (
-          <Panel className="space-y-5 py-8 text-center">
-            <div className="text-4xl font-extrabold">Vote on your phone: who has the odd word?</div>
-            {view.voteDeadline && <div className="text-5xl font-extrabold tabular-nums">{secs(view.voteDeadline)}s</div>}
-            <div className="flex flex-wrap justify-center gap-2">
-              {view.participants.map((id) => (
-                <PlayerChip key={id} player={findP(players, id)} extra={<span>{view.voted.includes(id) ? "voted" : "…"}</span>} />
-              ))}
-            </div>
-            {!spectator && (
-              <Button tone="ghost" onClick={() => act("closeVote")}>
-                Close voting now
-              </Button>
-            )}
-          </Panel>
-        )}
-        {view.phase === "imposter-guess" && (
-          <Panel className="space-y-4 py-8 text-center">
-            <div className="text-4xl font-extrabold">
-              Caught! <span className="text-pink">{nameOf(players, view.accused)}</span> is the Imposter!
-            </div>
-            <div className="text-2xl text-muted">One last chance: they’re guessing everyone else’s word… {secs(view.guessDeadline)}s</div>
-            {!spectator && (
-              <Button tone="ghost" onClick={() => act("skipGuess")}>
-                Skip guess
-              </Button>
-            )}
-          </Panel>
-        )}
-        {view.phase === "reveal" && view.reveal && (
-          <Panel className="pop-in space-y-5 py-8 text-center">
-            <div className="text-3xl font-bold">{revealLine(view.reveal, players)}</div>
-            <div className="flex flex-wrap items-center justify-center gap-6">
-              <div className="rounded-3xl bg-tint px-8 py-4">
-                <div className="text-sm text-muted">Everyone’s word</div>
-                <div className="text-4xl font-extrabold">{view.reveal.majorityWord}</div>
-              </div>
-              <div className="rounded-3xl bg-tint px-8 py-4">
-                <div className="text-sm text-muted">Imposter’s word</div>
-                <div className="text-4xl font-extrabold text-pink">{view.reveal.imposterWord}</div>
-              </div>
-            </div>
-            <div className="mx-auto max-w-xl space-y-1 text-left text-lg">
-              {Object.entries(view.reveal.votes).map(([voter, target]) => (
-                <div key={voter}>
-                  {nameOf(players, voter)} → <b>{nameOf(players, target)}</b>
-                </div>
-              ))}
-            </div>
-            {!spectator && (
-              <Button size="lg" onClick={() => act("next")}>
-                Next round
-              </Button>
-            )}
-          </Panel>
-        )}
-      </div>
-      <Scoreboard players={players} scores={view.scores} />
-    </div>
-  );
 }
 
 const noop = () => {};
@@ -292,6 +191,7 @@ function activeIds(players: Player[], fallback: string[]) {
 const oddWordOut: GameModule<State, Pub, Priv, Options> = {
   id: "odd-word-out",
   paper: true,
+  tvPaper: true,
   defaultOptions: { level: "family", voteSeconds: DEFAULT_VOTE_SECONDS },
   OptionsForm,
   init({ players, options }) {
