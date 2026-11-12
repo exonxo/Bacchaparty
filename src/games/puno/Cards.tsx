@@ -44,6 +44,13 @@ function shadowStyle(px: number): CSSProperties {
   return { boxShadow: `${px}px ${px}px 0 0 ${INK}` };
 }
 
+const FACE_RIM = "#fffdf8";
+
+/** Inner rim drawn with inset shadow — avoids the p-[3px] paper gutter paint glitch on card edges. */
+function faceRimStyle(): CSSProperties {
+  return { boxShadow: `inset 0 0 0 2px ${FACE_RIM}` };
+}
+
 function hashId(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h += cardIdChar(id, i);
@@ -86,7 +93,7 @@ function WildHatchMini({ size }: { size: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden>
       <rect width="16" height="16" fill={INK} />
-      <path d="M-2 2 L18 22 M-2 6 L18 26" stroke="#fffdf8" strokeWidth="1.2" />
+      <path d="M0 1 L16 15 M0 4 L16 18" stroke="#fffdf8" strokeWidth="1.2" />
     </svg>
   );
 }
@@ -351,14 +358,14 @@ export function CardFace({
     transform: `translateY(${liftY}px)`,
   };
 
-  const frameClass = `font-display relative shrink-0 rounded-[18px] border-ink bg-paper p-[3px] transition-[transform,box-shadow] duration-150 ${onClick ? "cursor-pointer touch-manipulation" : ""} ${className}`;
+  const frameClass = `font-display relative shrink-0 rounded-[18px] border-ink bg-paper p-0 transition-[transform,box-shadow] duration-150 ${onClick ? "cursor-pointer touch-manipulation" : ""} ${className}`;
 
   frameStyle.borderWidth = d.border;
   frameStyle.borderStyle = "solid";
   frameStyle.borderColor = INK;
 
   const inner = (
-    <div className="relative h-full w-full overflow-hidden rounded-[14px] border-2 border-[#fffdf8]" style={{ background: bg }}>
+    <div className="relative h-full w-full overflow-hidden rounded-[14px]" style={{ background: bg, ...faceRimStyle() }}>
       {shell}
     </div>
   );
@@ -445,13 +452,13 @@ export function CardBack({ size = "pile", onClick }: { size?: CardSize; onClick?
   const word = size === "fan" || size === "pile" || size === "table" ? "text-2xl" : "text-sm";
 
   const inner = (
-    <div className="flex h-full w-full flex-col items-center justify-center rounded-[14px] border-2 border-[#fffdf8] bg-ink">
+    <div className="flex h-full w-full flex-col items-center justify-center rounded-[14px] bg-ink" style={faceRimStyle()}>
       <span className={`font-display font-extrabold uppercase tracking-[0.28em] text-paper ${word}`}>Puno</span>
     </div>
   );
 
   const style: CSSProperties = { width: d.w, height: d.h, ...shadowStyle(shadowPx), transform: pressed ? "translate(1px,1px)" : undefined };
-  const cls = `rounded-[18px] border-4 border-ink bg-paper p-[3px] ${onClick ? "cursor-pointer" : ""}`;
+  const cls = `rounded-[18px] border-4 border-ink bg-paper p-0 ${onClick ? "cursor-pointer" : ""}`;
 
   if (onClick) {
     return (
