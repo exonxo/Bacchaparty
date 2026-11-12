@@ -7,6 +7,10 @@ interface RoomAudio {
   together: boolean;
   /** This device is the host phone or the TV. */
   isStage: boolean;
+  /** A TV is showing the room; in one room it, not the host phone, plays shared sounds. */
+  tvOn?: boolean;
+  /** This device is the TV. */
+  isTv?: boolean;
 }
 
 const Ctx = createContext<RoomAudio>({ together: true, isStage: false });
@@ -19,18 +23,20 @@ export const RoomAudioProvider = Ctx.Provider;
  * mine(): feedback just for this player (your answer was right, your turn).
  */
 export function useSfx() {
-  const { together, isStage } = useContext(Ctx);
+  const { together, isStage, tvOn = false, isTv = false } = useContext(Ctx);
+  // In one room exactly one device plays shared sounds: the TV if there is one, else the host phone.
+  const playsShared = !together || (isStage && (isTv || !tvOn));
   const shared = useCallback(
     (s: Sfx) => {
-      if (!together || isStage) playSfx(s);
+      if (playsShared) playSfx(s);
     },
-    [together, isStage],
+    [playsShared],
   );
   const mine = useCallback((s: Sfx, buzz?: number | number[]) => {
     playSfx(s);
     if (buzz) vibrate(buzz);
   }, []);
-  return { shared, mine, together, isStage };
+  return { shared, mine, together, isStage, playsShared };
 }
 
 /** Runs `fn` when `value` changes after the first render. */

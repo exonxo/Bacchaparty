@@ -18,6 +18,7 @@ export function GameStage({
   isHost,
   hostAct,
   together,
+  tvOn = false,
 }: {
   mod: GameModule;
   view: unknown;
@@ -29,6 +30,8 @@ export function GameStage({
   isHost: boolean;
   hostAct: (type: string, payload?: unknown) => void;
   together: boolean;
+  /** A TV is showing the room (it then plays the shared sounds). */
+  tvOn?: boolean;
 }) {
   // Games not yet redesigned keep their night look while they're on screen.
   const dark = !mod.paper;
@@ -45,7 +48,7 @@ export function GameStage({
     };
   }, [dark]);
   return (
-    <RoomAudioProvider value={{ together, isStage: isHost }}>
+    <RoomAudioProvider value={{ together, isStage: isHost, tvOn }}>
       {mod.Phone ? (
         <mod.Phone view={view} priv={priv} me={me} players={players} send={send} now={now} isHost={isHost} hostAct={hostAct} together={together} />
       ) : isHost ? (

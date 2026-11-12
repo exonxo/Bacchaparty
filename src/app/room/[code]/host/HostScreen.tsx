@@ -319,7 +319,7 @@ function HostRoom({
         }
       >
         <TestBanner on={testMode} />
-        <GameStage mod={playingMod} view={view} priv={myPriv} me={mePlayer} players={state.players} send={sendAsMe} now={now} isHost hostAct={act} together={state.together} />
+        <GameStage mod={playingMod} view={view} priv={myPriv} me={mePlayer} players={state.players} send={sendAsMe} now={now} isHost hostAct={act} together={state.together} tvOn={!!state.tvOn} />
         {endGameSheet}
         {endPartySheet}
       </RoomShell>

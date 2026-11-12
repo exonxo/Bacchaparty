@@ -387,9 +387,9 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
   useEffect(() => {
     if (current && spoken.current !== current) {
       spoken.current = current;
-      if (!sfx.together || sfx.isStage) speak(call ?? String(current));
+      if (sfx.playsShared) speak(call ?? String(current));
     }
-  }, [current, call, sfx.together, sfx.isStage]);
+  }, [current, call, sfx.playsShared]);
 
   useOnChange(view.current, (n) => {
     if (n) sfx.shared("whoosh");

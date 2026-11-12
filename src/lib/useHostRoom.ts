@@ -38,6 +38,8 @@ interface HostState {
   savedAt: number;
   /** Scorecard of the last game that ended, shown in the lobby. */
   lastResult?: GameResult | null;
+  /** A TV page is showing this room. */
+  tvOn?: boolean;
 }
 
 interface HostKeys {
@@ -311,6 +313,7 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
             hostEcdh: keys.ecdh.publicKey,
             kicked: s.kicked,
             lastResult: s.lastResult ?? null,
+            tvOn: !!s.tvOn,
           };
           const d = JSON.stringify(snap);
           const msg: SignedRoom = { v: PROTOCOL, d, s: await sign(signer, d), k: keys.sign.publicKey };
@@ -424,6 +427,8 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
       presenceRounds++;
       if (roleRef.current === "checking" && presenceRounds >= 2) decide();
       if (roleRef.current !== "active") return;
+      const tvOn = ids.some((id) => id.startsWith("tv-"));
+      if (tvOn !== !!stateRef.current.tvOn) commit({ ...stateRef.current, tvOn });
       const s = stateRef.current;
       const online = new Set(ids);
       const hostId = meRef.current?.id;

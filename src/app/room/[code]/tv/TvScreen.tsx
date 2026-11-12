@@ -82,7 +82,7 @@ export function TvScreen({ code }: { code: string }) {
           </button>
         </div>
       </header>
-      <RoomAudioProvider value={{ together: room?.together ?? true, isStage: true }}>
+      <RoomAudioProvider value={{ together: room?.together ?? true, isStage: true, isTv: true, tvOn: true }}>
         {room?.phase === "closed" ? (
           <section className="py-16 text-center">
             <h1 className="text-p-show font-extrabold">The host ended the party</h1>

@@ -21,6 +21,8 @@ export interface RoomSnapshot {
   hostEcdh: string;
   /** Players the host removed; their phones stop rejoining. */
   kicked: string[];
+  /** A TV page is showing this room. */
+  tvOn?: boolean;
   /** Scorecard of the last game that ended (lobby). */
   lastResult?: import("./results").GameResult | null;
 }

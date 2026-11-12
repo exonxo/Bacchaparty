@@ -163,6 +163,7 @@ export function PlayerScreen({ code }: { code: string }) {
             isHost={false}
             hostAct={noop}
             together={room.together}
+            tvOn={!!room.tvOn}
           />
         </>
       )}
