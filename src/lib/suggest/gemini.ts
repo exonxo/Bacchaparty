@@ -110,7 +110,7 @@ export async function callGemini(apiKey: string, kind: SuggestKind, context: Rec
       "X-goog-api-key": apiKey,
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(8_000),
+    signal: AbortSignal.timeout(6_000),
   });
 
   if (res.status === 429) return null;

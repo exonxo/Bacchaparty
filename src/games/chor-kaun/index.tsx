@@ -1,7 +1,7 @@
 "use client";
 import { Check, EyeOff, Tag, Timer as TimerIcon, Vote } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { SuggestPaperButton } from "@/components/suggest/SuggestPaperButton";
 import { requestSuggest } from "@/lib/suggest/client";
 import { Button, Label, NumberPicker, Panel, PlayerChip, Scoreboard } from "@/components/ui";
@@ -292,18 +292,24 @@ function TopicOptionsField({ value, onChange }: { value: Options; onChange: (o: 
   const roomCode = typeof params?.code === "string" ? params.code : undefined;
   const [loading, setLoading] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   const freshTopic = async () => {
+    const current = valueRef.current;
+    const excludeTopicIds = [...CHOR_TOPICS.map((t) => t.id), ...(current.extraTopics ?? []).map((t) => t.id)];
     setLoading(true);
+    setHint(null);
     try {
-      const { data } = await requestSuggest<ChorTopic>(
-        "chor-kaun-topic",
-        { excludeTopicIds: [...CHOR_TOPICS.map((t) => t.id), ...(value.extraTopics ?? []).map((t) => t.id)] },
-        roomCode,
+      const { data, fallback } = await requestSuggest<ChorTopic>("chor-kaun-topic", { excludeTopicIds }, roomCode);
+      const latest = valueRef.current;
+      const extraTopics = [...(latest.extraTopics ?? []).filter((t) => t.id !== data.id), data];
+      onChange({ ...latest, topic: data.id, extraTopics });
+      setHint(
+        fallback
+          ? `Built-in idea · ${data.emoji} ${data.label} · ${data.words.length} words`
+          : `${data.emoji} ${data.label} · ${data.words.length} words`,
       );
-      const extraTopics = [...(value.extraTopics ?? []).filter((t) => t.id !== data.id), data];
-      onChange({ ...value, topic: data.id, extraTopics });
-      setHint(`${data.emoji} ${data.label} · ${data.words.length} words`);
     } finally {
       setLoading(false);
     }
@@ -317,6 +323,7 @@ function TopicOptionsField({ value, onChange }: { value: Options; onChange: (o: 
           ✨ Fresh topic
         </SuggestPaperButton>
       </div>
+      {loading && !hint && <p className="text-p-note text-muted">Thinking…</p>}
       {hint && <p className="text-p-note text-muted">{hint}</p>}
       <TopicPickerLobby value={value.topic} extraTopics={value.extraTopics} onChange={(topic) => onChange({ ...value, topic })} />
     </div>
