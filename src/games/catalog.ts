@@ -189,7 +189,7 @@ export const GAMES: GameInfo[] = [
     category: "Bluffing",
     ages: "9+",
     players: "4–12",
-    minPlayers: 3,
+    minPlayers: 4,
     maxPlayers: 12,
     duration: "5–10 min per round",
     color: "#36c96a",

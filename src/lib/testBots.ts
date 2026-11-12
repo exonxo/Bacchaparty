@@ -19,7 +19,9 @@ export const BOTS = [
 import { botMoves as antakshariBot } from "@/games/antakshari/bot";
 import { botMoves as charadesBot } from "@/games/charades/bot";
 import { botMoves as drawGuessBot } from "@/games/draw-guess/bot";
+import { botMoves as jaldiBot } from "@/games/jaldi-bolo/bot";
 import { botMoves as kbcBot } from "@/games/kaun-banega-champion/bot";
+import { botMoves as oddWordBot } from "@/games/odd-word-out/bot";
 import { botMoves as rajaBot } from "@/games/raja-mantri/bot";
 import { botMoves as soundGuruBot } from "@/games/sound-guru/bot";
 
@@ -28,7 +30,9 @@ const GAME_BOTS: Record<string, (raw: unknown, view: unknown, bots: string[]) =>
   antakshari: antakshariBot,
   charades: charadesBot,
   "draw-guess": drawGuessBot,
+  "jaldi-bolo": jaldiBot,
   "kaun-banega-champion": kbcBot,
+  "odd-word-out": oddWordBot,
   "raja-mantri": rajaBot,
   "sound-guru": soundGuruBot,
 };
