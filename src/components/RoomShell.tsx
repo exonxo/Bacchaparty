@@ -91,6 +91,7 @@ export function RoomShell({
                 onChange={onIdentityChange}
                 testMode={testMode}
                 onTestMode={onTestMode}
+                tvHref={tvHref}
               />
             ) : me ? (
               <>
@@ -117,7 +118,14 @@ export function RoomShell({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {tvHref && (
-              <Link href={tvHref} target="_blank" rel="noopener noreferrer" className={iconButtonClass} title="TV mode" aria-label="Open TV mode">
+              <Link
+                href={tvHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${iconButtonClass} ${profileIdentity && onIdentityChange ? "max-[399px]:hidden" : ""}`}
+                title="TV mode"
+                aria-label="Open TV mode"
+              >
                 <Tv className="h-5 w-5" />
               </Link>
             )}

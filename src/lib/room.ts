@@ -21,6 +21,8 @@ export interface RoomSnapshot {
   hostEcdh: string;
   /** Players the host removed; their phones stop rejoining. */
   kicked: string[];
+  /** Scorecard of the last game that ended (lobby). */
+  lastResult?: import("./results").GameResult | null;
 }
 
 /** Bumped whenever the messages below change shape. Devices on different versions can't play together. */

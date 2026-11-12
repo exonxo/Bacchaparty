@@ -18,6 +18,7 @@ import {
 } from "./room";
 import { deriveShared, generateExchangeKeys, generateSigningKeys, importSigner, open, seal, serialQueue, sign, type StoredKeyPair } from "./secure";
 import { HOST_ID, type GameAction, type Player } from "./types";
+import { summarizeGame, type GameResult } from "./results";
 import { BOTS, botActions, isBot } from "./testBots";
 import type { Identity } from "./usePlayerRoom";
 import { AVATARS, randomId } from "./util";
@@ -35,6 +36,8 @@ interface HostState {
   /** Total time the game clock has been paused (host phone in the background). */
   pausedMs: number;
   savedAt: number;
+  /** Scorecard of the last game that ended, shown in the lobby. */
+  lastResult?: GameResult | null;
 }
 
 interface HostKeys {
@@ -307,6 +310,7 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
             seq: mySeq,
             hostEcdh: keys.ecdh.publicKey,
             kicked: s.kicked,
+            lastResult: s.lastResult ?? null,
           };
           const d = JSON.stringify(snap);
           const msg: SignedRoom = { v: PROTOCOL, d, s: await sign(signer, d), k: keys.sign.publicKey };
@@ -607,13 +611,23 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
       const players = s.players.filter((p) => p.connected);
       if (info && (players.length < info.minPlayers || players.length > info.maxPlayers)) return;
       const gameState = mod.init({ players, options: options ?? mod.defaultOptions, now: gameNow() });
-      commit({ ...s, phase: "playing", gameId, gameState });
+      commit({ ...s, phase: "playing", gameId, gameState, lastResult: null });
     },
     [commit, gameNow],
   );
 
   const endGame = useCallback(() => {
-    commit({ ...stateRef.current, phase: "lobby", gameId: null, gameState: null });
+    const s = stateRef.current;
+    let lastResult: GameResult | null = null;
+    const mod = s.gameId ? getGameModule(s.gameId) : null;
+    if (s.phase === "playing" && s.gameId && mod && s.gameState) {
+      try {
+        lastResult = summarizeGame(s.gameId, mod.publicView(s.gameState), s.players, Date.now());
+      } catch {
+        lastResult = null;
+      }
+    }
+    commit({ ...s, phase: "lobby", gameId: null, gameState: null, lastResult });
   }, [commit]);
 
   const endParty = useCallback(() => {
