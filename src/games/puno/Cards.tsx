@@ -13,12 +13,15 @@ export const TAG_CAPS: Record<PunoColor | "wild", string> = {
   wild: "WILD",
 };
 
+/** Mockup-saturated face fills (flat, no gradient). */
 const FILL: Record<PunoColor, string> = {
-  haldi: "var(--turmeric)",
-  sindoor: "var(--vermilion)",
-  mehndi: "var(--leaf)",
-  neel: "var(--blue)",
+  sindoor: "#E03A2F",
+  neel: "#1E5FD8",
+  mehndi: "#1F9A3C",
+  haldi: "#F5BE1A",
 };
+
+const WILD_QUAD = { sindoor: "#E03A2F", haldi: "#F5BE1A", mehndi: "#1F9A3C", neel: "#1E5FD8" } as const;
 
 export const FAN_CARD = { w: 168, h: 238 };
 export const TABLE_CARD = { w: 92, h: 132 };
@@ -94,13 +97,12 @@ function WildHatch({ size }: { size: number }) {
   );
 }
 
-function HandIcon({ className = "" }: { className?: string }) {
+/** Bold stop / skip motif — no palm or fingers. */
+function StopSkipIcon({ className = "" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 64" className={className} aria-hidden>
-      <path
-        fill="currentColor"
-        d="M18 54V22c0-4.4 3.6-8 8-8 .8 0 1.5.1 2.2.4V14c0-4.4 3.6-8 8-8s8 3.6 8 8v2h2c4.4 0 8 3.6 8 8v22c0 6.6-5.4 12-12 12H30c-6.6 0-12-5.4-12-12zm8-30v28h4V18h-4zm12 0v24h4V18h-4zm12 4v20h4V22h-4z"
-      />
+    <svg viewBox="0 0 64 64" className={className} aria-hidden fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="square">
+      <circle cx="32" cy="32" r="22" />
+      <path d="M22 32 H42" />
     </svg>
   );
 }
@@ -117,24 +119,19 @@ function ReverseIcon({ className = "" }: { className?: string }) {
 function WildGrid({ className = "" }: { className?: string }) {
   return (
     <div className={`grid grid-cols-2 grid-rows-2 border-[2px] border-ink ${className}`}>
-      <div className="aspect-square bg-[var(--vermilion)]" />
-      <div className="aspect-square bg-[var(--turmeric)]" />
-      <div className="aspect-square bg-[var(--leaf)]" />
-      <div className="aspect-square bg-[var(--blue)]" />
+      <div className="aspect-square" style={{ background: WILD_QUAD.sindoor }} />
+      <div className="aspect-square" style={{ background: WILD_QUAD.haldi }} />
+      <div className="aspect-square" style={{ background: WILD_QUAD.mehndi }} />
+      <div className="aspect-square" style={{ background: WILD_QUAD.neel }} />
     </div>
   );
 }
 
-function cardTag(card: PunoCard): string {
-  if (card.color === "wild") return "WILD";
-  return TAG_CAPS[card.color];
-}
-
-function faceBg(card: PunoCard, wildTint?: PunoColor | null): string {
+function faceBg(card: PunoCard, wildTint?: PunoColor | null): string | undefined {
+  if (card.value === "rang-badal") return undefined;
   if (card.value === "chaar-le") return INK;
-  if (card.value === "rang-badal") return "var(--paper)";
-  if (card.color === "wild") return wildTint ? FILL[wildTint] : "var(--paper)";
-  return FILL[card.color];
+  if (card.color === "wild") return wildTint ? FILL[wildTint] : "#fffdf8";
+  return FILL[card.color as PunoColor];
 }
 
 function glyphForColor(card: PunoCard): { bl: number; br: number } {
@@ -161,46 +158,27 @@ function CenterArt({ card, size }: { card: PunoCard; size: CardSize }) {
     );
   }
   if (card.value === "ruk-ja") {
-    return (
-      <div className="flex flex-col items-center gap-1" style={{ color: fg }}>
-        <HandIcon className={big ? "h-16 w-auto" : "h-10 w-auto"} />
-        {big && <span className="font-display text-sm font-extrabold uppercase">Ruk Ja</span>}
-      </div>
-    );
+    return <StopSkipIcon className={`text-ink ${big ? "h-[4.5rem] w-[4.5rem]" : "h-10 w-10"}`} />;
   }
   if (card.value === "ulta") {
-    return (
-      <div className="flex w-full flex-col items-center gap-0.5 px-1" style={{ color: fg }}>
-        <span className={`font-display font-extrabold uppercase ${big ? "text-xl" : "text-[10px]"}`}>Ulta</span>
-        <ReverseIcon className={big ? "w-[78%]" : "w-12"} />
-      </div>
-    );
+    return <ReverseIcon className={big ? "w-[78%] max-w-[9rem]" : "w-12"} />;
   }
   if (card.value === "do-le") {
     return (
-      <div className="flex flex-col items-center leading-none" style={{ color: fg }}>
-        <span className={`font-display font-extrabold ${d.center}`}>+2</span>
-        <span className={`font-display font-extrabold uppercase ${big ? "text-sm" : "text-[10px]"}`}>Do Le</span>
-      </div>
+      <span className={`font-display font-extrabold leading-none ${d.center}`} style={{ color: fg }}>
+        +2
+      </span>
     );
   }
   if (card.value === "rang-badal") {
-    const label = big ? "text-[13px]" : size === "pile" || size === "table" ? "text-[11px]" : "text-[10px]";
-    return (
-      <div className="relative flex w-[82%] flex-col items-center">
-        <WildGrid className="w-full" />
-        <span className={`font-display pointer-events-none absolute inset-0 flex items-center justify-center text-center font-extrabold uppercase leading-[0.9] text-ink ${label}`}>
-          Rang
-          <br />
-          Badal
-        </span>
-      </div>
-    );
+    return null;
   }
   return (
-    <div className="flex flex-col items-center leading-none" style={{ color: fg }}>
-      <WildGrid className={big ? "mb-2 w-[58%]" : "mb-1 w-12"} />
-      <span className={`font-display font-extrabold ${d.center}`}>+4</span>
+    <div className="flex flex-col items-center justify-center gap-1.5 leading-none">
+      <WildGrid className={big ? "w-[3.2rem]" : "w-10"} />
+      <span className={`font-display font-extrabold ${d.center}`} style={{ color: fg }}>
+        +4
+      </span>
     </div>
   );
 }
@@ -231,26 +209,26 @@ export function CardFace({
   const bg = faceBg(card, wildTint);
   const glyphs = glyphForColor(card);
   const isWild = card.color === "wild" || card.value === "rang-badal" || card.value === "chaar-le";
+  const isRangBadal = card.value === "rang-badal";
 
   const shell = (
     <>
-      {dim && <div className="pointer-events-none absolute inset-0 z-30 rounded-[10px] bg-ink/[0.08] saturate-[0.72]" aria-hidden />}
-      <span className={`absolute left-2 top-2 z-20 rounded-sm border-2 border-ink bg-ink font-extrabold uppercase tracking-tight text-paper ${d.tag}`}>{cardTag(card)}</span>
-      <motion.div layout={false} className="absolute inset-0 z-[1] flex items-center justify-center px-2 pb-3 pt-7">
+      {dim && <div className="pointer-events-none absolute inset-0 z-30 rounded-[14px] bg-ink/[0.08] saturate-[0.72]" aria-hidden />}
+      {isRangBadal && (
+        <div className="absolute inset-0 z-0 grid grid-cols-2 grid-rows-2 overflow-hidden rounded-[14px] border-[2px] border-ink">
+          <div className="h-full w-full" style={{ background: WILD_QUAD.sindoor }} />
+          <div className="h-full w-full" style={{ background: WILD_QUAD.haldi }} />
+          <div className="h-full w-full" style={{ background: WILD_QUAD.mehndi }} />
+          <div className="h-full w-full" style={{ background: WILD_QUAD.neel }} />
+        </div>
+      )}
+      <motion.div layout={false} className="absolute inset-0 z-[1] flex items-center justify-center px-3 py-3">
         <CenterArt card={card} size={size} />
       </motion.div>
-      <span className="absolute bottom-2 left-2 z-20 text-ink">
-        <CornerMark kind={glyphs.bl} size={d.icon} />
+      <span className="absolute bottom-2.5 left-2.5 z-20 h-2 w-2 rounded-full bg-ink" aria-hidden />
+      <span className="absolute bottom-2 right-2 z-20 rounded-sm border-2 border-ink bg-paper p-0.5 shadow-[1px_1px_0_0_#1e1a17]">
+        {isWild ? <WildHatch size={d.icon} /> : <CornerMark kind={glyphs.br} size={d.icon} />}
       </span>
-      {isWild ? (
-        <span className="absolute bottom-2 right-2 z-20">
-          <WildHatch size={d.icon} />
-        </span>
-      ) : (
-        <span className="absolute bottom-2 right-2 z-20 text-ink">
-          <CornerMark kind={glyphs.br} size={d.icon} />
-        </span>
-      )}
     </>
   );
 
@@ -261,13 +239,17 @@ export function CardFace({
     transform: `translateY(${liftY}px)`,
   };
 
-  const frameClass = `font-display relative shrink-0 rounded-2xl border-ink bg-paper p-[3px] transition-[transform,box-shadow] duration-150 ${onClick ? "cursor-pointer touch-manipulation" : ""} ${className}`;
+  const frameClass = `font-display relative shrink-0 rounded-[18px] border-ink bg-paper p-[3px] transition-[transform,box-shadow] duration-150 ${onClick ? "cursor-pointer touch-manipulation" : ""} ${className}`;
 
   frameStyle.borderWidth = d.border;
   frameStyle.borderStyle = "solid";
   frameStyle.borderColor = INK;
 
-  const inner = <div className="relative h-full w-full overflow-visible rounded-xl border-[3px] border-paper" style={{ background: bg }}>{shell}</div>;
+  const inner = (
+    <div className="relative h-full w-full overflow-hidden rounded-[14px] border-2 border-[#fffdf8]" style={{ background: bg }}>
+      {shell}
+    </div>
+  );
 
   if (onClick) {
     return (
@@ -293,14 +275,26 @@ export function CardFace({
 
 export function radialPose(cardId: string, index: number, total: number) {
   const h = hashId(cardId) + index * 53;
-  const angle = (index / Math.max(1, total)) * Math.PI * 2 + (h % 100) * 0.02;
-  const r = 6 + (index % 5) * 5 + (h % 7);
+  const angle = (index / Math.max(1, total)) * Math.PI * 2 + (h % 100) * 0.028;
+  const r = 8 + (index % 6) * 4.5 + (h % 11);
+  const deg = 15 + (h % 21);
+  const sign = h % 2 === 0 ? 1 : -1;
   return {
-    rotate: ((h % 50) - 25) * 1.1,
+    rotate: sign * deg,
     x: Math.cos(angle) * r,
     y: Math.sin(angle) * r,
-    scale: 0.88 - index * 0.04,
+    scale: 0.78 - index * 0.032,
     zIndex: index + 1,
+  };
+}
+
+/** Extra jitter so the player fan reads as one messy pile, not a neat block. */
+export function fanMessyOffset(cardId: string, index: number) {
+  const h = hashId(cardId) + index * 41;
+  return {
+    rotate: ((h % 15) - 7) * 1.15,
+    x: ((h % 11) - 5) * 2.2,
+    y: ((h >> 2) % 9) - 4,
   };
 }
 
@@ -326,13 +320,13 @@ export function CardBack({ size = "pile", onClick }: { size?: CardSize; onClick?
   const word = size === "fan" || size === "pile" || size === "table" ? "text-2xl" : "text-sm";
 
   const inner = (
-    <div className="flex h-full w-full flex-col items-center justify-center rounded-xl border-[3px] border-paper/90 bg-ink">
+    <div className="flex h-full w-full flex-col items-center justify-center rounded-[14px] border-2 border-[#fffdf8] bg-ink">
       <span className={`font-display font-extrabold uppercase tracking-[0.28em] text-paper ${word}`}>Puno</span>
     </div>
   );
 
   const style: CSSProperties = { width: d.w, height: d.h, ...shadowStyle(shadowPx), transform: pressed ? "translate(1px,1px)" : undefined };
-  const cls = `rounded-2xl border-4 border-ink bg-ink p-[3px] ${onClick ? "cursor-pointer" : ""}`;
+  const cls = `rounded-[18px] border-4 border-ink bg-paper p-[3px] ${onClick ? "cursor-pointer" : ""}`;
 
   if (onClick) {
     return (
@@ -359,13 +353,13 @@ export function DeckStack({
 }) {
   const d = DIM[size === "tv" ? "tv" : "pile"];
   const step = size === "tv" ? 3 : 2;
-  const layers = [4, 3, 2, 1];
+  const layers = [5, 4, 3, 2, 1];
   return (
-    <div ref={innerRef} className="relative" style={{ width: d.w + step * 5, height: d.h + step * 2 }}>
+    <div ref={innerRef} className="relative" style={{ width: d.w + step * 6, height: d.h + step * 2 }}>
       {layers.map((i) => (
         <div
           key={i}
-          className="pointer-events-none absolute rounded-2xl border-[3px] border-ink bg-paper"
+          className="pointer-events-none absolute rounded-[18px] border-[3px] border-ink bg-[#fffdf8]"
           style={{ width: d.w, height: d.h, left: i * step, top: -i * step, zIndex: i, boxShadow: `${step}px ${step}px 0 0 ${INK}` }}
         />
       ))}
@@ -422,7 +416,7 @@ export function ColorSwatch({ color, label, onClick }: { color: PunoColor; label
       className={`font-display flex min-h-14 w-full items-center gap-3 border-[3px] border-ink bg-paper px-3 py-2 ${pressed ? "translate-x-px translate-y-px" : ""}`}
       style={shadowStyle(pressed ? 2 : 4)}
     >
-      <span className="inline-block h-10 w-10 shrink-0 border-[3px] border-ink" style={{ background: FILL[color] }} />
+      <span className="inline-block h-10 w-10 shrink-0 border-[3px] border-ink" style={{ background: FILL[color as PunoColor] }} />
       <span className="rounded-sm border-[3px] border-ink bg-ink px-2.5 py-1 text-sm font-extrabold uppercase text-paper">{label}</span>
     </button>
   );

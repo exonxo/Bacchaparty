@@ -20,6 +20,7 @@ import {
   NeoButton,
   TAG_CAPS,
   radialPose,
+  fanMessyOffset,
 } from "./Cards";
 import { CardFlightLayer, centerOf, throwFromPan, type CardFlightRequest } from "./CardFlight";
 import { fanSpring, pileSpring, slapSpring, snapSpring } from "./springs";
@@ -57,7 +58,7 @@ function DiscardSpread({
   pulse?: boolean;
   pileRef: RefCallback<HTMLDivElement>;
 }) {
-  const layers = under.slice(-9);
+  const layers = under.slice(-10);
   const reduce = useReducedMotion();
   return (
     <motion.div
@@ -145,7 +146,7 @@ function PlayTable({
   pileRef: RefCallback<HTMLDivElement>;
 }) {
   return (
-    <div className="relative min-h-0 flex-[0.42] overflow-hidden border-b-[3px] border-ink px-2 pb-3 pt-2" style={TABLE_GRID}>
+    <div className="relative min-h-0 shrink-0 overflow-visible px-2 pb-2 pt-2">
       <Sparkle className="absolute left-2 top-2 z-20 text-ink" />
       <Sparkle className="absolute right-[38%] top-1 z-20 text-ink opacity-80" />
       <TurnSticker myTurn={myTurn} />
@@ -291,6 +292,7 @@ function SwipeableCard({
   wildTint,
   rotate,
   marginLeft,
+  messyY,
   selectedLift,
   resetDrag,
   hidden,
@@ -304,6 +306,7 @@ function SwipeableCard({
   wildTint?: PunoColor | null;
   rotate: number;
   marginLeft: number;
+  messyY: number;
   selectedLift: boolean;
   resetDrag: number;
   hidden: boolean;
@@ -356,8 +359,9 @@ function SwipeableCard({
         y,
         rotate: reduce ? rotate : dragRotate,
         marginLeft,
+        marginTop: messyY,
         zIndex: selected ? 50 : undefined,
-        transformOrigin: "50% 115%",
+        transformOrigin: "50% 92%",
         opacity: hidden ? 0 : 1,
       }}
       className="shrink-0"
@@ -635,25 +639,28 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   return (
     <MotionConfig transition={spring.settle}>
       <InkDefs />
-      <motion.div {...screenIn} className="flex h-full min-h-0 w-full max-w-[393px] flex-col overflow-hidden bg-bg">
-        <PlayTable
-          view={view}
-          myTurn={myTurn}
-          turnName={turnName}
-          onDraw={myTurn ? handleDraw : undefined}
-          left={left}
-          noteText={noteText}
-          noteVisible={noteVisible}
-          wildPulse={wildPulse}
-          deckRef={deckRef}
-          pileRef={pileRef}
-        />
+      <motion.div {...screenIn} className="flex h-full min-h-0 w-full max-w-[393px] flex-col overflow-hidden bg-bg-2">
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-visible" style={TABLE_GRID}>
+          <PlayTable
+            view={view}
+            myTurn={myTurn}
+            turnName={turnName}
+            onDraw={myTurn ? handleDraw : undefined}
+            left={left}
+            noteText={noteText}
+            noteVisible={noteVisible}
+            wildPulse={wildPulse}
+            deckRef={deckRef}
+            pileRef={pileRef}
+          />
 
-        {jumpReady && (
-          <p className="shrink-0 bg-turmeric/35 py-0.5 text-center text-[9px] font-extrabold uppercase tracking-wide">Jump · tap match</p>
-        )}
+          {jumpReady && (
+            <p className="pointer-events-none absolute left-0 right-0 top-[38%] z-20 py-0.5 text-center text-[9px] font-extrabold uppercase tracking-wide text-ink/80">
+              Jump · tap match
+            </p>
+          )}
 
-        <section aria-label="Your hand" className="relative z-10 -mb-[72px] min-h-0 flex-[0.48] overflow-hidden">
+          <section aria-label="Your cards" className="relative z-10 -mb-[72px] min-h-0 flex-1 overflow-visible">
           <motion.div
             ref={scrollRef}
             className="flex h-full w-full items-end overflow-x-auto overflow-y-visible pb-[78px] pt-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -670,7 +677,8 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
             >
               {hand.map((card, i) => {
                 const can = playable.has(card.id) || jumpable.has(card.id);
-                const rot = fanAngle(hand.length, i);
+                const messy = fanMessyOffset(card.id, i);
+                const rot = fanAngle(hand.length, i) + messy.rotate;
                 const shellRef: RefCallback<HTMLDivElement> = (el) => {
                   if (el) cardEls.current.set(card.id, el);
                   else cardEls.current.delete(card.id);
@@ -683,7 +691,8 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
                     selected={picked === card.id}
                     wildTint={view.wildColor}
                     rotate={rot}
-                    marginLeft={i === 0 ? 0 : overlap}
+                    marginLeft={(i === 0 ? 0 : overlap) + messy.x}
+                    messyY={messy.y}
                     selectedLift={!hiddenCards.has(card.id)}
                     resetDrag={dragReset}
                     hidden={hiddenCards.has(card.id)}
@@ -723,6 +732,7 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
             </div>
           </div>
         </section>
+        </div>
 
         <PlayerFooter
           seats={view.seats}
