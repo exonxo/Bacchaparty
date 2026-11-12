@@ -33,6 +33,7 @@ function toPub(s: PunoState): Pub {
     turn: s.turn,
     direction: s.direction,
     top: s.top,
+    discardUnder: s.discard.length > 1 ? s.discard.slice(Math.max(0, s.discard.length - 6), s.discard.length - 1) : [],
     wildColor: s.wildColor,
     counts,
     stackTotal: s.stackTotal,

@@ -27,12 +27,14 @@ export const FILL_HEX: Record<PunoColor, string> = {
   neel: "#1d4ed8",
 };
 
-type CardSize = "hand" | "small" | "tv";
+type CardSize = "hand" | "hero" | "pile" | "small" | "tv";
 
-const DIM: Record<CardSize, { w: string; h: string; border: string; shadow: number; tag: string; center: string; icon: number }> = {
-  hand: { w: "w-[58px]", h: "h-[84px]", border: "border-[3px]", shadow: 4, tag: "text-[6px] px-1 py-0.5", center: "text-[2rem]", icon: 9 },
-  small: { w: "w-[52px]", h: "h-[76px]", border: "border-[3px]", shadow: 4, tag: "text-[5px] px-0.5 py-px", center: "text-[1.65rem]", icon: 8 },
-  tv: { w: "w-[min(14vw,9.5rem)]", h: "h-[min(20vw,13.5rem)]", border: "border-[5px]", shadow: 8, tag: "text-[clamp(0.55rem,1.2vh,0.85rem)] px-2 py-0.5", center: "text-[clamp(2.5rem,8vh,5.5rem)]", icon: 18 },
+const DIM: Record<CardSize, { w: string; h: string; border: string; shadow: number; tag: string; center: string; icon: number; lift: number }> = {
+  hand: { w: "w-[58px]", h: "h-[84px]", border: "border-[3px]", shadow: 4, tag: "text-[7px] px-1.5 py-0.5 tracking-tight", center: "text-[2rem]", icon: 9, lift: 8 },
+  hero: { w: "w-[76px]", h: "h-[116px]", border: "border-[3px]", shadow: 5, tag: "text-[8px] px-2 py-0.5 tracking-tight", center: "text-[2.4rem]", icon: 12, lift: 24 },
+  pile: { w: "w-[68px]", h: "h-[98px]", border: "border-[3px]", shadow: 4, tag: "text-[7px] px-1.5 py-0.5 tracking-tight", center: "text-[2.1rem]", icon: 10, lift: 8 },
+  small: { w: "w-[52px]", h: "h-[76px]", border: "border-[3px]", shadow: 4, tag: "text-[7px] px-1 py-0.5 tracking-tight", center: "text-[1.65rem]", icon: 8, lift: 6 },
+  tv: { w: "w-[min(14vw,9.5rem)]", h: "h-[min(20vw,13.5rem)]", border: "border-[5px]", shadow: 8, tag: "text-[clamp(0.55rem,1.2vh,0.85rem)] px-2 py-0.5", center: "text-[clamp(2.5rem,8vh,5.5rem)]", icon: 18, lift: 12 },
 };
 
 function shadowStyle(px: number): CSSProperties {
@@ -137,15 +139,31 @@ function CenterArt({ card, size }: { card: PunoCard; size: CardSize }) {
   if (card.value === "ruk-ja") {
     return (
       <div className="flex flex-col items-center gap-0.5 px-1" style={{ color: fg }}>
-        <HandIcon className={size === "tv" ? "h-[clamp(3rem,10vh,6rem)] w-auto" : "h-9 w-auto"} />
-        <span className={`font-display font-extrabold uppercase leading-none ${size === "tv" ? "text-[clamp(0.65rem,1.6vh,1.1rem)]" : "text-[7px]"}`}>Ruk Ja</span>
+        <HandIcon
+          className={
+            size === "tv" ? "h-[clamp(3rem,10vh,6rem)] w-auto" : size === "hero" ? "h-11 w-auto" : size === "pile" ? "h-10 w-auto" : "h-9 w-auto"
+          }
+        />
+        <span
+          className={`font-display font-extrabold uppercase leading-none ${
+            size === "tv" ? "text-[clamp(0.65rem,1.6vh,1.1rem)]" : size === "hero" || size === "pile" ? "text-[10px]" : "text-[8px]"
+          }`}
+        >
+          Ruk Ja
+        </span>
       </div>
     );
   }
   if (card.value === "ulta") {
     return (
       <div className="flex flex-col items-center gap-0.5" style={{ color: fg }}>
-        <span className={`font-display font-extrabold uppercase ${size === "tv" ? "text-[clamp(0.7rem,1.8vh,1.2rem)]" : "text-[7px]"}`}>Ulta</span>
+        <span
+          className={`font-display font-extrabold uppercase ${
+            size === "tv" ? "text-[clamp(0.7rem,1.8vh,1.2rem)]" : size === "hero" || size === "pile" ? "text-[10px]" : "text-[8px]"
+          }`}
+        >
+          Ulta
+        </span>
         <ReverseIcon className={size === "tv" ? "w-[70%]" : "w-10"} />
       </div>
     );
@@ -154,16 +172,30 @@ function CenterArt({ card, size }: { card: PunoCard; size: CardSize }) {
     return (
       <div className="flex flex-col items-center leading-none" style={{ color: fg }}>
         <span className={`font-display font-extrabold ${d.center}`}>+2</span>
-        <span className={`font-display font-extrabold uppercase ${size === "tv" ? "text-[clamp(0.65rem,1.6vh,1rem)]" : "text-[7px]"}`}>Do Le</span>
+        <span
+          className={`font-display font-extrabold uppercase ${
+            size === "tv" ? "text-[clamp(0.65rem,1.6vh,1rem)]" : size === "hero" || size === "pile" ? "text-[10px]" : "text-[8px]"
+          }`}
+        >
+          Do Le
+        </span>
       </div>
     );
   }
   if (card.value === "rang-badal") {
+    const label =
+      size === "tv"
+        ? "text-[clamp(0.55rem,1.4vh,0.95rem)]"
+        : size === "hero"
+          ? "text-[11px]"
+          : size === "pile" || size === "hand"
+            ? "text-[10px]"
+            : "text-[9px]";
     return (
       <div className="relative flex w-[78%] flex-col items-center">
         <WildGrid className="w-full" />
         <span
-          className={`font-display pointer-events-none absolute inset-0 flex items-center justify-center text-center font-extrabold uppercase leading-[0.95] text-ink ${size === "tv" ? "text-[clamp(0.55rem,1.4vh,0.95rem)]" : "text-[6px]"}`}
+          className={`font-display pointer-events-none absolute inset-0 flex items-center justify-center text-center font-extrabold uppercase leading-[0.92] text-ink ${label}`}
         >
           Rang
           <br />
@@ -198,7 +230,8 @@ export function CardFace({
   const d = DIM[size];
   const [pressed, setPressed] = useState(false);
   const lift = selected && !pressed;
-  const shadowPx = pressed ? Math.max(1, d.shadow - 2) : lift ? d.shadow + 3 : d.shadow;
+  const shadowPx = pressed ? Math.max(1, d.shadow - 2) : lift ? d.shadow + 5 : d.shadow;
+  const liftY = lift ? -d.lift : pressed ? 2 : 0;
   const bg = faceBg(card, wildTint);
   const bl = decoKind(card.id, "bl");
   const br = decoKind(card.id, "br");
@@ -206,13 +239,10 @@ export function CardFace({
   const shell = (
     <>
       {dim && (
-        <>
-          <div className="pointer-events-none absolute inset-0 z-20 rounded-[4px] bg-[color-mix(in_srgb,var(--ink)_40%,transparent)]" aria-hidden />
-          <div className="pointer-events-none absolute inset-0 z-[19] rounded-[4px] saturate-[0.45]" aria-hidden />
-        </>
+        <div className="pointer-events-none absolute inset-0 z-20 rounded-[5px] bg-ink/[0.12] backdrop-saturate-[0.65]" aria-hidden />
       )}
-      <span className={`absolute left-0 top-0 z-10 bg-ink font-extrabold uppercase tracking-wide text-paper ${d.tag}`}>{cardTag(card)}</span>
-      <div className="absolute inset-0 z-[1] flex items-center justify-center p-1 pt-4">
+      <span className={`absolute left-0 top-0 z-10 whitespace-nowrap bg-ink font-extrabold uppercase text-paper ${d.tag}`}>{cardTag(card)}</span>
+      <div className="absolute inset-0 z-[1] flex items-center justify-center overflow-hidden rounded-[3px] p-1 pt-5">
         <CenterArt card={card} size={size} />
       </div>
       <span className="absolute bottom-0.5 left-0.5 z-10 text-ink">
@@ -224,9 +254,11 @@ export function CardFace({
     </>
   );
 
-  const className = `font-display relative shrink-0 overflow-hidden rounded-md ${d.border} border-ink text-ink transition-[transform,box-shadow] duration-150 ${d.w} ${d.h} ${
+  const className = `font-display relative shrink-0 overflow-visible rounded-md ${d.border} border-ink text-ink transition-[transform,box-shadow] duration-150 ${d.w} ${d.h} ${
     onClick ? "cursor-pointer touch-manipulation" : ""
-  } ${lift ? "-translate-y-2 scale-[1.04]" : pressed ? "translate-x-px translate-y-px" : ""}`;
+  } ${lift ? "z-30 scale-[1.05]" : ""} ${pressed ? "translate-x-px" : ""}`;
+
+  const motionStyle: CSSProperties = { ...shadowStyle(shadowPx), background: bg, transform: lift || pressed ? `translateY(${liftY}px)` : undefined };
 
   if (onClick) {
     return (
@@ -237,7 +269,7 @@ export function CardFace({
         onPointerUp={() => setPressed(false)}
         onPointerLeave={() => setPressed(false)}
         className={className}
-        style={{ ...shadowStyle(shadowPx), background: bg }}
+        style={motionStyle}
       >
         {shell}
       </button>
@@ -245,9 +277,29 @@ export function CardFace({
   }
 
   return (
-    <div className={className} style={{ ...shadowStyle(shadowPx), background: bg }}>
+    <div className={className} style={motionStyle}>
       {shell}
     </div>
+  );
+}
+
+/** Deterministic messy-pile pose from card id and layer index. */
+export function pilePose(cardId: string, layer: number): { rotate: number; x: number; y: number; scale: number } {
+  let h = layer * 97;
+  for (let i = 0; i < cardId.length; i++) h += cardId.charCodeAt(i) * (i + 3);
+  return {
+    rotate: ((h % 38) - 19) * 0.85,
+    x: ((h % 23) - 11) * 1.1,
+    y: ((h >> 2) % 17) - 8,
+    scale: 0.94 - layer * 0.05,
+  };
+}
+
+export function MiniCardBack({ className = "" }: { className?: string }) {
+  return (
+    <span className={`inline-flex h-7 w-5 shrink-0 items-center justify-center overflow-hidden rounded-sm border-2 border-ink bg-ink text-[5px] font-extrabold uppercase tracking-tighter text-paper shadow-[2px_2px_0_0_#1e1a17] ${className}`}>
+      P
+    </span>
   );
 }
 
@@ -354,13 +406,13 @@ export function ColorSwatch({ color, label, onClick }: { color: PunoColor; label
       onPointerDown={() => setPressed(true)}
       onPointerUp={() => setPressed(false)}
       onPointerLeave={() => setPressed(false)}
-      className={`font-display flex min-h-14 w-full items-center gap-3 border-[3px] border-ink px-3 py-2 text-left font-extrabold uppercase tracking-wide transition-[transform,box-shadow] duration-150 ${
+      className={`font-display flex min-h-14 w-full items-center gap-3 border-[3px] border-ink bg-paper px-3 py-2 text-left font-extrabold uppercase tracking-wide transition-[transform,box-shadow] duration-150 ${
         pressed ? "translate-x-px translate-y-px" : ""
       }`}
-      style={{ background: FILL[color], color: color === "haldi" ? INK : "#fffdf8", ...shadowStyle(shadowPx) }}
+      style={shadowStyle(shadowPx)}
     >
-      <span className="inline-block h-8 w-8 border-[2px] border-ink bg-paper/20" aria-hidden />
-      {label}
+      <span className="inline-block h-9 w-9 shrink-0 border-[3px] border-ink" style={{ background: FILL[color] }} aria-hidden />
+      <span className="rounded-sm border-2 border-ink bg-ink px-2 py-0.5 text-paper">{label}</span>
     </button>
   );
 }

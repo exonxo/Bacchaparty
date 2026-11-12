@@ -74,6 +74,8 @@ export interface Pub {
   turn: number;
   direction: 1 | -1;
   top: PunoCard;
+  /** Up to five cards under the top card in the discard pile (for the messy spread). */
+  discardUnder: PunoCard[];
   /** Active colour when the top card is wild. */
   wildColor: PunoColor | null;
   counts: Record<string, number>;
