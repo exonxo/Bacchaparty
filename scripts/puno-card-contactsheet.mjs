@@ -35,7 +35,22 @@ const measures = await page.evaluate(() => {
     const ay = artBox.top + artBox.height / 2;
     const dx = Math.abs(cx - ax);
     const dy = Math.abs(cy - ay);
-    return { cardId, dx, dy, ok: dx <= 1.5 && dy <= 1.5 };
+  const mountOk = dx <= 1.5 && dy <= 1.5;
+
+    const svg = art.querySelector("svg");
+    let gdx = null;
+    let gdy = null;
+    let glyphOk = true;
+    if (svg) {
+      const bb = svg.getBBox();
+      const vcx = bb.x + bb.width / 2;
+      const vcy = bb.y + bb.height / 2;
+      gdx = Math.abs(vcx - 50);
+      gdy = Math.abs(vcy - 50);
+      glyphOk = gdx <= 1.2 && gdy <= 1.2;
+    }
+
+    return { cardId, dx, dy, gdx, gdy, ok: mountOk && glyphOk };
   });
 });
 

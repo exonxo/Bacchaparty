@@ -73,26 +73,53 @@ function SlashCircleIcon({ className = "" }: { className?: string }) {
   );
 }
 
-/** R6 — same reverse glyph as centre art, scaled for corners. */
-function UltaCornerIcon({ className = "" }: { className?: string }) {
+const ULTA_SKIP_R = 32;
+const ULTA_CENTER_TUBE = { ink: 18, cream: 12, arrow: 14 };
+const ULTA_CORNER_TUBE = { ink: 4.2, cream: 2.8, arrow: 3.6 };
+
+function ultaArcD(r: number) {
+  const gapHalf = 30;
+  const start = 90 + gapHalf;
+  const end = 90 - gapHalf;
+  const rad = (deg: number) => (deg * Math.PI) / 180;
+  const x1 = r * Math.cos(rad(start));
+  const y1 = r * Math.sin(rad(start));
+  const x2 = r * Math.cos(rad(end));
+  const y2 = r * Math.sin(rad(end));
+  return { d: `M ${x1} ${y1} A ${r} ${r} 0 1 1 ${x2} ${y2}`, tipX: x2, tipY: y2, headDeg: end + 90 };
+}
+
+function ultaArrowHead(tipX: number, tipY: number, headDeg: number, size: number) {
+  const rad = (headDeg * Math.PI) / 180;
+  const bx = tipX - size * Math.cos(rad);
+  const by = tipY - size * Math.sin(rad);
+  const px = -Math.sin(rad);
+  const py = Math.cos(rad);
+  const w = size * 0.62;
+  return `${tipX},${tipY} ${bx + px * w},${by + py * w} ${bx - px * w},${by - py * w}`;
+}
+
+/** ~300° cream tube arc + single bold arrowhead (R6) — draw around (0,0). */
+function UltaR6Glyph({ r, ink, cream, arrow }: { r: number; ink: number; cream: number; arrow: number }) {
+  const { d, tipX, tipY, headDeg } = ultaArcD(r);
   return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden>
-      <g transform="translate(50 50)">
-        <UltaR6Glyph />
-      </g>
-    </svg>
+    <>
+      <path d={d} fill="none" stroke={INK} strokeWidth={ink} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} fill="none" stroke={CREAM} strokeWidth={cream} strokeLinecap="round" strokeLinejoin="round" />
+      <polygon points={ultaArrowHead(tipX, tipY, headDeg, arrow)} fill={INK} />
+    </>
   );
 }
 
-/** ~300° cream tube arc + single bold arrowhead (R6 reverse). */
-function UltaR6Glyph() {
-  const arc = "M -10.5 25.2 A 27 27 0 1 1 -26.8 8.4";
+/** R6 — same reverse glyph as centre art, scaled for corners (24×24 like skip). */
+function UltaCornerIcon({ className = "" }: { className?: string }) {
+  const r = 8.5;
   return (
-    <>
-      <path d={arc} fill="none" stroke={INK} strokeWidth={11.5} strokeLinecap="round" />
-      <path d={arc} fill="none" stroke={CREAM} strokeWidth={7} strokeLinecap="round" />
-      <polygon points="-26.8,8.4 -17.8,12.8 -20.4,2.6" fill={INK} />
-    </>
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
+      <g transform="translate(12 12) translate(0 0.49)">
+        <UltaR6Glyph r={r} {...ULTA_CORNER_TUBE} />
+      </g>
+    </svg>
   );
 }
 
@@ -197,9 +224,11 @@ function GfxChaarLe() {
 
 function GfxUlta() {
   return (
-    <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full" overflow="visible">
+    <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
       <g transform="translate(50 50)">
-        <UltaR6Glyph />
+        <g transform="translate(0 1.85)">
+          <UltaR6Glyph r={ULTA_SKIP_R} {...ULTA_CENTER_TUBE} />
+        </g>
       </g>
     </svg>
   );
