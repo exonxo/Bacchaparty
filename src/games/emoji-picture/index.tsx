@@ -4,7 +4,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { SuggestPaperButton } from "@/components/suggest/SuggestPaperButton";
 import { requestSuggest } from "@/lib/suggest/client";
 import { Avatar } from "@/components/Avatar";
@@ -226,13 +226,25 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
   const roomCode = typeof params?.code === "string" ? params.code : undefined;
   const [loading, setLoading] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   const newPuzzles = async () => {
+    const snap = { level: valueRef.current.level, count: valueRef.current.count };
     setLoading(true);
+    setHint(null);
     try {
-      const { data } = await requestSuggest<EmojiPuzzle[]>("emoji-puzzle", { level: value.level, count: value.count }, roomCode);
-      onChange({ ...value, extraPuzzles: data });
-      setHint(`${data.length} custom puzzles ready`);
+      const { data, fallback } = await requestSuggest<EmojiPuzzle[]>(
+        "emoji-puzzle",
+        { level: snap.level, count: snap.count },
+        roomCode,
+      );
+      const current = valueRef.current;
+      if (current.level === snap.level && current.count === snap.count) {
+        onChange({ ...current, extraPuzzles: data });
+      }
+      const label = fallback ? "built-in puzzles" : "puzzles";
+      setHint(`${data.length} ${label} ready`);
     } finally {
       setLoading(false);
     }
@@ -245,6 +257,7 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
           ✨ New puzzles
         </SuggestPaperButton>
       </div>
+      {loading && !hint && <p className="text-p-note text-muted">Thinking…</p>}
       {hint && <p className="text-p-note text-muted">{hint}</p>}
       <LevelPicker value={value.level} onChange={(level) => onChange({ ...value, level, extraPuzzles: undefined })} />
       <NumberPicker label="Puzzles" value={value.count} onChange={(count) => onChange({ ...value, count, extraPuzzles: undefined })} options={[5, 10, 15]} />

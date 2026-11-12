@@ -98,9 +98,10 @@ Context for assistants working on `exonxo/Bacchaparty` after the cloud-agent bra
 - **Kinds:** `chor-kaun-topic`, `emoji-puzzle`, `next-game`, `dare`.
 - **Auth:** Signed-in Supabase host only; optional `roomCode` must match `findOwnRoom`. Demo/no-login gets **401** (UI falls back client-side).
 - **Key:** `GEMINI_API_KEY` server env only (see `.env.example`). Never expose to the client.
-- **Model:** `gemini-flash-latest` via Generative Language API; `thinkingBudget: 0`, JSON schema, ~8s timeout.
+- **Model:** `gemini-flash-latest` via Generative Language API; `thinkingBudget: 0`, JSON schema, ~6s server timeout.
 - **Resilience:** Validates Gemini JSON; on missing key, timeout, 429, rate limit, or bad output → **built-in fallbacks** (`src/lib/suggest/fallbacks.ts`). Response `{ ok, fallback, data }`.
-- **Limits:** In-memory per-IP/per-room rate limit + short TTL cache (`src/lib/suggest/rate-limit.ts`).
+- **Limits:** In-memory per-room rate limit (12/min) on each server instance — not shared across Vercel copies (`src/lib/suggest/rate-limit.ts`). Identical concurrent requests on the same instance share one Gemini call (in-flight de-duplication). Draw actions are not response-cached, so each press can return fresh content.
+- **Region:** `/api/suggest` prefers `bom1` (Mumbai) via route segment config; Gemini client timeout ~6s (client abort ~9.5s).
 - **UI:** Paper ✨ chips — Chor Kaun “Fresh topic”, Emoji Picture “New puzzles”, host lobby **What next?** + **Dare / prompt** (`src/components/suggest/*`). Uses `BusyPaperButton` / Chit Shuffle while waiting.
 
 ---
@@ -110,6 +111,7 @@ Context for assistants working on `exonxo/Bacchaparty` after the cloud-agent bra
 - `node scripts/host-refresh-e2e.mjs` — host reload, no takeover prompt.
 - `node scripts/responsive-screenshots.mjs` — widths 393/768/1280/1920, overflow check (artifacts dir).
 - `node scripts/host-presence-unit.mjs` — presence conflict logic unit checks.
+- `node scripts/suggest-validate-unit.mjs` — AI suggest validation + fallback wording checks.
 
 ---
 

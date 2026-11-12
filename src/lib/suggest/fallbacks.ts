@@ -53,11 +53,16 @@ export function fallbackNextGame(playerCount: number, played: string[] = []): Ne
   const fresh = playable.filter((g) => !played.includes(g.id));
   const pool = fresh.length ? fresh : playable;
   const game = pool.length ? pick(pool) : pick(GAMES);
+  const allPlayed = playable.length > 0 && fresh.length === 0;
   const reasons = [
     `${game.players} — fits your group of ${playerCount}.`,
     `A ${game.category.toLowerCase()} round to mix things up.`,
     `${game.emoji} ${game.tagline}`,
-    played.length ? "Something you have not played this party yet." : "A great opener for the night.",
+    allPlayed
+      ? "Time for a repeat favourite — everyone knows the rules now."
+      : played.length
+        ? "Something you have not played this party yet."
+        : "A great opener for the night.",
   ];
   return { gameId: game.id, reason: pick(reasons) };
 }

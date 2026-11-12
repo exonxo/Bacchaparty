@@ -5,10 +5,15 @@ import { useCallback, useState } from "react";
 import { gameLook } from "@/components/paper/gameLook";
 import { GameIcon } from "@/components/GameIcon";
 import { PaperButton } from "@/components/paper/Paper";
-import { getGameInfo } from "@/games/catalog";
+import { getGameInfo, GAMES } from "@/games/catalog";
 import { requestSuggest } from "@/lib/suggest/client";
 import type { DareResult, NextGameResult } from "@/lib/suggest/types";
 import { SuggestPaperButton } from "./SuggestPaperButton";
+
+function BuiltInNote({ show }: { show: boolean }) {
+  if (!show) return null;
+  return <p className="text-p-note text-muted/80">Built-in idea</p>;
+}
 
 export function WhatNextCard({
   roomCode,
@@ -23,12 +28,14 @@ export function WhatNextCard({
 }) {
   const [loading, setLoading] = useState(false);
   const [pick, setPick] = useState<NextGameResult | null>(null);
+  const [usedFallback, setUsedFallback] = useState(false);
 
   const suggest = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await requestSuggest<NextGameResult>("next-game", { playerCount, gamesPlayed }, roomCode);
+      const { data, fallback } = await requestSuggest<NextGameResult>("next-game", { playerCount, gamesPlayed }, roomCode);
       setPick(data);
+      setUsedFallback(fallback);
     } finally {
       setLoading(false);
     }
@@ -36,6 +43,13 @@ export function WhatNextCard({
 
   const info = pick ? getGameInfo(pick.gameId) : null;
   const look = pick ? gameLook(pick.gameId) : null;
+  const playable =
+    pick != null
+      ? (() => {
+          const g = GAMES.find((x) => x.id === pick.gameId);
+          return g != null && playerCount >= g.minPlayers && playerCount <= g.maxPlayers;
+        })()
+      : true;
 
   return (
     <section className="cut rounded-soft border-[1.5px] border-line bg-card p-4">
@@ -48,11 +62,16 @@ export function WhatNextCard({
           <Sparkles className="h-4 w-4" /> Suggest
         </SuggestPaperButton>
       </div>
+      {loading && !pick && <p className="mt-3 text-p-note text-muted">Thinking…</p>}
       {pick && info && look && (
         <div className="rise-in mt-3 rounded-cut border-[1.5px] border-ink/15 bg-tint p-3">
+          <BuiltInNote show={usedFallback} />
           <GamePickRow look={look} gameId={info.id} name={info.name} emoji={info.emoji} />
           <p className="mt-2 text-p-body text-muted">{pick.reason}</p>
-          <PaperButton size="md" className="mt-3" onClick={() => onPickGame(pick.gameId)}>
+          {!playable && (
+            <p className="mt-2 text-p-note font-semibold text-vermilion">Needs {info.players} — you have {playerCount} in the room.</p>
+          )}
+          <PaperButton size="md" className="mt-3" onClick={() => onPickGame(pick.gameId)} disabled={!playable}>
             Open {info.name}
           </PaperButton>
         </div>
@@ -79,12 +98,14 @@ function GamePickRow({ look, gameId, name, emoji }: { look: { color: string; on:
 export function DarePromptCard({ roomCode }: { roomCode: string }) {
   const [loading, setLoading] = useState(false);
   const [dare, setDare] = useState<DareResult | null>(null);
+  const [usedFallback, setUsedFallback] = useState(false);
 
   const draw = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await requestSuggest<DareResult>("dare", { audience: "family" }, roomCode);
+      const { data, fallback } = await requestSuggest<DareResult>("dare", { audience: "family" }, roomCode);
       setDare(data);
+      setUsedFallback(fallback);
     } finally {
       setLoading(false);
     }
@@ -101,8 +122,12 @@ export function DarePromptCard({ roomCode }: { roomCode: string }) {
           <Sparkles className="h-4 w-4" /> Draw
         </SuggestPaperButton>
       </div>
+      {loading && !dare && <p className="mt-3 text-p-note text-muted">Thinking…</p>}
       {dare && (
-        <blockquote className="rise-in mt-3 border-l-4 border-turmeric pl-3 text-p-body font-semibold text-ink">{dare.text}</blockquote>
+        <div className="rise-in mt-3">
+          <BuiltInNote show={usedFallback} />
+          <blockquote className="border-l-4 border-turmeric pl-3 text-p-body font-semibold text-ink">{dare.text}</blockquote>
+        </div>
       )}
     </section>
   );

@@ -4,13 +4,15 @@ import { findOwnRoom } from "@/lib/rooms";
 import { getUser } from "@/lib/supabase/server";
 import { fallbackFor } from "@/lib/suggest/fallbacks";
 import { callGemini } from "@/lib/suggest/gemini";
-import { cacheGet, cacheKey, cacheSet, checkRateLimit, rateLimitKey } from "@/lib/suggest/rate-limit";
+import { checkRateLimit, inflightKey, rateLimitKey, runDeduped } from "@/lib/suggest/rate-limit";
 import { SUGGEST_KINDS, type SuggestKind } from "@/lib/suggest/types";
+import type { Level } from "@/lib/types";
 import { GAMES } from "@/games/catalog";
 import { validateGeminiPayload } from "@/lib/suggest/validate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const preferredRegion = "bom1";
 
 const noStore = { "cache-control": "no-store" };
 
@@ -59,6 +61,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "bad_json" }, { status: 400, headers: noStore });
   }
 
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ ok: false, error: "bad_json" }, { status: 400, headers: noStore });
+  }
+
   const kind = body.kind as SuggestKind | undefined;
   if (!kind || !SUGGEST_KINDS.includes(kind)) {
     return NextResponse.json({ ok: false, error: "bad_kind" }, { status: 400, headers: noStore });
@@ -96,12 +102,6 @@ export async function POST(req: Request) {
     return ok(data, true);
   }
 
-  const cKey = cacheKey(kind, { ...context, roomCode });
-  const cached = cacheGet(cKey);
-  if (cached !== undefined) {
-    return ok(cached, false);
-  }
-
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
     const data = fallbackFor(kind, { kind, ...context });
@@ -109,12 +109,15 @@ export async function POST(req: Request) {
   }
 
   const contextCount = kind === "emoji-puzzle" && typeof context.count === "number" ? context.count : 10;
+  const playerCount = kind === "next-game" && typeof context.playerCount === "number" ? context.playerCount : 4;
+  const emojiLevel = (kind === "emoji-puzzle" && typeof context.level === "string" ? context.level : "family") as Level;
+
+  const dedupeKey = inflightKey(kind, { ...context, roomCode });
 
   try {
-    const raw = await callGemini(apiKey, kind, context);
-    const validated = raw != null ? validateGeminiPayload(kind, raw, contextCount) : null;
+    const raw = await runDeduped(dedupeKey, () => callGemini(apiKey, kind, context));
+    const validated = raw != null ? validateGeminiPayload(kind, raw, contextCount, playerCount, emojiLevel) : null;
     if (validated != null) {
-      cacheSet(cKey, validated);
       return ok(validated, false);
     }
   } catch {
