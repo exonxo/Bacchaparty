@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { type CSSProperties, type ReactNode, type Ref, useState } from "react";
 import type { PunoCard, PunoColor } from "./shared";
@@ -63,14 +64,12 @@ function SlashCircleIcon({ className = "" }: { className?: string }) {
   );
 }
 
-/** Two circular arrows chasing (Ulta). */
-function UltaLoopIcon({ className = "" }: { className?: string }) {
+/** Small corner glyph for Ulta (single arc — centre art is the full reverse motif). */
+function UltaCornerIcon({ className = "" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 64" className={className} aria-hidden fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M46 22 A20 20 0 1 0 24 42" />
-      <polygon points="40,12 46,22 56,18" fill="currentColor" stroke="none" />
-      <path d="M18 42 A20 20 0 1 0 40 22" />
-      <polygon points="24,52 18,42 8,46" fill="currentColor" stroke="none" />
+    <svg viewBox="0 0 24 24" className={className} aria-hidden fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16.5 7.5a7.5 7.5 0 1 0 2 5.5" />
+      <polygon points="17,4 20.5,7.5 17,7.5" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -137,22 +136,6 @@ function SparkleGfx({ x, y, s = 4 }: { x: number; y: number; s?: number }) {
   );
 }
 
-function HalftoneGfx({ opacity = 0.12 }: { opacity?: number }) {
-  const dots: { cx: number; cy: number }[] = [];
-  for (let row = 0; row < 5; row++) {
-    for (let col = 0; col < 6; col++) {
-      dots.push({ cx: 8 + col * 7 + (row % 2) * 3, cy: 78 + row * 5 });
-    }
-  }
-  return (
-    <g opacity={opacity}>
-      {dots.map((d, i) => (
-        <circle key={i} cx={d.cx} cy={d.cy} r={1.1} fill={INK} />
-      ))}
-    </g>
-  );
-}
-
 function MiniCardGfx({ x, y, w, h, rot, fill, dark }: { x: number; y: number; w: number; h: number; rot: number; fill: string; dark?: boolean }) {
   return (
     <g transform={`translate(${x} ${y}) rotate(${rot})`}>
@@ -165,14 +148,10 @@ function MiniCardGfx({ x, y, w, h, rot, fill, dark }: { x: number; y: number; w:
 
 function GfxDoLe() {
   return (
-    <svg viewBox="0 0 100 100" aria-hidden className="h-full w-full">
-      <HalftoneGfx />
-      <MiniCardGfx x={38} y={46} w={26} h={36} rot={-14} fill={WILD_QUAD.sindoor} />
-      <MiniCardGfx x={58} y={50} w={26} h={36} rot={10} fill={WILD_QUAD.mehndi} />
-      <g stroke={INK} strokeWidth={3} strokeLinecap="square">
-        <line x1={18} y1={72} x2={34} y2={72} />
-        <line x1={14} y1={78} x2={28} y2={78} />
-        <line x1={20} y1={84} x2={32} y2={84} />
+    <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
+      <g transform="translate(50 50)">
+        <MiniCardGfx x={-15} y={-2} w={26} h={36} rot={-14} fill={WILD_QUAD.sindoor} />
+        <MiniCardGfx x={15} y={2} w={26} h={36} rot={10} fill={WILD_QUAD.mehndi} />
       </g>
     </svg>
   );
@@ -180,68 +159,72 @@ function GfxDoLe() {
 
 function GfxChaarLe() {
   return (
-    <svg viewBox="0 0 100 100" aria-hidden className="h-full w-full">
-      <HalftoneGfx />
-      <MiniCardGfx x={50} y={52} w={22} h={32} rot={-22} fill={WILD_QUAD.neel} />
-      <MiniCardGfx x={56} y={48} w={22} h={32} rot={-6} fill={WILD_QUAD.haldi} />
-      <MiniCardGfx x={62} y={50} w={22} h={32} rot={8} fill={INK} dark />
-      <MiniCardGfx x={68} y={54} w={22} h={32} rot={22} fill={WILD_QUAD.sindoor} />
-      <SparkleGfx x={24} y={28} s={5} />
-      <SparkleGfx x={76} y={24} s={4} />
-      <SparkleGfx x={82} y={70} s={3.5} />
+    <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
+      <g transform="translate(50 50)">
+        <MiniCardGfx x={-30} y={2} w={22} h={32} rot={-22} fill={WILD_QUAD.neel} />
+        <MiniCardGfx x={-10} y={-2} w={22} h={32} rot={-6} fill={WILD_QUAD.haldi} />
+        <MiniCardGfx x={10} y={0} w={22} h={32} rot={8} fill={INK} dark />
+        <MiniCardGfx x={30} y={4} w={22} h={32} rot={22} fill={WILD_QUAD.sindoor} />
+      </g>
+      <SparkleGfx x={20} y={18} s={4} />
+      <SparkleGfx x={80} y={18} s={3.5} />
+      <SparkleGfx x={78} y={82} s={3} />
     </svg>
   );
 }
 
 function GfxUlta() {
   return (
-    <svg viewBox="0 0 100 100" aria-hidden className="h-full w-full">
-      <ellipse cx={50} cy={50} rx={38} ry={34} fill="#fffdf8" stroke={INK} strokeWidth={2.8} />
-      <g fill="none" stroke={INK} strokeWidth={5.5} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M68 34 A 22 22 0 1 0 36 52" />
-        <path d="M32 66 A 22 22 0 1 0 64 48" />
-        <polygon points="62,24 72,34 80,26" fill={INK} stroke="none" />
-        <polygon points="38,76 28,66 20,74" fill={INK} stroke="none" />
+    <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
+      <g transform="translate(50 50)">
+        <ellipse cx={0} cy={0} rx={36} ry={32} fill="#fffdf8" stroke={INK} strokeWidth={2.8} />
+        <g fill="none" stroke={INK} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 -14 A 22 22 0 1 0 -14 14" />
+          <path d="M-18 14 A 22 22 0 1 0 14 -14" />
+          <polygon points="12,-22 18,-14 26,-18" fill={INK} stroke="none" />
+          <polygon points="-12,22 -18,14 -26,18" fill={INK} stroke="none" />
+        </g>
       </g>
-      <HalftoneGfx opacity={0.08} />
     </svg>
   );
 }
 
 function GfxRukJa() {
-  const burst = "50,18 54,34 72,30 58,42 68,58 50,50 32,58 42,42 28,30 46,34";
+  const burst = "0,-32 4,-16 22,-20 8,-8 18,8 0,0 -18,8 -8,-8 -22,-20 -4,-16";
   return (
-    <svg viewBox="0 0 100 100" aria-hidden className="h-full w-full">
-      <polygon points={burst} fill="#fffdf8" stroke={INK} strokeWidth={2.5} strokeLinejoin="miter" />
-      <circle cx={50} cy={50} r={22} fill="none" stroke={INK} strokeWidth={5.5} />
-      <line x1={34} y1={34} x2={66} y2={66} stroke={INK} strokeWidth={5.5} strokeLinecap="square" />
-      <HalftoneGfx opacity={0.1} />
+    <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
+      <g transform="translate(50 50)">
+        <polygon points={burst} fill="#fffdf8" stroke={INK} strokeWidth={2.5} strokeLinejoin="miter" />
+        <circle cx={0} cy={0} r={22} fill="none" stroke={INK} strokeWidth={5.5} />
+        <line x1={-16} y1={-16} x2={16} y2={16} stroke={INK} strokeWidth={5.5} strokeLinecap="square" />
+      </g>
     </svg>
   );
 }
 
 function GfxRangBadal() {
   const cols = [WILD_QUAD.sindoor, WILD_QUAD.haldi, WILD_QUAD.mehndi, WILD_QUAD.neel];
-  const wedges = Array.from({ length: 8 }, (_, i) => {
-    const a0 = (i * Math.PI) / 4 - Math.PI / 2;
-    const a1 = ((i + 1) * Math.PI) / 4 - Math.PI / 2;
-    const r = 24;
-    const x0 = 50 + Math.cos(a0) * r;
-    const y0 = 50 + Math.sin(a0) * r;
-    const x1 = 50 + Math.cos(a1) * r;
-    const y1 = 50 + Math.sin(a1) * r;
-    return (
-      <path key={i} d={`M50 50 L${x0} ${y0} L${x1} ${y1} Z`} fill={cols[i % 4]} stroke={INK} strokeWidth={1.4} />
-    );
-  });
   return (
-    <svg viewBox="0 0 100 100" aria-hidden className="h-full w-full">
-      <ellipse cx={50} cy={50} rx={40} ry={34} fill="#fffdf8" stroke={INK} strokeWidth={2.8} transform="rotate(-12 50 50)" />
-      <g transform="rotate(-12 50 50)">{wedges}</g>
-      <circle cx={50} cy={50} r={6} fill="#fffdf8" stroke={INK} strokeWidth={2} transform="rotate(-12 50 50)" />
-      <SparkleGfx x={20} y={22} s={4} />
-      <SparkleGfx x={78} y={26} s={3.5} />
-      <SparkleGfx x={22} y={74} s={3} />
+    <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
+      <g transform="translate(50 50) rotate(-12)">
+        <ellipse cx={0} cy={0} rx={40} ry={34} fill="#fffdf8" stroke={INK} strokeWidth={2.8} />
+        {Array.from({ length: 8 }, (_, i) => {
+          const a0 = (i * Math.PI) / 4 - Math.PI / 2;
+          const a1 = ((i + 1) * Math.PI) / 4 - Math.PI / 2;
+          const r = 24;
+          const x0 = Math.cos(a0) * r;
+          const y0 = Math.sin(a0) * r;
+          const x1 = Math.cos(a1) * r;
+          const y1 = Math.sin(a1) * r;
+          return (
+            <path key={i} d={`M0 0 L${x0} ${y0} A${r} ${r} 0 0 1 ${x1} ${y1} Z`} fill={cols[i % 4]} stroke={INK} strokeWidth={1.4} />
+          );
+        })}
+        <circle cx={0} cy={0} r={6} fill="#fffdf8" stroke={INK} strokeWidth={2} />
+      </g>
+      <SparkleGfx x={18} y={20} s={4} />
+      <SparkleGfx x={82} y={22} s={3.5} />
+      <SparkleGfx x={20} y={80} s={3} />
     </svg>
   );
 }
@@ -250,7 +233,7 @@ function GfxRangBadal() {
 export function ActionArt({ kind, size }: { kind: ActionArtKind; size: CardSize }) {
   const px = artPx(size);
   const wrap = (child: ReactNode) => (
-    <span className="inline-block shrink-0" style={{ width: px, height: px }} aria-hidden>
+    <span className="inline-flex shrink-0 items-center justify-center" style={{ width: px, height: px }} aria-hidden data-puno-center-art>
       {child}
     </span>
   );
@@ -265,6 +248,7 @@ function PunoOval({ size }: { size: CardSize }) {
   const big = size === "fan" || size === "tv";
   return (
     <span
+      data-puno-center-art
       className={`inline-flex -rotate-12 items-center justify-center rounded-[50%] border-[3px] border-ink bg-[#fffdf8] font-display font-extrabold uppercase tracking-[0.22em] text-ink shadow-[4px_4px_0_0_#1e1a17] ${
         big ? "h-[4.25rem] w-[7.5rem] text-base" : "h-11 w-20 text-[10px]"
       }`}
@@ -295,14 +279,15 @@ function CornerSlot({ card, size, inverted }: { card: PunoCard; size: CardSize; 
   }
   const mini = d.cornerIcon;
   const miniCls = mini <= 12 ? "h-3 w-3" : mini <= 16 ? "h-4 w-4" : "h-5 w-5";
+  const textMini = mini <= 12 ? "text-[9px]" : mini <= 16 ? "text-[11px]" : "text-sm";
   let inner: ReactNode;
   if (card.value === "ruk-ja") inner = <SlashCircleIcon className={`text-ink ${miniCls}`} />;
-  else if (card.value === "ulta") inner = <UltaLoopIcon className={`text-ink ${miniCls}`} />;
-  else if (card.value === "do-le") inner = <PlusTwoIcon className="text-xl" />;
+  else if (card.value === "ulta") inner = <UltaCornerIcon className={`text-ink ${miniCls}`} />;
+  else if (card.value === "do-le") inner = <PlusTwoIcon className={textMini} />;
   else if (card.value === "rang-badal") inner = <CornerColorWheel px={Math.max(12, mini)} />;
-  else if (card.value === "chaar-le") inner = <PlusFourIcon className="text-xl" light />;
+  else if (card.value === "chaar-le") inner = <PlusFourIcon className={textMini} light />;
   else inner = <WildHatchMini size={mini} />;
-  return <span className={`inline-flex ${spin}`}>{inner}</span>;
+  return <span className={`inline-flex items-center justify-center ${spin}`}>{inner}</span>;
 }
 
 function CenterArt({ card, size }: { card: PunoCard; size: CardSize }) {
@@ -347,13 +332,13 @@ export function CardFace({
           <div className="h-full w-full" style={{ background: WILD_QUAD.neel }} />
         </div>
       )}
-      <span className="absolute left-2.5 top-2.5 z-20">
+      <span className="absolute left-2.5 top-2.5 z-20 leading-none">
         <CornerSlot card={card} size={size} />
       </span>
-      <span className="absolute bottom-2.5 right-2.5 z-20">
+      <span className="absolute bottom-2.5 right-2.5 z-20 leading-none">
         <CornerSlot card={card} size={size} inverted />
       </span>
-      <motion.div layout={false} className="absolute inset-0 z-[1] flex items-center justify-center px-4 py-6">
+      <motion.div layout={false} data-puno-center-mount className="absolute inset-0 z-[1] flex items-center justify-center">
         <CenterArt card={card} size={size} />
       </motion.div>
     </>
