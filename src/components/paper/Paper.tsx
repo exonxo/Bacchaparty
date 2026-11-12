@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, animate, motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { playerColor } from "@/lib/colors";
 import { dur, ease, spring } from "./motion";
 
@@ -136,7 +137,12 @@ export function PaperSheet({ open, onClose, title, children, footer }: { open: b
   const panel = useRef<HTMLDivElement>(null);
   const restore = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
+  const [portal, setPortal] = useState(false);
   onCloseRef.current = onClose;
+
+  useEffect(() => {
+    setPortal(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -165,10 +171,10 @@ export function PaperSheet({ open, onClose, title, children, footer }: { open: b
     };
   }, [open]);
 
-  return (
+  const layer = (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
+        <div className="fixed inset-0 z-[500] flex items-end justify-center">
           <motion.button
             aria-label="Close"
             tabIndex={-1}
@@ -204,6 +210,9 @@ export function PaperSheet({ open, onClose, title, children, footer }: { open: b
       )}
     </AnimatePresence>
   );
+
+  if (!portal) return null;
+  return createPortal(layer, document.body);
 }
 
 /* ------------------------------------------------------------------ */

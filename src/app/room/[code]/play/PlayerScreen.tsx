@@ -92,6 +92,7 @@ export function PlayerScreen({ code }: { code: string }) {
       title={room?.phase === "playing" ? info?.name : undefined}
       away={away}
       width={room?.phase === "playing" ? "cozy" : "wide"}
+      fillViewport={room?.phase === "playing" && mod?.id === "puno"}
       right={
         <button
           aria-label="Leave party"
@@ -141,7 +142,7 @@ export function PlayerScreen({ code }: { code: string }) {
         </>
       ) : (
         <>
-          {lateJoin && info && (
+          {lateJoin && info && mod?.id !== "puno" && (
             <div className="rise-in cut mb-4 flex items-start gap-3 rounded-cut bg-card p-3">
               <div className="min-w-0 flex-1">
                 <div className="font-display text-p-body font-extrabold">Aa gaye! {info.name} has already started</div>
@@ -152,19 +153,21 @@ export function PlayerScreen({ code }: { code: string }) {
               </button>
             </div>
           )}
-          <GameStage
-            mod={mod}
-            view={room.view}
-            priv={priv}
-            me={player}
-            players={room.players}
-            send={send}
-            now={now}
-            isHost={false}
-            hostAct={noop}
-            together={room.together}
-            tvOn={!!room.tvOn}
-          />
+          <div className={mod?.id === "puno" ? "flex min-h-0 flex-1 flex-col" : undefined}>
+            <GameStage
+              mod={mod}
+              view={room.view}
+              priv={priv}
+              me={player}
+              players={room.players}
+              send={send}
+              now={now}
+              isHost={false}
+              hostAct={noop}
+              together={room.together}
+              tvOn={!!room.tvOn}
+            />
+          </div>
         </>
       )}
 

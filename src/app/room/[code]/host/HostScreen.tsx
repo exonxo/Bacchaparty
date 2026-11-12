@@ -26,7 +26,7 @@ import { useOnChange } from "@/lib/roomAudio";
 /** Games that need people to see/hear each other — remote players need a video call. */
 const NEEDS_CALL = new Set(["charades", "antakshari", "sound-guru", "raja-mantri", "chor-kaun", "odd-word-out"]);
 /** Redesigned games first, then the rest. */
-const ORDER = ["chor-kaun", "housie", "emoji-picture", "charades", "antakshari", "draw-guess", "kaun-banega-champion", "raja-mantri", "odd-word-out", "ludo-yatra", "sound-guru", "jaldi-bolo"];
+const ORDER = ["chor-kaun", "housie", "emoji-picture", "charades", "antakshari", "draw-guess", "kaun-banega-champion", "raja-mantri", "odd-word-out", "ludo-yatra", "sound-guru", "jaldi-bolo", "puno"];
 
 function useInvite(code: string) {
   const [url, setUrl] = useState("");
@@ -307,6 +307,7 @@ function HostRoom({
         title={playingInfo?.name}
         tvHref={tvHref}
         width="cozy"
+        fillViewport={playingMod?.id === "puno"}
         testMode={testMode}
         onTestMode={setTestMode}
         right={
@@ -318,8 +319,10 @@ function HostRoom({
           </>
         }
       >
-        <TestBanner on={testMode} />
-        <GameStage mod={playingMod} view={view} priv={myPriv} me={mePlayer} players={state.players} send={sendAsMe} now={now} isHost hostAct={act} together={state.together} tvOn={!!state.tvOn} />
+        <div className={playingMod?.id === "puno" ? "flex min-h-0 flex-1 flex-col" : undefined}>
+          <TestBanner on={testMode} compact={playingMod?.id === "puno"} />
+          <GameStage mod={playingMod} view={view} priv={myPriv} me={mePlayer} players={state.players} send={sendAsMe} now={now} isHost={true} hostAct={act} together={state.together} tvOn={!!state.tvOn} />
+        </div>
         {endGameSheet}
         {endPartySheet}
       </RoomShell>

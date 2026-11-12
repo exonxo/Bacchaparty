@@ -23,6 +23,7 @@ import { botMoves as jaldiBot } from "@/games/jaldi-bolo/bot";
 import { botMoves as kbcBot } from "@/games/kaun-banega-champion/bot";
 import { botMoves as ludoBot } from "@/games/ludo-yatra/bot";
 import { botMoves as oddWordBot } from "@/games/odd-word-out/bot";
+import { botMoves as punoBot } from "@/games/puno/bot";
 import { botMoves as rajaBot } from "@/games/raja-mantri/bot";
 import { botMoves as soundGuruBot } from "@/games/sound-guru/bot";
 
@@ -35,6 +36,7 @@ const GAME_BOTS: Record<string, (raw: unknown, view: unknown, bots: string[]) =>
   "kaun-banega-champion": kbcBot,
   "ludo-yatra": ludoBot,
   "odd-word-out": oddWordBot,
+  puno: punoBot,
   "raja-mantri": rajaBot,
   "sound-guru": soundGuruBot,
 };

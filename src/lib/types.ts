@@ -58,6 +58,8 @@ export interface PhoneProps<Pub, Priv> extends ControllerProps<Pub, Priv> {
   hostAct: (type: string, payload?: unknown) => void;
   /** Everyone is in one room (vs. spread across places). */
   together: boolean;
+  /** A TV client is connected — phones can hide shared table info. */
+  tvOn?: boolean;
 }
 
 export interface OptionsFormProps<Opt> {

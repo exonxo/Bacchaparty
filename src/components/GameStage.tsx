@@ -47,10 +47,14 @@ export function GameStage({
       if (meta && prevColor) meta.content = prevColor;
     };
   }, [dark]);
+  const punoFill = mod.id === "puno" && !!mod.Phone;
   return (
-    <RoomAudioProvider value={{ together, isStage: isHost, tvOn }}>
+    <div className={punoFill ? "flex min-h-0 min-w-0 flex-1 flex-col" : undefined}>
+      <RoomAudioProvider value={{ together, isStage: isHost, tvOn }}>
       {mod.Phone ? (
-        <mod.Phone view={view} priv={priv} me={me} players={players} send={send} now={now} isHost={isHost} hostAct={hostAct} together={together} />
+        <div className={punoFill ? "-mx-4 flex h-full min-h-0 flex-1 flex-col overflow-hidden sm:-mx-0" : undefined}>
+          <mod.Phone view={view} priv={priv} me={me} players={players} send={send} now={now} isHost={isHost} hostAct={hostAct} together={together} tvOn={tvOn} />
+        </div>
       ) : isHost ? (
         <div className="space-y-6">
           <div className="rounded-xl bg-tint px-4 py-3 text-sm text-muted">
@@ -68,6 +72,7 @@ export function GameStage({
       ) : (
         <mod.Controller view={view} priv={priv} me={me} players={players} send={send} now={now} />
       )}
-    </RoomAudioProvider>
+      </RoomAudioProvider>
+    </div>
   );
 }

@@ -58,6 +58,23 @@ export function summarizeGame(gameId: string, view: unknown, players: Player[], 
     return { ...base, kind: "teams", rows: rank(rows) };
   }
 
+  // Finishing order with optional cards left (Puno).
+  if (Array.isArray(v.ranking) && v.ranking.length) {
+    const order = (v.ranking as string[]).filter((id) => byId.has(id));
+    const left = v.counts as Record<string, number> | undefined;
+    if (!order.length) return null;
+    return {
+      ...base,
+      kind: "players",
+      rows: order.map((id, i) => ({
+        name: byId.get(id)!.name,
+        avatars: [byId.get(id)!.avatar],
+        score: left?.[id] ?? null,
+        place: i + 1,
+      })),
+    };
+  }
+
   // Finishing order (Ludo).
   if (Array.isArray(v.finished) && !v.scores) {
     const order = (v.finished as string[]).filter((id) => byId.has(id));
