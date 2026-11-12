@@ -423,7 +423,6 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   const myTurn = view.turnPlayerId === me.id;
   const [picked, setPicked] = useState<string | null>(null);
   const [wildPick, setWildPick] = useState<{ cardId: string; mode: "play" | "jump"; vx?: number; vy?: number } | null>(null);
-  const [sheet, setSheet] = useState<"help" | null>(null);
   const [scrollHint, setScrollHint] = useState(false);
   const [dragReset, setDragReset] = useState(0);
   const [flights, setFlights] = useState<CardFlightRequest[]>([]);
@@ -711,22 +710,11 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
           )}
 
           <div className="z-20 flex shrink-0 flex-wrap items-center gap-2 px-2 py-1">
-            <div className="flex min-w-0 flex-1 items-stretch gap-2">
             {canPass && !view.paused && (
-              <NeoButton className="!min-h-8 min-w-0 flex-1 !px-2 !text-[10px]" variant="ink" onClick={() => send("pass")}>
+              <NeoButton className="!min-h-8 w-full !px-2 !text-[10px]" variant="ink" onClick={() => send("pass")}>
                 Pass
               </NeoButton>
             )}
-              <button
-                type="button"
-                className={`min-h-8 shrink-0 rounded-md border-[2.5px] border-ink bg-paper px-2 text-[9px] font-extrabold uppercase text-ink shadow-[2px_2px_0_0_var(--ink)] select-none [-webkit-tap-highlight-color:transparent] ${
-                  canPass ? "" : "flex-1"
-                }`}
-                onClick={() => setSheet("help")}
-              >
-                Hint
-              </button>
-            </div>
             {scrollHint && overflowN > 0 && (
               <span className="shrink-0 border-2 border-ink bg-paper px-1.5 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0_0_var(--ink)]">
                 +{overflowN} · swipe
@@ -800,14 +788,6 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
         />
 
         <CardFlightLayer queue={flights} pop={popFlight} />
-
-        <PaperSheet open={sheet === "help"} onClose={() => setSheet(null)} title="PUNO">
-          <ul className="list-disc space-y-2 pl-5 text-p-note font-semibold">
-            <li>Match colour or number. Stack Do Le / Chaar Le or draw full stack.</li>
-            <li>Tap card, swipe up to play. Deck to draw. Pass after draw if nothing fits.</li>
-            <li>Ek Bacha! at one card; Pakdo! if someone forgets.</li>
-          </ul>
-        </PaperSheet>
 
         <ColorPicker
           open={!!wildPick}
