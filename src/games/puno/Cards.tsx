@@ -61,23 +61,38 @@ function cardIdChar(id: string, i: number) {
   return id.charCodeAt(i) * (i + 1);
 }
 
-/** Circle with slash (Ruk Ja) — readable at small sizes. */
+const CREAM = "#fffdf8";
+
+/** S1 — cream circle with diagonal slash (Ruk Ja corner). */
 function SlashCircleIcon({ className = "" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 48 48" className={className} aria-hidden fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="square">
-      <circle cx="24" cy="24" r="17" />
-      <line x1="13" y1="13" x2="35" y2="35" />
+    <svg viewBox="0 0 24 24" className={className} aria-hidden fill="none" stroke={INK}>
+      <circle cx="12" cy="12" r="8.5" strokeWidth={2.6} />
+      <line x1="6.5" y1="6.5" x2="17.5" y2="17.5" strokeWidth={2.8} strokeLinecap="square" />
     </svg>
   );
 }
 
-/** Small corner glyph for Ulta (single arc — centre art is the full reverse motif). */
+/** R6 — same reverse glyph as centre art, scaled for corners. */
 function UltaCornerIcon({ className = "" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16.5 7.5a7.5 7.5 0 1 0 2 5.5" />
-      <polygon points="17,4 20.5,7.5 17,7.5" fill="currentColor" stroke="none" />
+    <svg viewBox="0 0 100 100" className={className} aria-hidden>
+      <g transform="translate(50 50)">
+        <UltaR6Glyph />
+      </g>
     </svg>
+  );
+}
+
+/** ~300° cream tube arc + single bold arrowhead (R6 reverse). */
+function UltaR6Glyph() {
+  const arc = "M -10.5 25.2 A 27 27 0 1 1 -26.8 8.4";
+  return (
+    <>
+      <path d={arc} fill="none" stroke={INK} strokeWidth={11.5} strokeLinecap="round" />
+      <path d={arc} fill="none" stroke={CREAM} strokeWidth={7} strokeLinecap="round" />
+      <polygon points="-26.8,8.4 -17.8,12.8 -20.4,2.6" fill={INK} />
+    </>
   );
 }
 
@@ -182,28 +197,21 @@ function GfxChaarLe() {
 
 function GfxUlta() {
   return (
-    <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
+    <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full" overflow="visible">
       <g transform="translate(50 50)">
-        <ellipse cx={0} cy={0} rx={36} ry={32} fill="#fffdf8" stroke={INK} strokeWidth={2.8} />
-        <g fill="none" stroke={INK} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 -14 A 22 22 0 1 0 -14 14" />
-          <path d="M-18 14 A 22 22 0 1 0 14 -14" />
-          <polygon points="12,-22 18,-14 26,-18" fill={INK} stroke="none" />
-          <polygon points="-12,22 -18,14 -26,18" fill={INK} stroke="none" />
-        </g>
+        <UltaR6Glyph />
       </g>
     </svg>
   );
 }
 
+/** S1 — bold cream circle + slash (Ruk Ja). */
 function GfxRukJa() {
-  const burst = "0,-32 4,-16 22,-20 8,-8 18,8 0,0 -18,8 -8,-8 -22,-20 -4,-16";
   return (
     <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
       <g transform="translate(50 50)">
-        <polygon points={burst} fill="#fffdf8" stroke={INK} strokeWidth={2.5} strokeLinejoin="miter" />
-        <circle cx={0} cy={0} r={22} fill="none" stroke={INK} strokeWidth={5.5} />
-        <line x1={-16} y1={-16} x2={16} y2={16} stroke={INK} strokeWidth={5.5} strokeLinecap="square" />
+        <circle cx={0} cy={0} r={32} fill={CREAM} stroke={INK} strokeWidth={4} />
+        <line x1={-22} y1={-22} x2={22} y2={22} stroke={INK} strokeWidth={7} strokeLinecap="square" />
       </g>
     </svg>
   );
