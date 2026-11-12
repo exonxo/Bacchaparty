@@ -14,17 +14,27 @@ export const TAG_CAPS: Record<PunoColor | "wild", string> = {
   wild: "WILD",
 };
 
-/** Mockup-saturated face fills (flat, no gradient). */
+/** Paper inks: haldi, sindoor, mehndi and neel as printed on cream card stock. */
 const FILL: Record<PunoColor, string> = {
-  sindoor: "#E03A2F",
-  neel: "#1E5FD8",
-  mehndi: "#1F9A3C",
-  haldi: "#F5BE1A",
+  sindoor: "#cf4a33",
+  neel: "#2f5ba8",
+  mehndi: "#3f8a55",
+  haldi: "#eab53c",
 };
 
-const WILD_QUAD = { sindoor: "#E03A2F", haldi: "#F5BE1A", mehndi: "#1F9A3C", neel: "#1E5FD8" } as const;
+const WILD_QUAD = { sindoor: FILL.sindoor, haldi: FILL.haldi, mehndi: FILL.mehndi, neel: FILL.neel } as const;
 
-export const FAN_CARD = { w: 168, h: 238 };
+/** Cream card stock used for wild cards. */
+const CREAM_CARD = "#fffdf8";
+
+/** Card back: turmeric paper with a printed jaali (lattice) pattern. */
+const BACK_PATTERN: CSSProperties = {
+  backgroundColor: "#eab53c",
+  backgroundImage:
+    "repeating-linear-gradient(45deg, rgba(30,26,23,0.22) 0 2px, transparent 2px 10px), repeating-linear-gradient(-45deg, rgba(30,26,23,0.22) 0 2px, transparent 2px 10px)",
+};
+
+export const FAN_CARD = { w: 124, h: 176 };
 export const TABLE_CARD = { w: 92, h: 132 };
 
 type CardSize = "hand" | "fan" | "pile" | "table" | "small" | "tv";
@@ -32,7 +42,7 @@ type CardSize = "hand" | "fan" | "pile" | "table" | "small" | "tv";
 type Dim = { w: number; h: number; border: number; shadow: number; corner: string; center: string; cornerIcon: number; lift: number };
 
 const DIM: Record<CardSize, Dim> = {
-  fan: { w: FAN_CARD.w, h: FAN_CARD.h, border: 4, shadow: 5, corner: "text-4xl", center: "text-[4.5rem]", cornerIcon: 22, lift: 24 },
+  fan: { w: FAN_CARD.w, h: FAN_CARD.h, border: 3, shadow: 4, corner: "text-3xl", center: "text-[3.4rem]", cornerIcon: 18, lift: 18 },
   pile: { w: TABLE_CARD.w, h: TABLE_CARD.h, border: 4, shadow: 4, corner: "text-2xl", center: "text-[2.4rem]", cornerIcon: 14, lift: 8 },
   table: { w: TABLE_CARD.w, h: TABLE_CARD.h, border: 4, shadow: 4, corner: "text-2xl", center: "text-[2.4rem]", cornerIcon: 14, lift: 8 },
   hand: { w: 58, h: 84, border: 3, shadow: 4, corner: "text-xl", center: "text-[2rem]", cornerIcon: 11, lift: 8 },
@@ -164,8 +174,8 @@ function CornerColorWheel({ px }: { px: number }) {
 }
 
 function faceBg(card: PunoCard, wildTint?: PunoColor | null): string | undefined {
-  if (card.value === "rang-badal") return undefined;
-  if (card.value === "chaar-le") return INK;
+  if (card.color === "wild" && wildTint) return FILL[wildTint];
+  if (card.value === "rang-badal" || card.value === "chaar-le") return CREAM_CARD;
   if (card.color === "wild") return wildTint ? FILL[wildTint] : "#fffdf8";
   return FILL[card.color as PunoColor];
 }
@@ -173,7 +183,7 @@ function faceBg(card: PunoCard, wildTint?: PunoColor | null): string | undefined
 export type ActionArtKind = "ruk-ja" | "ulta" | "do-le" | "chaar-le" | "rang-badal";
 
 function artPx(size: CardSize) {
-  return size === "fan" || size === "tv" ? 118 : size === "pile" || size === "table" ? 68 : 58;
+  return size === "tv" ? 118 : size === "fan" ? 86 : size === "pile" || size === "table" ? 68 : 58;
 }
 
 function SparkleGfx({ x, y, s = 4 }: { x: number; y: number; s?: number }) {
@@ -250,21 +260,14 @@ function GfxRangBadal() {
   const cols = [WILD_QUAD.sindoor, WILD_QUAD.haldi, WILD_QUAD.mehndi, WILD_QUAD.neel];
   return (
     <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
-      <g transform="translate(50 50) rotate(-12)">
-        <ellipse cx={0} cy={0} rx={40} ry={34} fill="#fffdf8" stroke={INK} strokeWidth={2.8} />
-        {Array.from({ length: 8 }, (_, i) => {
-          const a0 = (i * Math.PI) / 4 - Math.PI / 2;
-          const a1 = ((i + 1) * Math.PI) / 4 - Math.PI / 2;
-          const r = 24;
-          const x0 = Math.cos(a0) * r;
-          const y0 = Math.sin(a0) * r;
-          const x1 = Math.cos(a1) * r;
-          const y1 = Math.sin(a1) * r;
-          return (
-            <path key={i} d={`M0 0 L${x0} ${y0} A${r} ${r} 0 0 1 ${x1} ${y1} Z`} fill={cols[i % 4]} stroke={INK} strokeWidth={1.4} />
-          );
-        })}
-        <circle cx={0} cy={0} r={6} fill="#fffdf8" stroke={INK} strokeWidth={2} />
+      {/* Rangoli flower: eight petals in the four inks around a cream centre. */}
+      <g transform="translate(50 50)">
+        <circle cx={0} cy={0} r={38} fill="none" stroke={INK} strokeWidth={1.6} strokeDasharray="2 4" />
+        {Array.from({ length: 8 }, (_, i) => (
+          <ellipse key={i} cx={0} cy={-19} rx={9} ry={17} transform={`rotate(${i * 45})`} fill={cols[i % 4]} stroke={INK} strokeWidth={2} />
+        ))}
+        <circle cx={0} cy={0} r={9} fill={CREAM_CARD} stroke={INK} strokeWidth={2.4} />
+        <circle cx={0} cy={0} r={3} fill={INK} />
       </g>
       <SparkleGfx x={18} y={20} s={4} />
       <SparkleGfx x={82} y={22} s={3.5} />
@@ -288,16 +291,19 @@ export function ActionArt({ kind, size }: { kind: ActionArtKind; size: CardSize 
   return wrap(<GfxRangBadal />);
 }
 
-function PunoOval({ size }: { size: CardSize }) {
-  const big = size === "fan" || size === "tv";
+/** Number cards: the number on a round cream badge with a dotted rangoli ring. */
+function NumberBadge({ value, size }: { value: number; size: CardSize }) {
+  const px = size === "tv" ? 104 : size === "fan" ? 74 : size === "pile" || size === "table" ? 54 : 40;
+  const text = size === "tv" ? "text-6xl" : size === "fan" ? "text-[2.6rem]" : size === "pile" || size === "table" ? "text-3xl" : "text-xl";
   return (
     <span
       data-puno-center-art
-      className={`inline-flex -rotate-12 items-center justify-center rounded-[50%] border-[3px] border-ink bg-[#fffdf8] font-display font-extrabold uppercase tracking-[0.22em] text-ink shadow-[4px_4px_0_0_#1e1a17] ${
-        big ? "h-[4.25rem] w-[7.5rem] text-base" : "h-11 w-20 text-[10px]"
-      }`}
+      className={`relative inline-flex items-center justify-center rounded-full border-[3px] border-ink bg-[#fffdf8] font-display font-extrabold leading-none tabular-nums text-ink ${text}`}
+      style={{ width: px, height: px, boxShadow: "3px 3px 0 0 #1e1a17" }}
     >
-      Puno
+      <span aria-hidden className="absolute inset-[5px] rounded-full border-2 border-dotted border-ink/35" />
+      {/* 6 and 9 are underlined so they read the right way up. */}
+      <span className={value === 6 || value === 9 ? "underline decoration-[3px] underline-offset-[3px]" : ""}>{value}</span>
     </span>
   );
 }
@@ -312,11 +318,14 @@ function actionKind(card: PunoCard): ActionArtKind {
 
 function CornerSlot({ card, size, inverted }: { card: PunoCard; size: CardSize; inverted?: boolean }) {
   const d = DIM[size];
-  const fg = card.value === "chaar-le" ? "#fffdf8" : INK;
+  const fg = INK;
   const spin = inverted ? "rotate-180" : "";
   if (card.kind === "number") {
     return (
-      <span className={`font-display font-extrabold leading-none tabular-nums ${d.corner} ${spin}`} style={{ color: fg, display: "inline-block" }}>
+      <span
+        className={`font-display font-extrabold leading-none tabular-nums ${d.corner} ${spin} ${card.value === 6 || card.value === 9 ? "underline decoration-[3px] underline-offset-2" : ""}`}
+        style={{ color: fg, display: "inline-block" }}
+      >
         {card.value}
       </span>
     );
@@ -329,13 +338,13 @@ function CornerSlot({ card, size, inverted }: { card: PunoCard; size: CardSize; 
   else if (card.value === "ulta") inner = <UltaCornerIcon className={`text-ink ${miniCls}`} />;
   else if (card.value === "do-le") inner = <PlusTwoIcon className={textMini} />;
   else if (card.value === "rang-badal") inner = <CornerColorWheel px={Math.max(12, mini)} />;
-  else if (card.value === "chaar-le") inner = <PlusFourIcon className={textMini} light />;
+  else if (card.value === "chaar-le") inner = <PlusFourIcon className={textMini} />;
   else inner = <WildHatchMini size={mini} />;
   return <span className={`inline-flex items-center justify-center ${spin}`}>{inner}</span>;
 }
 
 function CenterArt({ card, size }: { card: PunoCard; size: CardSize }) {
-  if (card.kind === "number") return <PunoOval size={size} />;
+  if (card.kind === "number") return <NumberBadge value={card.value as number} size={size} />;
   return <ActionArt kind={actionKind(card)} size={size} />;
 }
 
@@ -363,19 +372,10 @@ export function CardFace({
   const shadowPx = pressed ? Math.max(1, d.shadow - 2) : lift ? d.shadow + 6 : d.shadow;
   const liftY = reduce ? (lift ? -8 : pressed ? 1 : 0) : lift ? -d.lift : pressed ? 2 : 0;
   const bg = faceBg(card, wildTint);
-  const isRangBadal = card.value === "rang-badal";
 
   const shell = (
     <>
       {dim && <div className="pointer-events-none absolute inset-0 z-30 rounded-[14px] bg-ink/[0.08] saturate-[0.72]" aria-hidden />}
-      {isRangBadal && (
-        <div className="absolute inset-0 z-0 grid grid-cols-2 grid-rows-2 overflow-hidden rounded-[14px]">
-          <div className="h-full w-full" style={{ background: WILD_QUAD.sindoor }} />
-          <div className="h-full w-full" style={{ background: WILD_QUAD.haldi }} />
-          <div className="h-full w-full" style={{ background: WILD_QUAD.mehndi }} />
-          <div className="h-full w-full" style={{ background: WILD_QUAD.neel }} />
-        </div>
-      )}
       <span className="absolute left-2.5 top-2.5 z-20 leading-none">
         <CornerSlot card={card} size={size} />
       </span>
@@ -474,10 +474,11 @@ export function seedDecorativePile(top: PunoCard): PunoCard[] {
 export function MiniCardBack({ className = "" }: { className?: string }) {
   return (
     <span
-      className={`inline-flex h-9 w-6 shrink-0 flex-col items-center justify-center overflow-hidden rounded-sm border-[2.5px] border-ink bg-ink font-extrabold uppercase leading-none text-paper shadow-[2px_2px_0_0_#1e1a17] ${className}`}
+      aria-hidden
+      className={`inline-flex h-9 w-6 shrink-0 items-center justify-center overflow-hidden rounded-sm border-[2.5px] border-ink shadow-[2px_2px_0_0_#1e1a17] ${className}`}
+      style={BACK_PATTERN}
     >
-      <span className="text-[6px] tracking-tighter">PU</span>
-      <span className="text-[5px] tracking-tighter">NO</span>
+      <span className="h-2 w-2 rounded-full border border-ink bg-vermilion" />
     </span>
   );
 }
@@ -486,11 +487,16 @@ export function CardBack({ size = "pile", onClick }: { size?: CardSize; onClick?
   const d = DIM[size] ?? DIM.pile;
   const [pressed, setPressed] = useState(false);
   const shadowPx = pressed ? 2 : 5;
-  const word = size === "fan" || size === "pile" || size === "table" ? "text-2xl" : "text-sm";
+  const seal = size === "tv" ? 54 : 34;
 
   const inner = (
-    <div className="flex h-full w-full flex-col items-center justify-center rounded-[14px] bg-ink" style={faceRimStyle()}>
-      <span className={`font-display font-extrabold uppercase tracking-[0.28em] text-paper ${word}`}>Puno</span>
+    <div className="flex h-full w-full items-center justify-center rounded-[14px]" style={{ ...faceRimStyle(), ...BACK_PATTERN }}>
+      <span
+        className="flex items-center justify-center rounded-full border-[3px] border-ink bg-vermilion"
+        style={{ width: seal, height: seal, boxShadow: "2px 2px 0 0 #1e1a17" }}
+      >
+        <span className="h-1/3 w-1/3 rounded-full bg-[#fffdf8]" />
+      </span>
     </div>
   );
 

@@ -1,6 +1,6 @@
 "use client";
 import { ArrowDown, Megaphone, Pointer } from "lucide-react";
-import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useReducedMotion, useTransform, type PanInfo } from "motion/react";
+import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefCallback } from "react";
 import { screenIn, spring } from "@/components/paper/motion";
 import { InkDefs } from "@/components/paper/objects";
@@ -155,8 +155,8 @@ function PlayTable({
       <Sparkle className="absolute right-[38%] top-1 z-20 text-ink opacity-80" />
       <TurnSticker myTurn={myTurn} />
       {!myTurn && (
-        <div className="absolute right-2 top-2 z-20 max-w-[44%] border-[3px] border-ink bg-paper px-2 py-1 text-right font-display text-[9px] font-extrabold uppercase leading-tight shadow-[4px_4px_0_0_var(--ink)]">
-          {turnName}
+        <div className="absolute right-2 top-2 z-20 max-w-[44%] border-[3px] border-ink bg-paper px-2 py-1 text-right font-display text-[11px] font-extrabold uppercase leading-tight shadow-[4px_4px_0_0_var(--ink)]">
+          {turnName} ki baari
         </div>
       )}
       <div
@@ -182,7 +182,7 @@ function PlayTable({
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
-            className="pointer-events-none absolute left-1/2 top-[34%] z-40 max-w-[90%] -translate-x-1/2 border-[3px] border-ink bg-card px-2 py-1 text-center font-display text-[9px] font-extrabold uppercase shadow-[3px_3px_0_0_var(--ink)]"
+            className="pointer-events-none absolute left-1/2 top-[34%] z-40 max-w-[90%] -translate-x-1/2 border-[3px] border-ink bg-card px-2 py-1 text-center font-display text-[11px] font-extrabold uppercase shadow-[3px_3px_0_0_var(--ink)]"
           >
             {noteText}
           </motion.div>
@@ -237,12 +237,12 @@ function PlayerFooter({
             >
               <MiniCardBack className="!h-7 !w-5" />
               <div className="min-w-0 flex-1">
-                <div className="truncate font-display text-[8px] font-extrabold uppercase leading-tight text-ink">{p?.name ?? "…"}</div>
+                <div className="truncate font-display text-[11px] font-extrabold uppercase leading-tight text-ink">{p?.name ?? "…"}</div>
                 <motion.div
                   key={`${s.playerId}-${counts[s.playerId] ?? 0}`}
                   animate={countPulse === s.playerId ? { scale: [1, 1.35, 1] } : undefined}
                   transition={{ duration: 0.35 }}
-                  className="font-display text-xs font-extrabold tabular-nums text-ink"
+                  className="font-display text-sm font-extrabold tabular-nums text-ink"
                 >
                   {counts[s.playerId] ?? 0}
                 </motion.div>
@@ -280,79 +280,131 @@ function ColorPicker({ open, onPick, onClose }: { open: boolean; onPick: (c: Pun
 function fanAngle(n: number, i: number) {
   if (n <= 1) return 0;
   const t = i / (n - 1);
-  return -20 + t * 40;
+  // A gentle fan: big angles make neighbouring cards cover each other's tap area.
+  return -9 + t * 18;
 }
 
-function fanOverlap(n: number) {
-  if (n <= 4) return -FAN_CARD.w * 0.52;
-  if (n <= 7) return -FAN_CARD.w * 0.58;
-  return -FAN_CARD.w * 0.62;
+/** Horizontal distance between cards so the hand fits the phone when it can. */
+function fanStep(n: number, width: number) {
+  if (n <= 1) return 0;
+  const fit = (width - 24 - FAN_CARD.w) / (n - 1);
+  return Math.max(48, Math.min(FAN_CARD.w * 0.62, fit));
 }
 
-function SwipeableCard({
+/**
+ * One card in your hand. Gestures:
+ *  - swipe up (or a quick upward flick) on a playable card throws it on the pile
+ *  - sideways movement is left to the browser, which scrolls the hand
+ *  - tap lifts the card; tapping the lifted card again plays it
+ *  - a card you can't play shakes and the reason is shown
+ */
+function HandCard({
   card,
-  playable,
+  canPlay,
   selected,
-  onPick,
-  onThrowPan,
+  onTap,
+  onReject,
+  onFling,
   wildTint,
   rotate,
   marginLeft,
   messyY,
-  selectedLift,
-  resetDrag,
   hidden,
+  shaking,
   shellRef,
+  label,
 }: {
   card: PunoCard;
-  playable: boolean;
+  canPlay: boolean;
   selected: boolean;
-  onPick: () => void;
-  onThrowPan: (el: HTMLDivElement, vx: number, vy: number, offsetX: number, offsetY: number) => boolean;
+  onTap: () => void;
+  onReject: () => void;
+  onFling: (el: HTMLDivElement, vx: number, vy: number, offsetX: number, offsetY: number) => boolean;
   wildTint?: PunoColor | null;
   rotate: number;
   marginLeft: number;
   messyY: number;
-  selectedLift: boolean;
-  resetDrag: number;
   hidden: boolean;
+  shaking: boolean;
   shellRef: RefCallback<HTMLDivElement>;
+  label: string;
 }) {
   const reduce = useReducedMotion();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const dragRotate = useTransform(y, [-160, 0], [rotate - 8, rotate]);
-
-  useEffect(() => {
-    x.set(0);
-    y.set(0);
-  }, [resetDrag, x, y]);
+  const dragRotate = useTransform(y, [-160, 0], [rotate - 6, rotate]);
+  const gesture = useRef<{ id: number; x0: number; y0: number; mode: "idle" | "drag" | "pan"; samples: { x: number; y: number; t: number }[] } | null>(null);
 
   const springBack = () => {
     animate(x, 0, reduce ? { duration: 0.14 } : fanSpring);
     animate(y, 0, reduce ? { duration: 0.14 } : fanSpring);
   };
 
-  const onEnd = (_: unknown, info: PanInfo) => {
-    if (!selected || hidden) {
-      springBack();
-      return;
-    }
-    const el = rootRef.current;
-    if (!el) {
-      springBack();
-      return;
-    }
-    const ok = onThrowPan(el, info.velocity.x, info.velocity.y, info.offset.x, info.offset.y);
-    if (ok) {
-      x.set(0);
-      y.set(0);
-    } else springBack();
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (hidden) return;
+    const t = performance.now();
+    gesture.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, mode: "idle", samples: [{ x: e.clientX, y: e.clientY, t }] };
   };
 
-  const lift = selected && selectedLift ? -28 : 0;
-  const scale = selected ? 1.05 : 1;
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const g = gesture.current;
+    if (!g || g.id !== e.pointerId) return;
+    const dx = e.clientX - g.x0;
+    const dy = e.clientY - g.y0;
+    g.samples.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+    if (g.samples.length > 6) g.samples.shift();
+    if (g.mode === "idle") {
+      if (dy < -8 && Math.abs(dy) > Math.abs(dx) * 1.1) {
+        if (!canPlay) {
+          g.mode = "pan";
+          onReject();
+          return;
+        }
+        g.mode = "drag";
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {}
+      } else if (Math.abs(dx) > 10) {
+        g.mode = "pan";
+        return;
+      }
+    }
+    if (g.mode === "drag") {
+      x.set(dx * 0.3);
+      y.set(Math.min(14, dy));
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const g = gesture.current;
+    gesture.current = null;
+    if (!g || g.id !== e.pointerId) return;
+    const dx = e.clientX - g.x0;
+    const dy = e.clientY - g.y0;
+    if (g.mode === "drag") {
+      const a = g.samples[0];
+      const b = g.samples[g.samples.length - 1];
+      const dt = Math.max(1, b.t - a.t);
+      const vx = ((b.x - a.x) / dt) * 1000;
+      const vy = ((b.y - a.y) / dt) * 1000;
+      const flung = dy < -70 || (dy < -28 && vy < -500);
+      if (flung && rootRef.current && onFling(rootRef.current, vx, vy, dx, dy)) {
+        x.set(0);
+        y.set(0);
+      } else springBack();
+      return;
+    }
+    if (g.mode === "idle" && Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+      if (canPlay) onTap();
+      else onReject();
+    }
+  };
+
+  const onPointerCancel = () => {
+    if (gesture.current?.mode === "drag") springBack();
+    gesture.current = null;
+  };
 
   return (
     <motion.div
@@ -360,28 +412,52 @@ function SwipeableCard({
         rootRef.current = node;
         shellRef(node);
       }}
+      role="button"
+      tabIndex={hidden ? -1 : 0}
+      aria-label={label}
+      aria-pressed={selected}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (canPlay) onTap();
+          else onReject();
+        }
+      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onContextMenu={(e) => e.preventDefault()}
       style={{
-        x,
-        y,
-        rotate: reduce ? rotate : dragRotate,
         marginLeft,
         marginTop: messyY,
         zIndex: selected ? 50 : undefined,
-        transformOrigin: "50% 92%",
         opacity: hidden ? 0 : 1,
+        // Sideways pans scroll the hand (browser); upward swipes come to us. No long-press menu.
+        touchAction: "pan-x",
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
+        userSelect: "none",
       }}
-      className={`shrink-0 ${selected ? "touch-none" : "touch-pan-x"}`}
-      drag={selected && !hidden ? "y" : false}
-      dragDirectionLock
-      dragConstraints={{ top: -200, bottom: 12, left: 0, right: 0 }}
-      dragElastic={0.12}
-      onDragEnd={onEnd}
-      animate={{ scale, y: hidden ? lift : lift }}
+      className="shrink-0 rounded-[18px] outline-offset-4"
+      animate={{ y: selected ? -26 : 0, scale: selected ? 1.05 : 1 }}
       transition={fanSpring}
     >
-      <CardFace card={card} wildTint={wildTint} size="fan" dim={!playable} selected={selected && selectedLift} onClick={playable ? onPick : undefined} />
+      <motion.div
+        style={{ x, y, rotate: reduce ? rotate : dragRotate, transformOrigin: "50% 92%" }}
+        animate={shaking && !reduce ? { x: [0, -8, 8, -5, 5, 0] } : undefined}
+        transition={{ duration: 0.36 }}
+      >
+        <CardFace card={card} wildTint={wildTint} size="fan" dim={!canPlay} selected={selected} />
+      </motion.div>
     </motion.div>
   );
+}
+
+function cardLabel(card: PunoCard) {
+  const colour = card.color === "wild" ? "" : `${TAG_CAPS[card.color]} `;
+  const value = card.kind === "number" ? String(card.value) : String(card.value).replace("-", " ");
+  return `${colour}${value}`.toLowerCase();
 }
 
 export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Priv>) {
@@ -393,8 +469,10 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   const myTurn = view.turnPlayerId === me.id;
   const [picked, setPicked] = useState<string | null>(null);
   const [wildPick, setWildPick] = useState<{ cardId: string; mode: "play" | "jump"; vx?: number; vy?: number } | null>(null);
-  const [scrollHint, setScrollHint] = useState(false);
-  const [dragReset, setDragReset] = useState(0);
+  const [handWidth, setHandWidth] = useState(360);
+  const [shake, setShake] = useState<{ id: string; at: number } | null>(null);
+  const [hint, setHint] = useState<{ text: string; at: number } | null>(null);
+  const [, setDragReset] = useState(0);
   const [flights, setFlights] = useState<CardFlightRequest[]>([]);
   const [hiddenCards, setHiddenCards] = useState<Set<string>>(() => new Set());
   const [wildPulse, setWildPulse] = useState(false);
@@ -412,7 +490,7 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   const sfx = useSfx();
   const left = Math.max(0, Math.ceil((view.deadline - now) / 1000));
   const turnName = nameOf(players, view.turnPlayerId);
-  const overlap = fanOverlap(hand.length);
+  const step = fanStep(hand.length, handWidth);
 
   const deckRef: RefCallback<HTMLDivElement> = useCallback((el) => {
     deckEl.current = el;
@@ -459,7 +537,7 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const check = () => setScrollHint(el.scrollWidth > el.clientWidth + 4);
+    const check = () => setHandWidth(el.clientWidth);
     check();
     const ro = new ResizeObserver(check);
     ro.observe(el);
@@ -560,9 +638,12 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
     if (lastPlayId.current === null && view.lastPlay) lastPlayId.current = view.lastPlay.id;
   }, [view.lastPlay]);
 
-  const ekGlow = myTurn && hand.length === 2;
+  // Call Ek Bacha before your second-last card goes, or right after, until someone catches you.
+  const ekGlow = !view.ekBachaSaid.includes(me.id) && ((myTurn && hand.length === 2) || view.ekBacha?.playerId === me.id);
   const catchTarget = view.ekBacha && view.ekBacha.playerId !== me.id && !view.ekBachaSaid.includes(view.ekBacha.playerId);
   const jumpReady = !myTurn && jumpable.size > 0;
+  const pickedCard = picked ? hand.find((c) => c.id === picked && (playable.has(c.id) || jumpable.has(c.id))) ?? null : null;
+  const hintVisible = !!(hint && now - hint.at < 2600);
   const noteVisible = !!(view.note && now - view.note.at < 3800);
   const noteText = view.note?.text;
 
@@ -601,35 +682,47 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
     enqueue(req);
   };
 
-  const onThrowPan = (cardId: string, el: HTMLDivElement | null, vx: number, vy: number, offsetX: number, offsetY: number): boolean => {
-    if (!el) return false;
+  /** Plays a card: from a swipe (with its speed) or from a tap/button (default upward toss). */
+  const playCard = (cardId: string, el: HTMLDivElement | null, vx = 0, vy = -900, offsetX = 0, offsetY = -100): boolean => {
     const mode: "play" | "jump" = jumpable.has(cardId) && !myTurn ? "jump" : "play";
     const card = hand.find((c) => c.id === cardId);
     if (!card) return false;
-
-    const from = centerOf(el);
-    const to = centerOf(pileEl.current);
-    if (!from || !to) return false;
-
     if (card.color === "wild") {
-      const qualifies =
-        offsetY < -76 ||
-        (offsetY < -40 && vy < -260) ||
-        (offsetY < -52 && Math.hypot(vx, vy) > 480) ||
-        (Math.hypot(vx, vy) > 620 && offsetY < -34);
-      if (qualifies) {
-        setWildPick({ cardId, mode, vx, vy });
-        setDragReset((n) => n + 1);
-      }
+      // The card stays in the hand until a colour is chosen.
+      setWildPick({ cardId, mode, vx, vy });
+      setDragReset((n) => n + 1);
       return false;
     }
-
+    if (!el) {
+      sendPlay(cardId, mode, undefined);
+      return true;
+    }
+    const from = centerOf(el);
+    const to = centerOf(pileEl.current);
+    if (!from || !to) {
+      sendPlay(cardId, mode, undefined);
+      return true;
+    }
     const startRot = fanAngle(hand.length, hand.findIndex((c) => c.id === cardId));
-    const req = throwFromPan(vx, vy, offsetX, offsetY, from, to, startRot, card, view.wildColor, () => sendPlay(cardId, mode, undefined));
+    const req = throwFromPan(vx, vy, offsetX, Math.min(offsetY, -90), from, to, startRot, card, view.wildColor, () => sendPlay(cardId, mode, undefined));
     if (!req) return false;
-    setHiddenCards((s) => new Set(s).add(cardId));
+    setHiddenCards((st) => new Set(st).add(cardId));
     enqueue(req);
     return true;
+  };
+
+  /** A card that can't be played right now: shake it and say why. */
+  const rejectCard = (cardId: string) => {
+    const text = !myTurn
+      ? jumpable.size
+        ? "Jump sirf bilkul same patte se"
+        : `Abhi ${turnName} ki baari hai`
+      : view.stackPending
+        ? `+${view.stackTotal} chal raha hai — Do Le / Chaar Le daalo ya deck se lo`
+        : "Ye nahi chalega — rang ya number milao";
+    setShake({ id: cardId, at: now });
+    setHint({ text, at: now });
+    vibrate(40);
   };
 
   const handleDraw = () => {
@@ -647,8 +740,6 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
       </motion.div>
     );
   }
-
-  const overflowN = Math.max(0, hand.length - Math.floor(393 / (FAN_CARD.w + overlap)));
 
   return (
     <MotionConfig transition={spring.settle}>
@@ -668,70 +759,86 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
             pileRef={pileRef}
           />
 
-          {jumpReady && (
-            <p className="pointer-events-none absolute left-0 right-0 top-[32%] z-20 py-0.5 text-center text-[9px] font-extrabold uppercase tracking-wide text-ink/80">
-              Jump · tap match
-            </p>
-          )}
 
           <div className="z-20 flex shrink-0 flex-wrap items-center gap-2 px-2 py-1">
+            {pickedCard && (
+              <NeoButton
+                className="!min-h-12 flex-1 !px-3 !text-sm"
+                variant="turmeric"
+                onClick={() => playCard(pickedCard.id, cardEls.current.get(pickedCard.id) ?? null)}
+              >
+                Phenko ↑ {cardLabel(pickedCard)}
+              </NeoButton>
+            )}
             {canPass && (
-              <NeoButton className="!min-h-8 w-full !px-2 !text-[10px]" variant="ink" onClick={() => send("pass")}>
+              <NeoButton className="!min-h-12 flex-1 !px-3 !text-sm" variant="ink" onClick={() => send("pass")}>
                 Pass
               </NeoButton>
             )}
-            {scrollHint && overflowN > 0 && (
-              <span className="shrink-0 border-2 border-ink bg-paper px-1.5 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0_0_var(--ink)]">
-                +{overflowN} · swipe
-              </span>
-            )}
             {ekGlow && (
-              <NeoButton className="!min-h-8 w-full !px-2 !text-[10px]" variant="turmeric" onClick={() => send("ek-bacha")}>
-                <Megaphone className="mr-0.5 inline h-3.5 w-3.5" /> Ek Bacha!
+              <NeoButton className="!min-h-12 flex-1 !px-3 !text-sm" variant="turmeric" onClick={() => send("ek-bacha")}>
+                <Megaphone className="mr-1 inline h-4 w-4" /> Ek Bacha!
               </NeoButton>
             )}
             {catchTarget && (
-              <NeoButton className="!min-h-8 w-full !px-2 !text-[10px]" variant="vermilion" onClick={() => send("pakdo", { who: view.ekBacha!.playerId })}>
-                <Pointer className="mr-0.5 inline h-3.5 w-3.5" /> Pakdo!
+              <NeoButton className="!min-h-12 flex-1 !px-3 !text-sm" variant="vermilion" onClick={() => send("pakdo", { who: view.ekBacha!.playerId })}>
+                <Pointer className="mr-1 inline h-4 w-4" /> Pakdo!
               </NeoButton>
+            )}
+            {hintVisible && (
+              <p role="status" className="w-full text-center font-display text-xs font-extrabold text-vermilion">
+                {hint!.text}
+              </p>
+            )}
+            {!pickedCard && !canPass && !ekGlow && !catchTarget && !hintVisible && (myTurn || jumpReady) && (
+              <p className="w-full text-center font-display text-xs font-extrabold text-ink/70">
+                {myTurn ? "Patta upar swipe karo · ya tap karke Phenko · deck se lo" : "Same patta hai? Upar swipe karke jump karo!"}
+              </p>
             )}
           </div>
 
           <section aria-label="Your cards" className="relative z-10 min-h-0 overflow-hidden">
           <div
             ref={scrollRef}
-            className="flex h-full w-full touch-pan-x items-end overflow-x-auto overflow-y-visible overscroll-x-contain pl-[5rem] pr-3 pb-2 pt-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex h-full w-full touch-pan-x items-end overflow-x-auto overflow-y-visible overscroll-x-contain pb-3 pl-7 pr-4 pt-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             <motion.div
               className="mx-auto flex items-end justify-start pl-2 pr-20"
-              style={{ minWidth: hand.length > 4 ? `${hand.length * (FAN_CARD.w + overlap + 14)}px` : "100%" }}
+              style={{ minWidth: `${FAN_CARD.w + step * Math.max(0, hand.length - 1) + 8}px` }}
               animate={reduce ? undefined : { rotate: [0, 0.32, 0, -0.32, 0] }}
               transition={reduce ? undefined : { duration: 6.8, repeat: Infinity, ease: "easeInOut" }}
             >
               {hand.map((card, i) => {
                 const can = playable.has(card.id) || jumpable.has(card.id);
                 const messy = fanMessyOffset(card.id, i);
-                const rot = fanAngle(hand.length, i) + messy.rotate;
+                const rot = fanAngle(hand.length, i) + messy.rotate * 0.4;
                 const shellRef: RefCallback<HTMLDivElement> = (el) => {
                   if (el) cardEls.current.set(card.id, el);
                   else cardEls.current.delete(card.id);
                 };
                 return (
-                  <SwipeableCard
+                  <HandCard
                     key={card.id}
                     card={card}
-                    playable={can}
+                    canPlay={can}
                     selected={picked === card.id}
                     wildTint={view.wildColor}
                     rotate={rot}
-                    marginLeft={(i === 0 ? 0 : overlap) + messy.x}
+                    marginLeft={i === 0 ? 0 : step - FAN_CARD.w}
                     messyY={messy.y}
-                    selectedLift={!hiddenCards.has(card.id)}
-                    resetDrag={dragReset}
                     hidden={hiddenCards.has(card.id)}
+                    shaking={shake?.id === card.id && now - shake.at < 600}
                     shellRef={shellRef}
-                    onPick={() => setPicked((p) => (p === card.id ? null : card.id))}
-                    onThrowPan={(el, vx, vy, ox, oy) => onThrowPan(card.id, el, vx, vy, ox, oy)}
+                    label={`${cardLabel(card)}${can ? "" : ", abhi nahi chalega"}`}
+                    onTap={() => {
+                      if (picked === card.id) playCard(card.id, cardEls.current.get(card.id) ?? null);
+                      else setPicked(card.id);
+                    }}
+                    onReject={() => rejectCard(card.id)}
+                    onFling={(el, vx, vy, ox, oy) => {
+                      setPicked(null);
+                      return playCard(card.id, el, vx, vy, ox, oy);
+                    }}
                   />
                 );
               })}

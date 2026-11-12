@@ -1,12 +1,8 @@
 "use client";
-import { Crown, ScrollText, Shield } from "lucide-react";
-import type { ReactNode } from "react";
-import { Avatar } from "@/components/Avatar";
-import { MaskGlyph } from "@/components/paper/objects";
-import { Button, Panel, PlayerChip, Scoreboard } from "@/components/ui";
-import { HOST_ID, type ControllerProps, type GameModule, type Player, type ScreenProps } from "@/lib/types";
+import { HOST_ID, type ControllerProps, type GameModule } from "@/lib/types";
 import { shuffle } from "@/lib/util";
 import { Phone } from "./PaperPhone";
+import { Screen } from "./TvScreen";
 
 export type Role = "raja" | "mantri" | "chor" | "sipahi";
 export type Phase = "pick" | "raja" | "mantri" | "result";
@@ -124,81 +120,6 @@ function score(s: State, guess: string): State {
   return { ...s, phase: "result", guess, scores, lastPoints: pts };
 }
 
-const nameOf = (players: Player[], id: string | null) => players.find((p) => p.id === id)?.name ?? "?";
-
-const ROLE_ICON: Record<Role, (size: number) => ReactNode> = {
-  raja: (s) => <Crown style={{ width: s, height: s }} strokeWidth={2.2} />,
-  mantri: (s) => <ScrollText style={{ width: s, height: s }} strokeWidth={2.2} />,
-  chor: (s) => <MaskGlyph size={s * 1.2} />,
-  sipahi: (s) => <Shield style={{ width: s, height: s }} strokeWidth={2.2} />,
-};
-
-/** Big-screen view (TV). Read-only when `spectator`. */
-function Screen({ view, players, act, spectator }: ScreenProps<Pub>) {
-  const seatPlayers = view.seats.map((id) => players.find((p) => p.id === id) ?? { id, name: "Left", avatar: "", connected: false });
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-      <Panel className="space-y-6 py-8 text-center">
-        <div className="text-muted">Round {view.round}</div>
-        {view.phase === "pick" && (
-          <>
-            <div className="text-4xl font-extrabold">Chits table pe hain — sab ek uthao!</div>
-            <div className="text-2xl text-muted">{Object.keys(view.taken).length} of 4 picked</div>
-          </>
-        )}
-        {view.phase === "raja" && (
-          <>
-            <div className="text-4xl font-extrabold">Sabne chit utha li. Check your phone!</div>
-            <div className="text-2xl text-muted">Raja, bolo: “Main Raja hoon!”</div>
-          </>
-        )}
-        {view.phase === "mantri" && (
-          <>
-            <div className="text-3xl">
-              <b className="text-gold">{nameOf(players, view.rajaId)}</b> is the Raja!
-            </div>
-            <div className="text-4xl font-extrabold">
-              “Mantri <span className="text-teal">{nameOf(players, view.mantriId)}</span>, chor dhoondo!”
-            </div>
-            <div className="text-2xl text-muted">Is it {view.suspects.map((id) => nameOf(players, id)).join(" or ")}?</div>
-          </>
-        )}
-        {view.phase === "result" && view.roles && (
-          <>
-            <div className="pop-in text-5xl font-extrabold">{view.correct ? "Chor pakda gaya!" : "Chor bach nikla! Mantri ke points Chor ko."}</div>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {seatPlayers.map((p) => {
-                const role = view.roles![p.id];
-                const r = ROLE_INFO[role];
-                return (
-                  <div key={p.id} className="rounded-3xl bg-white/5 p-4">
-                    <div className="flex justify-center">{ROLE_ICON[role](40)}</div>
-                    <div className="text-xl font-bold">{r.label}</div>
-                    <div className="text-muted">
-                      <Avatar id={p.avatar} /> {p.name}
-                    </div>
-                    <div className="text-2xl font-extrabold text-gold">+{view.lastPoints[p.id] ?? 0}</div>
-                  </div>
-                );
-              })}
-            </div>
-            {!spectator && (
-              <Button size="lg" onClick={() => act("next")}>
-                Phir se baanto
-              </Button>
-            )}
-          </>
-        )}
-        <div className="flex flex-wrap justify-center gap-2">
-          {seatPlayers.map((p) => (
-            <PlayerChip key={p.id} player={p} highlight={p.id === view.rajaId} />
-          ))}
-        </div>
-      </Panel>
-      <Scoreboard players={players} scores={view.scores} />
-    </div>
-  );
-}
 
 const noop = () => {};
 
@@ -210,6 +131,7 @@ function Controller(props: ControllerProps<Pub, Priv>) {
 const rajaMantri: GameModule<State, Pub, Priv, Record<string, never>> = {
   id: "raja-mantri",
   paper: true,
+  tvPaper: true,
   defaultOptions: {},
   init({ players, now }) {
     const seats = players.slice(0, 4).map((p) => p.id);

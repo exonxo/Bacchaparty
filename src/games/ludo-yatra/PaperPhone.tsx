@@ -87,7 +87,7 @@ function starPoints(cx: number, cy: number, r: number) {
 
 const YARD_ORIGIN: Record<Color, [number, number]> = { red: [0, 0], green: [9, 0], yellow: [9, 9], blue: [0, 9] };
 
-function PaperBoard({
+export function PaperBoard({
   view,
   players,
   meId,
@@ -188,7 +188,8 @@ function PaperBoard({
         {pieces.map((t) => {
           const canPick = current?.color === t.color && pickable.includes(t.idx);
           const flying = flyingHome.has(`${t.color}${t.idx}`);
-          const r = t.small ? 0.3 : 0.36;
+          // Bigger pieces (and biggest when you can move them) so they are easy to see and tap.
+          const r = canPick ? 0.56 : t.small ? 0.36 : 0.46;
           return (
             <motion.g
               key={`${t.color}${t.idx}`}
@@ -198,8 +199,8 @@ function PaperBoard({
             >
               {canPick && (
                 <>
-                  <circle r={0.6} fill="#f2b632" opacity={0.55} className="ludo-pulse" />
-                  <circle r={0.6} fill="none" stroke={INK} strokeWidth={0.07} />
+                  <circle r={0.74} fill="#f2b632" opacity={0.55} className="ludo-pulse" />
+                  <circle r={0.74} fill="none" stroke={INK} strokeWidth={0.07} />
                 </>
               )}
               <circle r={r} cy={0.05} fill={INK} />
@@ -220,7 +221,7 @@ function PaperBoard({
               key={`hit${t.idx}`}
               cx={t.cx}
               cy={t.cy}
-              r={0.95}
+              r={1.1}
               fill="transparent"
               role="button"
               tabIndex={0}
@@ -268,7 +269,7 @@ const PIPS: Record<number, [number, number][]> = {
 };
 
 /** A paper dice. Each new roll tumbles in the same way (no fade, so it is never blank). */
-function PaperDice({ value, rollId, size = 76 }: { value: number | null; rollId: number; size?: number }) {
+export function PaperDice({ value, rollId, size = 76 }: { value: number | null; rollId: number; size?: number }) {
   return (
     <motion.svg
       key={rollId}
@@ -298,7 +299,7 @@ function PaperDice({ value, rollId, size = 76 }: { value: number | null; rollId:
 /* Turn banner + timer                                                  */
 /* ------------------------------------------------------------------ */
 
-function TurnBanner({ view, players, meId, now }: { view: Pub; players: Player[]; meId: string; now: number }) {
+export function TurnBanner({ view, players, meId, now }: { view: Pub; players: Player[]; meId: string; now: number }) {
   const seat = view.seats[view.turn];
   if (!seat) return null;
   const mine = seat.playerId === meId;
@@ -363,7 +364,7 @@ function TurnBanner({ view, players, meId, now }: { view: Pub; players: Player[]
 /* Seats                                                                */
 /* ------------------------------------------------------------------ */
 
-function Seats({ view, players, meId }: { view: Pub; players: Player[]; meId: string }) {
+export function Seats({ view, players, meId }: { view: Pub; players: Player[]; meId: string }) {
   return (
     <ul className="grid grid-cols-2 gap-2" aria-label="Khiladi">
       {view.seats.map((s, i) => {
@@ -398,7 +399,7 @@ function Seats({ view, players, meId }: { view: Pub; players: Player[]; meId: st
 /* Game over                                                            */
 /* ------------------------------------------------------------------ */
 
-function Podium({ view, players, meId }: { view: Pub; players: Player[]; meId: string }) {
+export function Podium({ view, players, meId }: { view: Pub; players: Player[]; meId: string }) {
   const order = view.finished;
   const top = [order[1], order[0], order[2]];
   const heights = [72, 104, 52];
@@ -527,6 +528,48 @@ export function Phone({ view, me, players, send, now, isHost, hostAct }: PhonePr
 
   const note = view.note && now - view.note.at < 5000 ? view.note : null;
 
+  const moveSection = (
+          <section aria-label="Aapki chaal" className="cut rounded-soft bg-paper p-3">
+            {view.phase === "roll" ? (
+              <div className="flex items-center gap-4">
+                <button type="button" onClick={() => send("roll")} aria-label="Dice ghumao" className="press rounded-soft">
+                  <PaperDice value={view.dice} rollId={view.rollId} />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <PaperButton size="lg" className="w-full" onClick={() => send("roll")}>
+                    <Dices className="h-5 w-5" strokeWidth={2.4} /> Dice ghumao
+                  </PaperButton>
+                  <p className="mt-1.5 text-p-note text-muted">6 aaye to goti bahar nikalti hai.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3">
+                <PaperDice value={view.dice} rollId={view.rollId} size={64} />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p className="text-p-body font-semibold">Kaunsi goti chalaoge?</p>
+                  {choices.map((i) => (
+                    <PaperButton key={i} tone="turmeric" size="lg" className="w-full !justify-start !gap-3 !px-3 text-left" onClick={() => send("move", i)}>
+                      <span
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-ink font-display text-p-lead font-extrabold shadow-[1.5px_1.5px_0_0_var(--ink)]"
+                        style={{ background: INK_OF[seat!.color], color: ON_INK[seat!.color] }}
+                        aria-hidden
+                      >
+                        {i + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 leading-tight">
+                        <span className="block">Goti {i + 1}</span>
+                        <span className="block text-p-note font-semibold opacity-80">
+                          {myTokens[i] === YARD ? "Yard se bahar nikalo" : `${placeLabel(myTokens[i])} → ${placeLabel(landing(myTokens[i], view.dice ?? 0))}`}
+                        </span>
+                      </span>
+                    </PaperButton>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+  );
+
   return (
     <MotionConfig reducedMotion="user">
       <InkDefs />
@@ -545,6 +588,8 @@ export function Phone({ view, me, players, send, now, isHost, hostAct }: PhonePr
         {seat && myPlace >= 0 && view.phase !== "over" && (
           <p className="cut rounded-cut bg-leaf px-3 py-2 text-p-body font-bold text-paper">Shabash! Aap #{myPlace + 1} pe finish — baaki ko cheer karo.</p>
         )}
+
+        {myTurn && view.phase === "move" && moveSection}
 
         <div className="cut overflow-hidden rounded-soft bg-paper p-1.5">
           <PaperBoard view={view} players={players} meId={me.id} pickable={pickable} onPick={(i) => send("move", i)} now={now} />
@@ -570,42 +615,8 @@ export function Phone({ view, me, players, send, now, isHost, hostAct }: PhonePr
           </AnimatePresence>
         </div>
 
-        {/* Your move */}
-        {myTurn && (
-          <section aria-label="Aapki chaal" className="cut rounded-soft bg-paper p-3">
-            {view.phase === "roll" ? (
-              <div className="flex items-center gap-4">
-                <button type="button" onClick={() => send("roll")} aria-label="Dice ghumao" className="press rounded-soft">
-                  <PaperDice value={view.dice} rollId={view.rollId} />
-                </button>
-                <div className="min-w-0 flex-1">
-                  <PaperButton size="lg" className="w-full" onClick={() => send("roll")}>
-                    <Dices className="h-5 w-5" strokeWidth={2.4} /> Dice ghumao
-                  </PaperButton>
-                  <p className="mt-1.5 text-p-note text-muted">6 aaye to goti bahar nikalti hai.</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-start gap-3">
-                <PaperDice value={view.dice} rollId={view.rollId} size={64} />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <p className="text-p-body font-semibold">Board pe goti tap karo, ya yahan chuno:</p>
-                  {choices.map((i) => (
-                    <PaperButton key={i} tone="turmeric" className="w-full justify-between" onClick={() => send("move", i)}>
-                      <span className="flex items-center gap-2">
-                        <span className="h-5 w-5 shrink-0 rounded-full border-[1.5px] border-ink" style={{ background: INK_OF[seat!.color] }} />
-                        Goti {i + 1}
-                      </span>
-                      <span className="text-p-note font-semibold">
-                        {myTokens[i] === YARD ? "bahar nikalo" : `${placeLabel(myTokens[i])} → ${placeLabel(landing(myTokens[i], view.dice ?? 0))}`}
-                      </span>
-                    </PaperButton>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        )}
+        {/* Your move: roll here; choosing a piece sits above the board */}
+        {myTurn && view.phase === "roll" && moveSection}
 
         {/* Not your turn: the dice everyone is watching */}
         {!myTurn && view.phase !== "over" && (

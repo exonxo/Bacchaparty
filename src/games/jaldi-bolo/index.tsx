@@ -1,10 +1,10 @@
 "use client";
-import { Avatar } from "@/components/Avatar";
-import { Button, Countdown, NumberPicker, Panel, Scoreboard } from "@/components/ui";
-import { HOST_ID, type ControllerProps, type GameModule, type Player, type ScreenProps } from "@/lib/types";
+import { NumberPicker } from "@/components/ui";
+import { HOST_ID, type ControllerProps, type GameModule } from "@/lib/types";
 import { normalize, shuffle } from "@/lib/util";
 import { Phone } from "./PaperPhone";
-import { CATEGORIES, LETTERS, N, SHUFFLE_MS, startsWithLetter, type Options, type Phase, type Priv, type Pub } from "./shared";
+import { Screen } from "./TvScreen";
+import { LETTERS, N, SHUFFLE_MS, startsWithLetter, type Options, type Phase, type Priv, type Pub } from "./shared";
 
 interface State {
   options: Options;
@@ -49,120 +49,6 @@ function toReview(s: State): State {
   return { ...s, phase: "review", deadline: null };
 }
 
-/** Optional big screen (TV). Read-only when `spectator`. */
-function Screen({ view, players, act, now, spectator }: ScreenProps<Pub>) {
-  const people = view.participants.map((id) => players.find((p) => p.id === id)).filter((p): p is Player => !!p);
-  if (view.phase === "answering") {
-    return (
-      <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-        <Panel className="flex flex-col items-center gap-4 py-10 text-center">
-          <div className="text-xl font-bold text-muted">
-            Round {view.round} of {view.rounds} · Everything starts with…
-          </div>
-          <div key={view.letter} className="pop-in flex h-48 w-48 items-center justify-center rounded-[2.5rem] bg-saffron text-[8rem] font-extrabold text-bg">
-            {now < view.revealAt ? "?" : view.letter}
-          </div>
-          <Countdown deadline={view.deadline} now={now} big />
-          <div className="flex flex-wrap justify-center gap-2 text-lg">
-            {CATEGORIES.map((c) => (
-              <span key={c.id} className="rounded-full bg-white/10 px-3 py-1">
-                {c.emoji} {c.label}
-              </span>
-            ))}
-          </div>
-          <div className="flex flex-wrap justify-center gap-2">
-            {people.map((p) => (
-              <span key={p.id} className={`rounded-full px-3 py-1 font-semibold ${view.done.includes(p.id) ? "bg-green text-bg" : "bg-white/5 text-muted"}`}>
-                <Avatar id={p.avatar} /> {p.name} {view.done.includes(p.id) ? "✓" : "…"}
-              </span>
-            ))}
-          </div>
-          {!spectator && (
-            <Button tone="ghost" onClick={() => act("stop")}>
-              Stop the round now
-            </Button>
-          )}
-        </Panel>
-        <Scoreboard players={players} scores={view.scores} />
-      </div>
-    );
-  }
-  if (view.phase === "final") {
-    return (
-      <div className="mx-auto max-w-2xl space-y-6 text-center">
-        <div className="text-4xl font-extrabold">Final scores</div>
-        <Scoreboard players={players} scores={view.scores} big />
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="text-3xl font-extrabold">
-          Letter <span className="text-saffron">{view.letter}</span> · Round {view.round} of {view.rounds}
-        </div>
-        {!spectator && (
-          <div className="flex items-center gap-3">
-            <span className="text-muted">Tap an answer to strike it out if it doesn’t count.</span>
-            <Button size="lg" onClick={() => act("next")}>
-              {view.round >= view.rounds ? "Final scores ▶" : "Next letter ▶"}
-            </Button>
-          </div>
-        )}
-      </div>
-      <Panel className="overflow-x-auto p-3">
-        <table className="w-full border-separate border-spacing-1 text-lg">
-          <thead>
-            <tr className="text-left text-sm uppercase tracking-wider text-muted">
-              <th className="px-2">Player</th>
-              {CATEGORIES.map((c) => (
-                <th key={c.id} className="px-2">
-                  {c.emoji} {c.label}
-                </th>
-              ))}
-              <th className="px-2 text-right">Round</th>
-            </tr>
-          </thead>
-          <tbody>
-            {people.map((p) => {
-              const pts = view.points[p.id] ?? [];
-              return (
-                <tr key={p.id}>
-                  <td className="whitespace-nowrap px-2 font-bold">
-                    <Avatar id={p.avatar} /> {p.name}
-                  </td>
-                  {CATEGORIES.map((c, i) => {
-                    const ans = view.answers[p.id]?.[i] ?? "";
-                    const struck = view.struck.includes(`${p.id}:${i}`);
-                    const pt = pts[i] ?? 0;
-                    return (
-                      <td key={c.id}>
-                        <button
-                          disabled={!ans.trim() || spectator}
-                          onClick={() => act("strike", { playerId: p.id, cat: i })}
-                          className={`w-full rounded-xl px-2 py-1.5 text-left ${
-                            !ans.trim() ? "bg-white/5 text-muted" : struck ? "bg-red/20 text-red line-through" : pt === 10 ? "bg-green/40" : pt === 5 ? "bg-gold/40" : "bg-white/10 text-muted"
-                          }`}
-                        >
-                          <span className="font-semibold">{ans.trim() || "—"}</span>
-                          {ans.trim() && <span className="float-right text-sm font-bold">{pt}</span>}
-                        </button>
-                      </td>
-                    );
-                  })}
-                  <td className="px-2 text-right text-xl font-extrabold text-gold">+{pts.reduce((a, b) => a + b, 0)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        <div className="mt-2 px-2 text-sm text-muted">Green = unique (10) · Yellow = shared (5) · Grey = blank or wrong letter (0)</div>
-      </Panel>
-      <Scoreboard players={players} scores={view.scores} title="Total before this round" />
-    </div>
-  );
-}
-
 /** Phones that still render the old controller get the new phone view, without host buttons. */
 function Controller(props: ControllerProps<Pub, Priv>) {
   return <Phone {...props} isHost={false} hostAct={() => {}} together />;
@@ -180,6 +66,7 @@ function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Option
 const game: GameModule<State, Pub, Priv, Options> = {
   id: "jaldi-bolo",
   paper: true,
+  tvPaper: true,
   defaultOptions: { seconds: 60, rounds: 5 },
   OptionsForm,
   init({ players, options, now }) {

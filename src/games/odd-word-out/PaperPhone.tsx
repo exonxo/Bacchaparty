@@ -14,7 +14,7 @@ import { nameOf, revealLine, type Priv, type Pub } from "./index";
 const HINT_KEY = "bacchaparty-oddword-peeked";
 const INK = "#1e1a17";
 /** The game's paper: a mint card sleeve. */
-const SLEEVE = "#9adbc0";
+export const SLEEVE = "#9adbc0";
 const SLEEVE_BACK = "#7cc4a6";
 
 function fmt(secs: number) {
@@ -348,7 +348,7 @@ function RevealScreen({ view, players, me, isHost, hostAct, onScores }: { view: 
     return Object.fromEntries(first.map((id, i) => [id, staggerDelay(i, 0.6)]));
   }, [view.participants, view.scores, gains]);
 
-  const verdict = !reveal.caught ? "Bhaag gaya!" : reveal.guessCorrect ? "Chura liya!" : "Pakda gaya!";
+  const verdict = !reveal.caught ? "Bach nikle!" : reveal.guessCorrect ? "Chura liya!" : "Pakde gaye!";
   const votes = Object.entries(reveal.votes);
 
   return (
@@ -381,7 +381,7 @@ function RevealScreen({ view, players, me, isHost, hostAct, onScores }: { view: 
         <p className="text-p-lead font-semibold text-balance">{revealLine(reveal, players)}</p>
         {played && (
           <p className={`mt-1 text-p-body font-bold ${won ? "text-leaf" : "text-muted"}`}>
-            {won ? `Shabash! Round aapka · +${gains[me.id] ?? 0}` : wasImposter ? "Pakde gaye! Agli baar." : "Is baar Imposter jeet gaya."}
+            {won ? `Shabash! Round aapka · +${gains[me.id] ?? 0}` : wasImposter ? "Pakde gaye! Agli baar." : "Is baar Imposter jeet gaye."}
           </p>
         )}
       </motion.div>
@@ -674,12 +674,12 @@ export function Phone({ view, priv, me, players, send, now, isHost, hostAct }: P
           </motion.span>
           <div className="mt-4">
             <VerdictSlip tone="vermilion" seed={view.round * 3 + 2} tilt={3}>
-              Pakda gaya!
+              Pakde gaye!
             </VerdictSlip>
           </div>
           <h2 className="mt-4 font-display text-p-title font-extrabold text-balance">{accused?.id === me.id ? "Aap" : (accused?.name ?? "Imposter")} hi Imposter hai!</h2>
           <div className="mt-3">
-            <WaitingDots>Imposter soch raha hai…</WaitingDots>
+            <WaitingDots>Imposter soch rahe hain…</WaitingDots>
           </div>
           <p className="mt-2 max-w-xs text-p-body text-muted">Agar unhone sabka shabd sahi bataya, toh round unka.</p>
         </div>
