@@ -1,8 +1,7 @@
 "use client";
-import { Check, DoorClosed, Home, Info, MapPin, MonitorSmartphone, Play, QrCode, Share2, Tv, Users, X } from "lucide-react";
+import { Check, DoorClosed, Home, Info, MonitorSmartphone, Play, QrCode, Share2, Tv, X } from "lucide-react";
 import QRCode from "qrcode";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DarePromptCard, WhatNextCard } from "@/components/suggest/HostSuggestCards";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PartyEnded } from "@/components/PartyEnded";
 import { GameIcon } from "@/components/GameIcon";
 import { GameStage } from "@/components/GameStage";
@@ -128,7 +127,7 @@ function HostRoom({
 }) {
   const [me, setMe] = useState(initialMe);
   const [testMode, setTestMode] = useTestMode();
-  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, endParty, removePlayer, setTogether, takeOver, act, sendAsMe } = useHostRoom(
+  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, endParty, removePlayer, takeOver, act, sendAsMe } = useHostRoom(
     code,
     me,
     ownerAuthId,
@@ -148,9 +147,6 @@ function HostRoom({
   const [toast, setToast] = useState<string | null>(null);
   const [optionsByGame, setOptionsByGame] = useState<Record<string, unknown>>({});
   const [startingGameId, setStartingGameId] = useState<string | null>(null);
-  const [gamesPlayed, setGamesPlayed] = useState<string[]>([]);
-  const prevPhase = useRef(state.phase);
-  const lastGameId = useRef<string | null>(null);
   const [endingParty, setEndingParty] = useState(false);
   const [takeoverBusy, setTakeoverBusy] = useState(false);
   const online = state.players.filter((p) => p.connected);
@@ -183,16 +179,6 @@ function HostRoom({
     if (!startingGameId) return;
     if (state.phase === "playing" && state.gameId === startingGameId) setStartingGameId(null);
   }, [state.phase, state.gameId, startingGameId]);
-
-  useEffect(() => {
-    if (state.phase === "playing" && state.gameId) lastGameId.current = state.gameId;
-    if (prevPhase.current === "playing" && state.phase === "lobby" && lastGameId.current) {
-      const ended = lastGameId.current;
-      setGamesPlayed((prev) => (prev.includes(ended) ? prev : [...prev, ended]));
-      lastGameId.current = null;
-    }
-    prevPhase.current = state.phase;
-  }, [state.phase, state.gameId]);
 
   const endPartyControls = (
     <button type="button" aria-label="End party for everyone" onClick={() => setSheet("endParty")} className={iconButtonClass} title="End party">
@@ -422,39 +408,6 @@ function HostRoom({
             </ul>
           </section>
 
-          <section>
-            <div role="radiogroup" aria-label="Where is everyone?" className="grid grid-cols-2 gap-0 rounded-cut border-[1.5px] border-ink p-1">
-              {[
-                { v: true, icon: Users, label: "Ek hi room mein" },
-                { v: false, icon: MapPin, label: "Alag alag jagah" },
-              ].map(({ v, icon: Icon, label }) => (
-                <button
-                  key={label}
-                  role="radio"
-                  aria-checked={state.together === v}
-                  onClick={() => setTogether(v)}
-                  className={`press flex min-h-11 items-center justify-center gap-2 rounded-[3px] text-p-body font-bold transition-colors duration-200 ${state.together === v ? "bg-ink text-bg" : "text-muted"}`}
-                >
-                  <Icon className="h-4 w-4" /> {label}
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 text-p-note text-muted">
-              {state.together
-                ? "Same room: shared sounds play only on your phone so it isn’t noisy."
-                : "Different places: everyone hears sounds on their own phone. For acting and singing games, start a video call too."}
-            </p>
-          </section>
-
-          <div className="space-y-4">
-            <WhatNextCard
-              roomCode={code}
-              playerCount={online.length}
-              gamesPlayed={gamesPlayed}
-              onPickGame={(id) => setSelected(id)}
-            />
-            <DarePromptCard roomCode={code} />
-          </div>
         </aside>
 
         <section className="mt-8 lg:mt-0">

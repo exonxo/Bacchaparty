@@ -230,7 +230,7 @@ export function Sheet({ open, onClose, children, title }: { open: boolean; onClo
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
-      <button aria-label="Close" className="fade-in absolute inset-0 bg-ink/45 backdrop-blur-sm" onClick={onClose} />
+      <button aria-label="Close" className="fade-in absolute left-0 top-0 h-full w-full bg-ink/45 backdrop-blur-sm" onClick={onClose} />
       <div className="rise-in relative max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-line bg-bg-2 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-3xl">
         <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-tint-2 sm:hidden" />
         <div className="mb-3 flex items-center justify-between gap-3">

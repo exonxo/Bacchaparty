@@ -1,5 +1,5 @@
 "use client";
-import { ArrowDown, Megaphone, Pointer } from "lucide-react";
+import { Megaphone, Pointer, RotateCw } from "lucide-react";
 import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefCallback } from "react";
 import { screenIn, spring } from "@/components/paper/motion";
@@ -167,14 +167,16 @@ function PlayTable({
       >
         0:{String(left).padStart(2, "0")}
       </div>
-      <motion.div
-        animate={{ rotate: view.direction === 1 ? 0 : 180 }}
-        transition={snapSpring}
-        className="absolute bottom-2 left-2 rounded-md border-[3px] border-ink bg-turmeric p-1.5 text-ink shadow-[3px_3px_0_0_var(--ink)]"
-        aria-label="Direction"
+      <div
+        className="absolute left-2 top-[4.25rem] z-20 flex items-center gap-1 rounded-full bg-ink/10 py-1 pl-1.5 pr-2.5 font-display text-[11px] font-extrabold uppercase tracking-wider text-ink/75"
+        role="img"
+        aria-label={view.direction === 1 ? "Chaal seedhi" : "Chaal ulti"}
       >
-        <ArrowDown className="h-4 w-4" strokeWidth={3} />
-      </motion.div>
+        <motion.span animate={{ scaleX: view.direction === 1 ? 1 : -1 }} transition={snapSpring} className="flex">
+          <RotateCw className="h-3.5 w-3.5" strokeWidth={3} />
+        </motion.span>
+        {view.direction === 1 ? "Seedha" : "Ulta"}
+      </div>
       <AnimatePresence mode="wait">
         {noteVisible && noteText && (
           <motion.div

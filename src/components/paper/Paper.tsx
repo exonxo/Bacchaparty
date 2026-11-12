@@ -146,6 +146,16 @@ export function PaperSheet({ open, onClose, title, children, footer }: { open: b
 
   useEffect(() => {
     if (!open) return;
+    const root = document.documentElement;
+    const prevOverflow = root.style.overflow;
+    root.style.overflow = "hidden";
+    return () => {
+      root.style.overflow = prevOverflow;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     restore.current = document.activeElement as HTMLElement | null;
     const t = setTimeout(() => panel.current?.focus(), 30);
     const onKey = (e: KeyboardEvent) => {
@@ -178,7 +188,9 @@ export function PaperSheet({ open, onClose, title, children, footer }: { open: b
           <motion.button
             aria-label="Close"
             tabIndex={-1}
-            className="absolute inset-0 bg-ink/45"
+            // Explicit size: Safari doesn't stretch an absolute <button> with inset-0. Extends past the bottom
+            // so the dim also covers the strip behind iOS Safari's floating toolbar.
+            className="absolute left-0 top-0 h-[calc(100%+50vh)] w-full bg-ink/45"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, transition: { duration: 0.2 } }}
             exit={{ opacity: 0, transition: { duration: dur.sheetClose, ease: ease.in } }}
@@ -205,6 +217,8 @@ export function PaperSheet({ open, onClose, title, children, footer }: { open: b
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">{children}</div>
             {footer && <div className="border-t-[1.5px] border-ink/15 bg-bg px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">{footer}</div>}
+            {/* Paper continues below the screen edge, so no page shows through under iOS Safari's floating toolbar. */}
+            <div aria-hidden className="pointer-events-none absolute -inset-x-[1.5px] top-full h-[50vh] border-x-[1.5px] border-ink bg-bg" />
           </motion.div>
         </div>
       )}
