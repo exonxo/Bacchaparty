@@ -41,6 +41,9 @@ export const ACTION_LABEL: Record<ActionKind | WildKind, string> = {
 /** Each turn gets this long before the game draws for you. */
 export const TURN_MS = 20_000;
 
+/** The opening shuffle-and-deal animation. Nobody can act until it's over, and the first turn's clock starts after it. */
+export const DEAL_MS = 3_600;
+
 export type Phase = "playing" | "over";
 
 export interface Seat {
@@ -97,6 +100,8 @@ export interface Pub {
   ekBacha: EkBachaState | null;
   /** Players who called Ek Bacha this round (public, for TV flair). */
   ekBachaSaid: string[];
+  /** When the cards were dealt (game clock); the deal animation runs for DEAL_MS from here. */
+  dealtAt: number;
 }
 
 export interface Priv {

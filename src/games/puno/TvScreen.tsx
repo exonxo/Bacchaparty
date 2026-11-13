@@ -1,15 +1,25 @@
 "use client";
 import { motion } from "motion/react";
+import { useEffect, useState } from "react";
+import { useSfx } from "@/lib/roomAudio";
 import { TvLabel, TvPodium, TvStage, tv, type TvRow } from "@/components/paper/tv-a";
 import { TvBoard } from "@/components/paper/tv-b";
 import type { Player, ScreenProps } from "@/lib/types";
 import { CardFace, DeckStack } from "./Cards";
+import { DealIntro } from "./DealIntro";
 import type { Pub } from "./shared";
+import { TURN_MS } from "./shared";
 
 const nameOf = (players: Player[], id: string) => players.find((p) => p.id === id)?.name ?? "Khiladi";
 
 export function TvScreen({ view, players, now }: ScreenProps<Pub>) {
   const note = view.note && now - view.note.at < 6000 ? view.note : null;
+  const sfx = useSfx();
+  const [dealing, setDealing] = useState<number | null>(null);
+  useEffect(() => {
+    if (view.phase === "playing" && view.dealtAt && now - view.dealtAt < 1200) setDealing(view.dealtAt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view.dealtAt]);
   if (view.phase === "over") {
     const rows: TvRow[] = view.ranking.flatMap((id, i) => {
       const p = players.find((x) => x.id === id);
@@ -74,7 +84,7 @@ export function TvScreen({ view, players, now }: ScreenProps<Pub>) {
             className={`inline-flex w-fit items-center gap-2 border-[4px] border-ink bg-paper px-[1.2vw] py-[0.5vh] font-display font-extrabold tabular-nums text-ink shadow-[5px_5px_0_0_var(--ink)] ${tv.lead}`}
             role="timer"
           >
-            <span>0:{String(Math.max(0, Math.ceil((view.deadline - now) / 1000))).padStart(2, "0")}</span>
+            <span>0:{String(Math.max(0, Math.min(TURN_MS / 1000, Math.ceil((view.deadline - now) / 1000)))).padStart(2, "0")}</span>
           </div>
           <TvBoard
             title="Cards bachi"
@@ -86,6 +96,9 @@ export function TvScreen({ view, players, now }: ScreenProps<Pub>) {
           />
         </aside>
       </div>
+      {dealing !== null && dealing === view.dealtAt && (
+        <DealIntro seatIds={view.seats.map((x) => x.playerId)} players={players} meId={null} big onSound={(name) => sfx.shared(name)} onDone={() => setDealing(null)} />
+      )}
     </TvStage>
   );
 }

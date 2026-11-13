@@ -9,7 +9,7 @@ import type {
   PunoValue,
   Seat,
 } from "./shared";
-import { TURN_MS } from "./shared";
+import { DEAL_MS, TURN_MS } from "./shared";
 
 const COLORS: PunoColor[] = ["haldi", "sindoor", "mehndi", "neel"];
 const ACTIONS: ActionKind[] = ["ruk-ja", "ulta", "do-le"];
@@ -34,6 +34,12 @@ export interface PunoState {
   ekBacha: EkBachaState | null;
   ekBachaSaid: string[];
   drawnThisTurn: boolean;
+  dealtAt?: number;
+}
+
+/** True while the opening deal is still being shown: moves are ignored until it's over. */
+function dealing(s: PunoState, now: number) {
+  return s.dealtAt !== undefined && now < s.dealtAt + DEAL_MS;
 }
 
 let cardSerial = 0;
@@ -341,7 +347,9 @@ export function newGame(playerIds: string[], now: number): PunoState {
     hands,
     phase: "playing",
     stackTotal: 0,
-    turnStartedAt: now,
+    // The first turn's clock starts once the deal animation is over.
+    turnStartedAt: now + DEAL_MS,
+    dealtAt: now,
     winner: null,
     ranking: [],
     note: null,
@@ -361,7 +369,7 @@ export function reducePlay(
   now: number,
   nameOf: (id: string) => string,
 ): PunoState {
-  if (s.phase !== "playing") return s;
+  if (s.phase !== "playing" || dealing(s, now)) return s;
   const hand = s.hands[playerId] ?? [];
   const card = hand.find((c) => c.id === cardId);
   if (!card) return s;
@@ -381,7 +389,7 @@ export function reduceJump(
   now: number,
   nameOf: (id: string) => string,
 ): PunoState {
-  if (s.phase !== "playing" || s.stackTotal > 0) return s;
+  if (s.phase !== "playing" || s.stackTotal > 0 || dealing(s, now)) return s;
   if (currentPlayer(s) === playerId) return s;
   const hand = s.hands[playerId] ?? [];
   const card = hand.find((c) => c.id === cardId);
@@ -391,7 +399,7 @@ export function reduceJump(
 }
 
 export function reduceDraw(s: PunoState, playerId: string, now: number, nameOf: (id: string) => string): PunoState {
-  if (s.phase !== "playing" || currentPlayer(s) !== playerId) return s;
+  if (s.phase !== "playing" || currentPlayer(s) !== playerId || dealing(s, now)) return s;
   if (s.drawnThisTurn && s.stackTotal === 0) return s;
   let next = closeEkBachaWindow(s);
   const n = next.stackTotal > 0 ? next.stackTotal : 1;
@@ -413,6 +421,7 @@ export function reducePass(s: PunoState, playerId: string, now: number): PunoSta
 }
 
 export function reduceEkBacha(s: PunoState, playerId: string, now: number, nameOf: (id: string) => string): PunoState {
+  if (dealing(s, now)) return s;
   const hand = s.hands[playerId] ?? [];
   if (hand.length > 2 && !s.ekBacha?.playerId) return s;
   if (s.ekBachaSaid.includes(playerId)) return s;

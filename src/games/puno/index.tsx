@@ -47,6 +47,7 @@ function toPub(s: PunoState): Pub {
     lastPlay: s.lastPlay,
     ekBacha: s.ekBacha,
     ekBachaSaid: s.ekBachaSaid,
+    dealtAt: s.dealtAt ?? 0,
   };
 }
 
