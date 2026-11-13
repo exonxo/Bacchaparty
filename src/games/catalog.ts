@@ -309,7 +309,7 @@ export const GAMES: GameInfo[] = [
   {
     id: "puno",
     quickTip: "Match colour or number — empty your hand first to win.",
-    inShort: ["Match the pile by colour or number.", "Action cards: Ruk Ja, Ulta, Do Le, Rang Badal, Chaar Le.", "Last card? Shout Ek Bacha! before anyone catches you."],
+    inShort: ["Match the pile by colour or number.", "Action cards: Ruk Ja, Ulta, Do Le, Rang Badal, Chaar Le — and Rishtedaar, which swaps your hand.", "Last card? Shout Ek Bacha! before anyone catches you."],
     name: "Puno",
     emoji: "🃏",
     tagline: "Toss cards on the pile — desi paper style.",
@@ -321,11 +321,11 @@ export const GAMES: GameInfo[] = [
     duration: "15–30 min",
     color: "#e2b33c",
     description:
-      "A fast shedding card game for the whole table. Everyone gets cards on their phone — only you see your hand. Match the top card by colour (Haldi, Sindoor, Mehndi, Neel) or number, play action cards, stack Do Le and Chaar Le, and jump in when you spot the same card as the pile.",
+      "A fast shedding card game for the whole table. Everyone gets cards on their phone — only you see your hand. Match the top card by colour (Haldi, Sindoor, Mehndi, Neel) or number, play action cards, stack Do Le and Chaar Le, swap hands with a Rishtedaar, and jump in when you spot the same card as the pile.",
     howToPlay: [
       "2–10 players each get 7 cards on their phone. The pile starts with one card — match its colour or number.",
       "On your turn, throw a matching card up, or tap the deck to draw one (you may play it if it fits). Can't play with a stack pending? Stack a penalty card or draw the whole stack.",
-      "Specials: Ruk Ja skips, Ulta reverses (with two players it skips), Do Le and Chaar Le make the next player draw — unless they stack.",
+      "Specials: Ruk Ja skips, Ulta reverses (with two players it skips), Do Le and Chaar Le make the next player draw — unless they stack. Rishtedaar: pick a colour and swap your whole hand with the player sitting opposite.",
       "Down to one card? Tap Ek Bacha! before the next person moves. Forgot? Someone can Pakdo! and you draw two.",
       "First to empty their hand wins. Everyone else is ranked by how many cards are left.",
     ],

@@ -34,6 +34,62 @@ const BACK_PATTERN: CSSProperties = {
     "repeating-linear-gradient(45deg, rgba(30,26,23,0.22) 0 2px, transparent 2px 10px), repeating-linear-gradient(-45deg, rgba(30,26,23,0.22) 0 2px, transparent 2px 10px)",
 };
 
+/* ---------------- Suit motifs: each colour has its own pattern, so cards read without colour too. ---------------- */
+
+/** Motif paths in a 20×20 box. Haldi = marigold, Sindoor = bindi, Mehndi = leaf, Neel = peacock-feather eye. */
+function motifSvg(color: PunoColor, fill: string, stroke: string, sw: number) {
+  if (color === "haldi") {
+    const petals = Array.from({ length: 8 }, (_, i) => {
+      const a = (i * Math.PI) / 4;
+      return `<circle cx='${(10 + Math.cos(a) * 5.4).toFixed(2)}' cy='${(10 + Math.sin(a) * 5.4).toFixed(2)}' r='3.3' fill='${fill}' stroke='${stroke}' stroke-width='${sw}'/>`;
+    }).join("");
+    return `${petals}<circle cx='10' cy='10' r='3.4' fill='${stroke}'/>`;
+  }
+  if (color === "sindoor") return `<circle cx='10' cy='10' r='8.2' fill='none' stroke='${stroke}' stroke-width='${sw}' stroke-dasharray='2 2.4'/><circle cx='10' cy='10' r='5' fill='${fill}' stroke='${stroke}' stroke-width='${sw}'/><circle cx='10' cy='10' r='1.6' fill='${stroke}'/>`;
+  if (color === "mehndi") return `<path d='M10 1.5 C17 5.5 17 14.5 10 18.5 C3 14.5 3 5.5 10 1.5 Z' fill='${fill}' stroke='${stroke}' stroke-width='${sw}'/><path d='M10 4 L10 17 M10 8 L13 6 M10 11 L7 9 M10 14 L13 12' stroke='${stroke}' stroke-width='${sw * 0.75}' fill='none' stroke-linecap='round'/>`;
+  return `<ellipse cx='10' cy='10' rx='7' ry='9' fill='${fill}' stroke='${stroke}' stroke-width='${sw}'/><ellipse cx='10' cy='11' rx='4.2' ry='5.6' fill='${stroke}' opacity='0.55'/><ellipse cx='10' cy='11.6' rx='2.2' ry='3' fill='${fill}' stroke='${stroke}' stroke-width='${sw * 0.7}'/>`;
+}
+
+/** Small suit mark for corners and the colour picker. */
+export function SuitMark({ color, px }: { color: PunoColor; px: number }) {
+  return (
+    <svg width={px} height={px} viewBox="0 0 20 20" aria-hidden className="shrink-0" dangerouslySetInnerHTML={{ __html: motifSvg(color, "#fffdf8", INK, 1.6) }} />
+  );
+}
+
+/** Faint repeating print of the suit motif across the card face. */
+const SUIT_PATTERN: Record<PunoColor, string> = (["haldi", "sindoor", "mehndi", "neel"] as PunoColor[]).reduce(
+  (acc, c) => {
+    const m = motifSvg(c, "none", "rgba(30,26,23,0.16)", 1.4);
+    const tile = `<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 44 44'><g transform='translate(1 1)'>${m}</g><g transform='translate(23 23)'>${m}</g></svg>`;
+    acc[c] = `url("data:image/svg+xml;utf8,${encodeURIComponent(tile)}")`;
+    return acc;
+  },
+  {} as Record<PunoColor, string>,
+);
+
+/** Paper grain for every card face. */
+const GRAIN = `url("data:image/svg+xml;utf8,${encodeURIComponent(
+  "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.12  0 0 0 0 0.1  0 0 0 0 0.09  0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>",
+)}")`;
+
+/** A soft fold line at an angle that's fixed per card, plus grain, so each card looks like handled card stock. */
+function PaperOverlay({ cardId }: { cardId: string }) {
+  const h = hashId(cardId);
+  const angle = 20 + (h % 140);
+  const at = 38 + (h % 25);
+  return (
+    <>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-[25] rounded-[14px]"
+        style={{ backgroundImage: `linear-gradient(${angle}deg, transparent ${at - 0.5}%, rgba(255,255,255,0.32) ${at}%, rgba(30,26,23,0.08) ${at + 0.45}%, transparent ${at + 1.2}%)` }}
+      />
+      <div aria-hidden className="pointer-events-none absolute inset-0 z-[25] rounded-[14px] mix-blend-multiply" style={{ backgroundImage: GRAIN, backgroundSize: "120px 120px", opacity: 0.07 }} />
+    </>
+  );
+}
+
 export const FAN_CARD = { w: 124, h: 176 };
 export const TABLE_CARD = { w: 92, h: 132 };
 
@@ -83,8 +139,6 @@ function SlashCircleIcon({ className = "" }: { className?: string }) {
   );
 }
 
-const ULTA_SKIP_R = 32;
-const ULTA_CENTER_TUBE = { ink: 18, cream: 12, arrow: 14 };
 const ULTA_CORNER_TUBE = { ink: 4.2, cream: 2.8, arrow: 3.6 };
 
 function ultaArcD(r: number) {
@@ -133,6 +187,15 @@ function UltaCornerIcon({ className = "" }: { className?: string }) {
   );
 }
 
+function SwapIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden fill="none" stroke={INK} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 8 H19 M15 4 L19 8 L15 12" />
+      <path d="M20 16 H5 M9 12 L5 16 L9 20" />
+    </svg>
+  );
+}
+
 function PlusTwoIcon({ className = "" }: { className?: string }) {
   return <span className={`font-display font-extrabold leading-none ${className}`}>+2</span>;
 }
@@ -173,14 +236,13 @@ function CornerColorWheel({ px }: { px: number }) {
   );
 }
 
-function faceBg(card: PunoCard, wildTint?: PunoColor | null): string | undefined {
-  if (card.color === "wild" && wildTint) return FILL[wildTint];
-  if (card.value === "rang-badal" || card.value === "chaar-le") return CREAM_CARD;
-  if (card.color === "wild") return wildTint ? FILL[wildTint] : "#fffdf8";
-  return FILL[card.color as PunoColor];
+function faceBg(card: PunoCard, wildTint?: PunoColor | null): CSSProperties {
+  const suit: PunoColor | null = card.color === "wild" ? wildTint ?? null : card.color;
+  if (!suit) return { backgroundColor: CREAM_CARD };
+  return { backgroundColor: FILL[suit], backgroundImage: SUIT_PATTERN[suit], backgroundSize: "44px 44px" };
 }
 
-export type ActionArtKind = "ruk-ja" | "ulta" | "do-le" | "chaar-le" | "rang-badal";
+export type ActionArtKind = "ruk-ja" | "ulta" | "do-le" | "chaar-le" | "rang-badal" | "rishtedaar";
 
 function artPx(size: CardSize) {
   return size === "tv" ? 118 : size === "fan" ? 86 : size === "pile" || size === "table" ? 68 : 58;
@@ -195,63 +257,119 @@ function SparkleGfx({ x, y, s = 4 }: { x: number; y: number; s?: number }) {
   );
 }
 
-function MiniCardGfx({ x, y, w, h, rot, fill, dark }: { x: number; y: number; w: number; h: number; rot: number; fill: string; dark?: boolean }) {
+/** A folded paper chit with a few lines of writing. */
+function ChitGfx({ x, y, rot }: { x: number; y: number; rot: number }) {
   return (
     <g transform={`translate(${x} ${y}) rotate(${rot})`}>
-      <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={3} fill={fill} stroke={INK} strokeWidth={2.2} />
-      <rect x={-w / 2 + 2} y={-h / 2 + 2} width={w - 4} height={h - 4} rx={2} fill="none" stroke="#fffdf8" strokeWidth={1.2} />
-      {dark && <rect x={-w / 2 + 4} y={-h / 2 + 6} width={w - 8} height={h - 12} rx={1} fill={INK} />}
+      <path d="M-15 -20 H8 L15 -13 V20 H-15 Z" fill={CREAM} stroke={INK} strokeWidth={3} strokeLinejoin="round" />
+      <path d="M8 -20 V-13 H15" fill="#e9dcc4" stroke={INK} strokeWidth={2.4} strokeLinejoin="round" />
+      <path d="M-9 -8 H6 M-9 -1 H9 M-9 6 H3 M-9 13 H7" stroke={INK} strokeWidth={2} strokeLinecap="round" opacity={0.7} />
     </g>
   );
 }
 
+/** Do Le: two chits being handed over. */
 function GfxDoLe() {
   return (
     <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
-      <g transform="translate(50 50)">
-        <MiniCardGfx x={-15} y={-2} w={26} h={36} rot={-14} fill={WILD_QUAD.sindoor} />
-        <MiniCardGfx x={15} y={2} w={26} h={36} rot={10} fill={WILD_QUAD.mehndi} />
-      </g>
+      <ChitGfx x={36} y={52} rot={-14} />
+      <ChitGfx x={62} y={48} rot={11} />
     </svg>
   );
 }
 
+/** One laddoo: a round sweet with a few boondi dots. */
+function LaddooGfx({ x, y }: { x: number; y: number }) {
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <circle r={11} fill="#e8a23a" stroke={INK} strokeWidth={3} />
+      <circle cx={-4} cy={-3} r={1.4} fill={INK} opacity={0.45} />
+      <circle cx={3} cy={-5} r={1.2} fill={INK} opacity={0.45} />
+      <circle cx={4} cy={3} r={1.4} fill={INK} opacity={0.45} />
+      <circle cx={-3} cy={5} r={1.2} fill={INK} opacity={0.45} />
+      <path d="M-6 -6 A8 8 0 0 1 2 -9" stroke="#fffdf8" strokeWidth={2} fill="none" strokeLinecap="round" opacity={0.8} />
+    </g>
+  );
+}
+
+/** Chaar Le: four laddoos on a thali. */
 function GfxChaarLe() {
   return (
     <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
-      <g transform="translate(50 50)">
-        <MiniCardGfx x={-30} y={2} w={22} h={32} rot={-22} fill={WILD_QUAD.neel} />
-        <MiniCardGfx x={-10} y={-2} w={22} h={32} rot={-6} fill={WILD_QUAD.haldi} />
-        <MiniCardGfx x={10} y={0} w={22} h={32} rot={8} fill={INK} dark />
-        <MiniCardGfx x={30} y={4} w={22} h={32} rot={22} fill={WILD_QUAD.sindoor} />
-      </g>
-      <SparkleGfx x={20} y={18} s={4} />
-      <SparkleGfx x={80} y={18} s={3.5} />
-      <SparkleGfx x={78} y={82} s={3} />
+      <ellipse cx={50} cy={74} rx={38} ry={10} fill="#d9c9a8" stroke={INK} strokeWidth={3} />
+      <ellipse cx={50} cy={72} rx={30} ry={6.5} fill={CREAM} stroke={INK} strokeWidth={2} />
+      <LaddooGfx x={32} y={63} />
+      <LaddooGfx x={50} y={65} />
+      <LaddooGfx x={68} y={63} />
+      <LaddooGfx x={50} y={45} />
+      <SparkleGfx x={18} y={22} s={4} />
+      <SparkleGfx x={82} y={20} s={3.5} />
     </svg>
   );
 }
 
+/** Ulta: an auto-rickshaw taking a U-turn. */
 function GfxUlta() {
   return (
     <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
-      <g transform="translate(50 50)">
-        <g transform="translate(0 1.85)">
-          <UltaR6Glyph r={ULTA_SKIP_R} {...ULTA_CENTER_TUBE} />
-        </g>
-      </g>
+      {/* U-turn arrow */}
+      <path d="M64 30 V20 A12 12 0 0 0 40 20 V27" fill="none" stroke={INK} strokeWidth={9} strokeLinecap="round" />
+      <path d="M64 30 V20 A12 12 0 0 0 40 20 V27" fill="none" stroke={CREAM} strokeWidth={4.5} strokeLinecap="round" />
+      <polygon points="31,26 49,26 40,37" fill={INK} />
+      {/* rickshaw */}
+      <path d="M16 74 V56 Q16 42 32 40 H64 Q80 41 84 58 L86 74 Z" fill={CREAM} stroke={INK} strokeWidth={3.5} strokeLinejoin="round" />
+      <path d="M16 54 Q16 42 32 40 H64 Q76 41 81 50 Z" fill={INK} />
+      <rect x={30} y={53} width={22} height={13} rx={2} fill="none" stroke={INK} strokeWidth={2.5} />
+      <circle cx={84} cy={63} r={3} fill="#eab53c" stroke={INK} strokeWidth={2} />
+      <circle cx={30} cy={77} r={9} fill={INK} />
+      <circle cx={30} cy={77} r={3.5} fill={CREAM} />
+      <circle cx={74} cy={77} r={9} fill={INK} />
+      <circle cx={74} cy={77} r={3.5} fill={CREAM} />
     </svg>
   );
 }
 
-/** S1 — bold cream circle + slash (Ruk Ja). */
+/** Ruk Ja: a raised palm. Drawn as an ink silhouette with the cream hand on top, so finger gaps stay as fine lines. */
 function GfxRukJa() {
+  const parts = (
+    <>
+      <rect x={30} y={46} width={40} height={36} rx={12} />
+      <rect x={30.5} y={20} width={9.5} height={36} rx={4.75} />
+      <rect x={40.5} y={13} width={9.5} height={42} rx={4.75} />
+      <rect x={50.5} y={16} width={9.5} height={39} rx={4.75} />
+      <rect x={60.5} y={25} width={9.5} height={30} rx={4.75} />
+      <rect x={21} y={52} width={11} height={28} rx={5.5} transform="rotate(-32 27 79)" />
+      <rect x={37} y={76} width={26} height={14} rx={3} />
+    </>
+  );
   return (
     <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
-      <g transform="translate(50 50)">
-        <circle cx={0} cy={0} r={32} fill={CREAM} stroke={INK} strokeWidth={4} />
-        <line x1={-22} y1={-22} x2={22} y2={22} stroke={INK} strokeWidth={7} strokeLinecap="square" />
-      </g>
+      <g fill={INK} stroke={INK} strokeWidth={7} strokeLinejoin="round">{parts}</g>
+      <g fill={CREAM}>{parts}</g>
+      <path d="M40 66 Q50 72 60 64" fill="none" stroke={INK} strokeWidth={2} strokeLinecap="round" opacity={0.55} />
+      <path d="M37 84 H63" stroke={INK} strokeWidth={2} opacity={0.4} />
+    </svg>
+  );
+}
+
+/** Rishtedaar: two relatives trading places. */
+function GfxRishtedaar() {
+  return (
+    <svg viewBox="0 0 100 100" aria-hidden className="block h-full w-full">
+      <path d="M38 22 Q50 12 62 22" fill="none" stroke={INK} strokeWidth={3.5} strokeLinecap="round" />
+      <polygon points="64,15 67,27 56,24" fill={INK} />
+      <path d="M62 84 Q50 94 38 84" fill="none" stroke={INK} strokeWidth={3.5} strokeLinecap="round" />
+      <polygon points="36,91 33,79 44,82" fill={INK} />
+      {/* left: in a sindoor kurta, with a bindi */}
+      <path d="M14 76 Q14 58 30 57 Q46 58 46 76 Z" fill={FILL.sindoor} stroke={INK} strokeWidth={3} strokeLinejoin="round" />
+      <circle cx={30} cy={44} r={10} fill={CREAM} stroke={INK} strokeWidth={3} />
+      <path d="M20 41 Q22 31 30 32 Q38 31 40 41 Q36 36 30 37 Q24 36 20 41 Z" fill={INK} />
+      <circle cx={30} cy={41.5} r={1.8} fill={FILL.sindoor} />
+      {/* right: in neel, with a haldi pagdi */}
+      <path d="M54 76 Q54 58 70 57 Q86 58 86 76 Z" fill={FILL.neel} stroke={INK} strokeWidth={3} strokeLinejoin="round" />
+      <circle cx={70} cy={45} r={10} fill={CREAM} stroke={INK} strokeWidth={3} />
+      <path d="M59 42 Q60 29 70 29 Q81 29 81 42 Q75 37 70 38 Q64 37 59 42 Z" fill={FILL.haldi} stroke={INK} strokeWidth={2.5} strokeLinejoin="round" />
+      <path d="M66 49 Q70 51.5 74 49" fill="none" stroke={INK} strokeWidth={2} strokeLinecap="round" />
     </svg>
   );
 }
@@ -288,6 +406,7 @@ export function ActionArt({ kind, size }: { kind: ActionArtKind; size: CardSize 
   if (kind === "chaar-le") return wrap(<GfxChaarLe />);
   if (kind === "ulta") return wrap(<GfxUlta />);
   if (kind === "ruk-ja") return wrap(<GfxRukJa />);
+  if (kind === "rishtedaar") return wrap(<GfxRishtedaar />);
   return wrap(<GfxRangBadal />);
 }
 
@@ -313,6 +432,7 @@ function actionKind(card: PunoCard): ActionArtKind {
   if (card.value === "ulta") return "ulta";
   if (card.value === "do-le") return "do-le";
   if (card.value === "rang-badal") return "rang-badal";
+  if (card.value === "rishtedaar") return "rishtedaar";
   return "chaar-le";
 }
 
@@ -320,13 +440,18 @@ function CornerSlot({ card, size, inverted }: { card: PunoCard; size: CardSize; 
   const d = DIM[size];
   const fg = INK;
   const spin = inverted ? "rotate-180" : "";
+  const suit = card.color === "wild" ? null : card.color;
+  const mark = suit ? <SuitMark color={suit} px={Math.max(11, d.cornerIcon)} /> : null;
   if (card.kind === "number") {
     return (
-      <span
-        className={`font-display font-extrabold leading-none tabular-nums ${d.corner} ${spin} ${card.value === 6 || card.value === 9 ? "underline decoration-[3px] underline-offset-2" : ""}`}
-        style={{ color: fg, display: "inline-block" }}
-      >
-        {card.value}
+      <span className={`flex flex-col items-center gap-1 ${spin}`}>
+        <span
+          className={`font-display font-extrabold leading-none tabular-nums ${d.corner} ${card.value === 6 || card.value === 9 ? "underline decoration-[3px] underline-offset-2" : ""}`}
+          style={{ color: fg, display: "inline-block" }}
+        >
+          {card.value}
+        </span>
+        {mark}
       </span>
     );
   }
@@ -339,8 +464,14 @@ function CornerSlot({ card, size, inverted }: { card: PunoCard; size: CardSize; 
   else if (card.value === "do-le") inner = <PlusTwoIcon className={textMini} />;
   else if (card.value === "rang-badal") inner = <CornerColorWheel px={Math.max(12, mini)} />;
   else if (card.value === "chaar-le") inner = <PlusFourIcon className={textMini} />;
+  else if (card.value === "rishtedaar") inner = <SwapIcon className={miniCls} />;
   else inner = <WildHatchMini size={mini} />;
-  return <span className={`inline-flex items-center justify-center ${spin}`}>{inner}</span>;
+  return (
+    <span className={`flex flex-col items-center gap-1 ${spin}`}>
+      <span className="inline-flex items-center justify-center">{inner}</span>
+      {mark}
+    </span>
+  );
 }
 
 function CenterArt({ card, size }: { card: PunoCard; size: CardSize }) {
@@ -375,7 +506,7 @@ export function CardFace({
 
   const shell = (
     <>
-      {dim && <div className="pointer-events-none absolute inset-0 z-30 rounded-[14px] bg-ink/[0.08] saturate-[0.72]" aria-hidden />}
+      {dim && <div className="pointer-events-none absolute inset-0 z-30 rounded-[14px] bg-[#fbf6ee]/50" aria-hidden />}
       <span className="absolute left-2.5 top-2.5 z-20 leading-none">
         <CornerSlot card={card} size={size} />
       </span>
@@ -402,8 +533,9 @@ export function CardFace({
   frameStyle.borderColor = INK;
 
   const inner = (
-    <div className="relative h-full w-full overflow-hidden rounded-[14px]" style={{ background: bg, ...faceRimStyle() }}>
+    <div className="relative h-full w-full overflow-hidden rounded-[14px]" style={{ ...bg, ...faceRimStyle() }}>
       {shell}
+      <PaperOverlay cardId={card.id} />
     </div>
   );
 
@@ -600,7 +732,12 @@ export function ColorSwatch({ color, label, onClick }: { color: PunoColor; label
       className={`font-display flex min-h-14 w-full items-center gap-3 border-[3px] border-ink bg-paper px-3 py-2 ${pressed ? "translate-x-px translate-y-px" : ""}`}
       style={shadowStyle(pressed ? 2 : 4)}
     >
-      <span className="inline-block h-10 w-10 shrink-0 border-[3px] border-ink" style={{ background: FILL[color as PunoColor] }} />
+      <span
+        className="inline-flex h-10 w-10 shrink-0 items-center justify-center border-[3px] border-ink"
+        style={{ backgroundColor: FILL[color], backgroundImage: SUIT_PATTERN[color], backgroundSize: "44px 44px" }}
+      >
+        <SuitMark color={color} px={22} />
+      </span>
       <span className="rounded-sm border-[3px] border-ink bg-ink px-2.5 py-1 text-sm font-extrabold uppercase text-paper">{label}</span>
     </button>
   );
