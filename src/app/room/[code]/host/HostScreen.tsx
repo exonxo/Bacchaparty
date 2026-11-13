@@ -1,5 +1,5 @@
 "use client";
-import { Check, DoorClosed, Home, Info, MonitorSmartphone, Play, QrCode, Share2, Tv, X } from "lucide-react";
+import { Check, ChevronDown, DoorClosed, Home, Info, MonitorSmartphone, Play, QrCode, Share2, Tv, X } from "lucide-react";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PartyEnded } from "@/components/PartyEnded";
@@ -479,8 +479,15 @@ function HostRoom({
                 <Tv className="mt-1 h-4 w-4 shrink-0" /> This game still has its old look{mod.Phone ? "" : " and is easier with a big screen"}. A new version is on the way.
               </p>
             )}
-            <details className="mt-4 border-y-[1.5px] border-line py-1">
-              <summary className="flex min-h-11 cursor-pointer items-center font-display text-p-lead font-extrabold">Kaise khelein</summary>
+            <details className="group mt-4 border-y-[1.5px] border-line py-1">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 font-display text-p-lead font-extrabold [&::-webkit-details-marker]:hidden">
+                <span>
+                  Kaise khelein <span className="font-sans text-p-note font-bold text-muted group-open:hidden">· {info.howToPlay.length} steps</span>
+                </span>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tint">
+                  <ChevronDown className="h-5 w-5 transition-transform duration-200 group-open:rotate-180" />
+                </span>
+              </summary>
               <ol className="list-decimal space-y-1.5 pb-2 pl-5 text-p-body">
                 {info.howToPlay.map((s, i) => (
                   <li key={i}>{s}</li>
