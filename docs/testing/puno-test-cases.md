@@ -89,3 +89,30 @@ Not covered yet: 2 (quick flick — covered by the same threshold code as 1), 3,
 - **Ek Bacha (F5):** the button shows on your turn at 2 cards and stays available at 1 card until you call it or get caught.
 - **Layout (F6, F7):** hand cards are 124×176 and spaced to fit the phone (7 cards fit at 390px); the fan is gentler so neighbouring cards don't cover each other's tap area; action buttons are 48px; text is at least 11px.
 - **Look (F8):** number cards show the number on a round cream badge; Rang Badal is a rangoli flower on cream; Chaar Le is on cream; the deck is turmeric paper with a printed lattice and a wax seal — no name on cards; colours are muted paper inks.
+
+## Round 2 (13 Nov 2026): drag to the pile, card art, Rishtedaar
+
+### New test cases
+28. **Drag to the pile** — on your turn, drag a playable card up: it lifts out of the hand and follows your finger; the pile shows a dashed outline. Over the pile it says "Yahan chhodo"; let go → the card is played.
+29. **Drop elsewhere** — drag a card up a little and let go away from the pile → it slides back into the hand, nothing is played.
+30. **Flick still plays** — a quick upward flick plays the card without reaching the pile.
+31. **Wild by drag** — drag a Rang Badal / Chaar Le / Rishtedaar onto the pile → the colour sheet opens; pick a colour → it's played, even after a slow drop.
+32. **Playable cards lift** — on your turn (or when you can jump in), playable cards sit higher and the rest fade; when it isn't your move, the hand is shown plain.
+33. **Suit patterns** — each colour carries its own pattern and corner mark (Haldi marigold, Sindoor bindi, Mehndi leaf, Neel peacock eye), so cards can be told apart without colour.
+34. **Action art** — Ruk Ja raised palm, Ulta rickshaw U-turn, Do Le two chits, Chaar Le four laddoos, Rishtedaar two relatives swapping.
+35. **Pile** — the last 8 cards lie scattered and peek out; a new card slaps down with a thud and a puff of dust (no slap or dust with reduced motion).
+36. **Rishtedaar rules** — play it on anything (not on a +2/+4 stack), pick a colour, and your hand swaps with the player sitting opposite (the other player in a 2-player game). Both players' Ek Bacha calls reset. Playing it as your last card wins without a swap.
+37. **Rishtedaar notice** — both swapped players get a message and a buzz; the table note and the TV say who swapped with whom.
+
+### Results
+| Case | 390×844 | 360×740 |
+|---|---|---|
+| 28 Drag onto the pile plays it, "Yahan chhodo" shows | Pass | Pass |
+| 29 Short drag away from the pile returns the card | Pass | Pass |
+| 32 Playable cards sit higher than unplayable | Pass | Pass |
+| 4 Sideways swipe still scrolls, plays nothing | Pass | Pass |
+| 36 Rishtedaar rules (2, 3, 4, 5 players; last card; stack) | Pass (script, 38 checks) | — |
+| 37 Swap shown on table and TV | Pass (seen in a bot game) | — |
+| Whole-app sweep (overflow, text size, tap targets, popups, script errors) | Pass | — |
+
+Not covered yet: 30 on its own, 31 by touch (the code path is shared with tap → Phenko → colour, which passes), 35 with reduced motion, real iOS/Android devices.

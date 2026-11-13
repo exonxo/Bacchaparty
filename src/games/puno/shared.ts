@@ -4,7 +4,9 @@ export type PunoColor = "haldi" | "sindoor" | "mehndi" | "neel";
 
 export type ActionKind = "ruk-ja" | "ulta" | "do-le";
 
-export type PunoValue = number | ActionKind | "rang-badal" | "chaar-le";
+export type WildKind = "rang-badal" | "chaar-le" | "rishtedaar";
+
+export type PunoValue = number | ActionKind | WildKind;
 
 export interface PunoCard {
   id: string;
@@ -27,12 +29,13 @@ export const COLOR_INK: Record<PunoColor, string> = {
   neel: "#1d4ed8",
 };
 
-export const ACTION_LABEL: Record<ActionKind | "rang-badal" | "chaar-le", string> = {
+export const ACTION_LABEL: Record<ActionKind | WildKind, string> = {
   "ruk-ja": "Ruk Ja",
   ulta: "Ulta",
   "do-le": "Do Le",
   "rang-badal": "Rang Badal",
   "chaar-le": "Chaar Le",
+  rishtedaar: "Rishtedaar",
 };
 
 /** Each turn gets this long before the game draws for you. */
@@ -59,10 +62,12 @@ export interface PlayMoment {
   wildColor: PunoColor | null;
   at: number;
   jump?: boolean;
+  /** Rishtedaar: the player whose hand was swapped with the player who played it. */
+  swapWith?: string;
 }
 
 export interface PunoNote {
-  kind: "play" | "draw" | "stack" | "ek-bacha" | "pakdo" | "win" | "jump" | "timeout";
+  kind: "play" | "draw" | "stack" | "ek-bacha" | "pakdo" | "win" | "jump" | "timeout" | "swap";
   text: string;
   at: number;
   playerId: string;

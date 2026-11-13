@@ -1,6 +1,6 @@
 "use client";
 import { Megaphone, Pointer, RotateCw } from "lucide-react";
-import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useReducedMotion, useTransform } from "motion/react";
+import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefCallback } from "react";
 import { screenIn, spring } from "@/components/paper/motion";
 import { InkDefs } from "@/components/paper/objects";
@@ -19,7 +19,6 @@ import {
   MiniCardBack,
   NeoButton,
   TAG_CAPS,
-  radialPose,
   fanMessyOffset,
   seedDecorativePile,
 } from "./Cards";
@@ -46,51 +45,115 @@ function Sparkle({ className }: { className?: string }) {
   );
 }
 
+function hashStr(id: string) {
+  let h = 7;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+/** Where a card that's already on the pile lies: tilted and nudged, so the last few played peek out. */
+function scatterPose(id: string) {
+  const h = hashStr(id);
+  const side = h % 2 === 0 ? 1 : -1;
+  return { rotate: side * (10 + (h % 17)), x: side * (12 + ((h >> 6) % 16)), y: ((h >> 11) % 25) - 12 };
+}
+
+function topTilt(id: string) {
+  return (hashStr(id) % 13) - 6;
+}
+
+export type DropState = "none" | "ready" | "hot";
+
+/** Puffs of dust when a card is slapped down. */
+function Dust() {
+  return (
+    <>
+      {Array.from({ length: 7 }, (_, i) => {
+        const a = (i / 7) * Math.PI * 2 + 0.4;
+        return (
+          <motion.span
+            key={i}
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 z-[29] h-3 w-3 rounded-full bg-[#d8c7a6]"
+            initial={{ x: Math.cos(a) * 40 - 6, y: Math.sin(a) * 52 - 6, scale: 0.5, opacity: 0.85 }}
+            animate={{ x: Math.cos(a) * 74 - 6, y: Math.sin(a) * 84 - 6, scale: 1.5, opacity: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          />
+        );
+      })}
+    </>
+  );
+}
+
 function DiscardSpread({
   top,
   under,
   wildColor,
   pulse,
   pileRef,
+  drop,
+  slapKey,
 }: {
   top: PunoCard;
   under: PunoCard[];
   wildColor: PunoColor | null;
   pulse?: boolean;
   pileRef: RefCallback<HTMLDivElement>;
+  drop: DropState;
+  slapKey: string | null;
 }) {
   const layers = useMemo(() => {
     const merged = under.length >= 5 ? under : [...seedDecorativePile(top), ...under];
-    return merged.slice(-10);
+    return merged.slice(-8);
   }, [top, under]);
   const reduce = useReducedMotion();
+  const slap = !reduce && slapKey === top.id;
+  const tilt = topTilt(top.id);
   return (
     <motion.div
       ref={pileRef}
-      className="relative h-[138px] w-[148px] select-none [-webkit-tap-highlight-color:transparent]"
+      className="relative h-[150px] w-[160px] select-none [-webkit-tap-highlight-color:transparent]"
       aria-label="Discard pile"
-      animate={pulse && !reduce ? { scale: [1, 1.05, 0.98, 1] } : undefined}
-      transition={{ duration: 0.38 }}
+      animate={pulse && !reduce ? { scale: [1, 1.05, 0.98, 1] } : { scale: drop === "hot" ? 1.06 : 1 }}
+      transition={{ duration: 0.3 }}
     >
+      {drop !== "none" && (
+        <div
+          aria-hidden
+          className={`absolute -inset-3 z-0 rounded-[26px] border-[3px] border-dashed ${drop === "hot" ? "border-ink bg-turmeric/45" : "border-ink/45 bg-turmeric/15"}`}
+        />
+      )}
       {layers.map((c, i) => {
-        const pose = radialPose(c.id, i, layers.length + 1);
+        const pose = scatterPose(c.id);
         return (
           <motion.div
             key={c.id}
             layout={false}
             className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
             initial={false}
-            animate={{ x: pose.x, y: pose.y, rotate: pose.rotate, scale: pose.scale }}
+            animate={{ x: pose.x, y: pose.y, rotate: pose.rotate, scale: 0.94 }}
             transition={pileSpring}
-            style={{ zIndex: pose.zIndex }}
+            style={{ zIndex: i + 1 }}
           >
-            <CardFace card={c} wildTint={wildColor} size="pile" />
+            <CardFace card={c} wildTint={c.color === "wild" ? null : wildColor} size="pile" />
           </motion.div>
         );
       })}
-      <div className="absolute left-1/2 top-1/2 z-[30] -translate-x-1/2 -translate-y-1/2">
+      <motion.div
+        key={top.id}
+        className="absolute left-1/2 top-1/2 z-[30] -ml-[46px] -mt-[66px]"
+        initial={slap ? { scale: 1.22, rotate: tilt - 10, y: -10 } : false}
+        animate={{ scale: 1, rotate: tilt, y: 0 }}
+        transition={slapSpring}
+      >
         <CardFace card={top} wildTint={wildColor} size="pile" />
-      </div>
+      </motion.div>
+      {slap && <Dust key={`dust-${top.id}`} />}
+      {drop === "hot" && (
+        <span className="absolute -top-9 left-1/2 z-40 -translate-x-1/2 whitespace-nowrap border-[2px] border-ink bg-paper px-2 py-0.5 font-display text-[11px] font-extrabold uppercase">
+          Yahan chhodo
+        </span>
+      )}
     </motion.div>
   );
 }
@@ -137,6 +200,8 @@ function PlayTable({
   wildPulse,
   deckRef,
   pileRef,
+  drop,
+  slapKey,
 }: {
   view: Pub;
   myTurn: boolean;
@@ -148,6 +213,8 @@ function PlayTable({
   wildPulse: boolean;
   deckRef: RefCallback<HTMLDivElement>;
   pileRef: RefCallback<HTMLDivElement>;
+  drop: DropState;
+  slapKey: string | null;
 }) {
   return (
     <div className="relative flex h-full min-h-0 flex-col justify-end overflow-visible px-2 pb-0 pt-1">
@@ -192,7 +259,7 @@ function PlayTable({
       </AnimatePresence>
       <div className="flex min-h-[7.5rem] flex-1 items-end justify-center gap-3 pb-0 pt-2">
         <DeckStack innerRef={deckRef} onClick={onDraw} />
-        <DiscardSpread top={view.top} under={view.discardUnder} wildColor={view.wildColor} pulse={wildPulse} pileRef={pileRef} />
+        <DiscardSpread top={view.top} under={view.discardUnder} wildColor={view.wildColor} pulse={wildPulse} pileRef={pileRef} drop={drop} slapKey={slapKey} />
       </div>
       {view.stackPending && view.stackTotal > 0 && <StackBadge total={view.stackTotal} />}
     </div>
@@ -293,9 +360,12 @@ function fanStep(n: number, width: number) {
   return Math.max(48, Math.min(FAN_CARD.w * 0.62, fit));
 }
 
+export type DragEnd = { x: number; y: number; vx: number; vy: number; dx: number; dy: number; cancelled?: boolean };
+
 /**
  * One card in your hand. Gestures:
- *  - swipe up (or a quick upward flick) on a playable card throws it on the pile
+ *  - drag a playable card upward: it lifts out of the hand and follows your finger; drop it on the pile
+ *    (or flick it upward) to play it
  *  - sideways movement is left to the browser, which scrolls the hand
  *  - tap lifts the card; tapping the lifted card again plays it
  *  - a card you can't play shakes and the reason is shown
@@ -303,10 +373,14 @@ function fanStep(n: number, width: number) {
 function HandCard({
   card,
   canPlay,
+  active,
   selected,
+  dragging,
   onTap,
   onReject,
-  onFling,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
   wildTint,
   rotate,
   marginLeft,
@@ -318,10 +392,15 @@ function HandCard({
 }: {
   card: PunoCard;
   canPlay: boolean;
+  /** It's your move (your turn, or you can jump in): playable cards lift, the rest fade. */
+  active: boolean;
   selected: boolean;
+  dragging: boolean;
   onTap: () => void;
   onReject: () => void;
-  onFling: (el: HTMLDivElement, vx: number, vy: number, offsetX: number, offsetY: number) => boolean;
+  onDragStart: (el: HTMLDivElement, x: number, y: number) => void;
+  onDragMove: (x: number, y: number) => void;
+  onDragEnd: (end: DragEnd) => void;
   wildTint?: PunoColor | null;
   rotate: number;
   marginLeft: number;
@@ -333,20 +412,18 @@ function HandCard({
 }) {
   const reduce = useReducedMotion();
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const dragRotate = useTransform(y, [-160, 0], [rotate - 6, rotate]);
   const gesture = useRef<{ id: number; x0: number; y0: number; mode: "idle" | "drag" | "pan"; samples: { x: number; y: number; t: number }[] } | null>(null);
 
-  const springBack = () => {
-    animate(x, 0, reduce ? { duration: 0.14 } : fanSpring);
-    animate(y, 0, reduce ? { duration: 0.14 } : fanSpring);
+  const velocity = (g: NonNullable<typeof gesture.current>) => {
+    const a = g.samples[0];
+    const b = g.samples[g.samples.length - 1];
+    const dt = Math.max(1, b.t - a.t);
+    return { vx: ((b.x - a.x) / dt) * 1000, vy: ((b.y - a.y) / dt) * 1000 };
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (hidden) return;
-    const t = performance.now();
-    gesture.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, mode: "idle", samples: [{ x: e.clientX, y: e.clientY, t }] };
+    gesture.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, mode: "idle", samples: [{ x: e.clientX, y: e.clientY, t: performance.now() }] };
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -367,15 +444,13 @@ function HandCard({
         try {
           e.currentTarget.setPointerCapture(e.pointerId);
         } catch {}
+        if (rootRef.current) onDragStart(rootRef.current, g.x0, g.y0);
       } else if (Math.abs(dx) > 10) {
         g.mode = "pan";
         return;
       }
     }
-    if (g.mode === "drag") {
-      x.set(dx * 0.3);
-      y.set(Math.min(14, dy));
-    }
+    if (g.mode === "drag") onDragMove(e.clientX, e.clientY);
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -385,16 +460,7 @@ function HandCard({
     const dx = e.clientX - g.x0;
     const dy = e.clientY - g.y0;
     if (g.mode === "drag") {
-      const a = g.samples[0];
-      const b = g.samples[g.samples.length - 1];
-      const dt = Math.max(1, b.t - a.t);
-      const vx = ((b.x - a.x) / dt) * 1000;
-      const vy = ((b.y - a.y) / dt) * 1000;
-      const flung = dy < -70 || (dy < -28 && vy < -500);
-      if (flung && rootRef.current && onFling(rootRef.current, vx, vy, dx, dy)) {
-        x.set(0);
-        y.set(0);
-      } else springBack();
+      onDragEnd({ x: e.clientX, y: e.clientY, dx, dy, ...velocity(g) });
       return;
     }
     if (g.mode === "idle" && Math.abs(dx) < 10 && Math.abs(dy) < 10) {
@@ -403,10 +469,13 @@ function HandCard({
     }
   };
 
-  const onPointerCancel = () => {
-    if (gesture.current?.mode === "drag") springBack();
+  const onPointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    const g = gesture.current;
     gesture.current = null;
+    if (g?.mode === "drag") onDragEnd({ x: e.clientX, y: e.clientY, dx: 0, dy: 0, vx: 0, vy: 0, cancelled: true });
   };
+
+  const rise = selected ? -26 : active && canPlay ? -14 : 0;
 
   return (
     <motion.div
@@ -434,23 +503,23 @@ function HandCard({
         marginLeft,
         marginTop: messyY,
         zIndex: selected ? 50 : undefined,
-        opacity: hidden ? 0 : 1,
-        // Sideways pans scroll the hand (browser); upward swipes come to us. No long-press menu.
+        opacity: hidden ? 0 : dragging ? 0.28 : 1,
+        // Sideways pans scroll the hand (browser); upward drags come to us. No long-press menu.
         touchAction: "pan-x",
         WebkitTouchCallout: "none",
         WebkitUserSelect: "none",
         userSelect: "none",
       }}
       className="shrink-0 rounded-[18px] outline-offset-4"
-      animate={{ y: selected ? -26 : 0, scale: selected ? 1.05 : 1 }}
-      transition={fanSpring}
+      animate={{ y: rise, scale: selected ? 1.05 : 1 }}
+      transition={reduce ? { duration: 0.12 } : fanSpring}
     >
       <motion.div
-        style={{ x, y, rotate: reduce ? rotate : dragRotate, transformOrigin: "50% 92%" }}
+        style={{ rotate, transformOrigin: "50% 92%" }}
         animate={shaking && !reduce ? { x: [0, -8, 8, -5, 5, 0] } : undefined}
         transition={{ duration: 0.36 }}
       >
-        <CardFace card={card} wildTint={wildTint} size="fan" dim={!canPlay} selected={selected} />
+        <CardFace card={card} wildTint={wildTint} size="fan" dim={active && !canPlay} selected={selected} />
       </motion.div>
     </motion.div>
   );
@@ -479,6 +548,13 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   const [hiddenCards, setHiddenCards] = useState<Set<string>>(() => new Set());
   const [wildPulse, setWildPulse] = useState(false);
   const [countPulse, setCountPulse] = useState<string | null>(null);
+  const [drag, setDrag] = useState<{ cardId: string; offX: number; offY: number; slotX: number; slotY: number } | null>(null);
+  const [pileHot, setPileHot] = useState(false);
+  const [slapKey, setSlapKey] = useState<string | null>(null);
+  const ghostX = useMotionValue(0);
+  const ghostY = useMotionValue(0);
+  const ghostEl = useRef<HTMLDivElement | null>(null);
+  const pileHotRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const deckEl = useRef<HTMLDivElement | null>(null);
   const pileEl = useRef<HTMLDivElement | null>(null);
@@ -526,6 +602,22 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
       vibrate([30, 40, 30]);
       sfx.mine("pop");
     }
+  });
+
+  // A new card on the pile: slap it down with a thud (yours on your phone; others' on the room's speaker).
+  useOnChange(view.top.id, (id) => {
+    setSlapKey(id);
+    if (view.lastPlay?.playerId === me.id) sfx.mine("thud");
+    else sfx.shared("thud");
+  });
+
+  // Rishtedaar: tell the two players whose hands just changed.
+  useOnChange(view.lastPlay?.id ?? 0, () => {
+    const lp = view.lastPlay;
+    if (!lp?.swapWith) return;
+    if (lp.playerId === me.id) setHint({ text: `Patte badle! Ab ${nameOf(players, lp.swapWith)} ke patte tere paas`, at: now });
+    else if (lp.swapWith === me.id) setHint({ text: `${nameOf(players, lp.playerId)} ne Rishtedaar khela — tere patte badal gaye!`, at: now });
+    if (lp.playerId === me.id || lp.swapWith === me.id) vibrate([40, 60, 40]);
   });
 
   useEffect(() => {
@@ -666,12 +758,16 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   const queueThrow = (card: PunoCard, mode: "play" | "jump", vx: number, vy: number, el: HTMLDivElement, wildColor?: PunoColor) => {
     const from = centerOf(el);
     const to = centerOf(pileEl.current);
-    if (!from || !to) return;
+    if (!from || !to) {
+      sendPlay(card.id, mode, wildColor);
+      return;
+    }
+    // A colour has been chosen, so the card always goes: use a firm upward toss whatever the gesture speed was.
     const req = throwFromPan(
       vx,
-      vy,
+      Math.min(vy, -800),
       0,
-      -72,
+      -100,
       from,
       to,
       fanAngle(hand.length, hand.findIndex((c) => c.id === card.id)),
@@ -679,7 +775,10 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
       wildColor ?? view.wildColor,
       () => sendPlay(card.id, mode, wildColor),
     );
-    if (!req) return;
+    if (!req) {
+      sendPlay(card.id, mode, wildColor);
+      return;
+    }
     setHiddenCards((s) => new Set(s).add(card.id));
     enqueue(req);
   };
@@ -711,6 +810,80 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
     setHiddenCards((st) => new Set(st).add(cardId));
     enqueue(req);
     return true;
+  };
+
+  const overPile = (x: number, y: number) => {
+    const r = pileEl.current?.getBoundingClientRect();
+    if (!r) return false;
+    const pad = 36;
+    return x > r.left - pad && x < r.right + pad && y > r.top - pad && y < r.bottom + pad;
+  };
+
+  const startDrag = (cardId: string, el: HTMLDivElement, x: number, y: number) => {
+    const r = el.getBoundingClientRect();
+    ghostX.set(r.left);
+    ghostY.set(r.top);
+    setPicked(null);
+    setDrag({ cardId, offX: x - r.left, offY: y - r.top, slotX: r.left, slotY: r.top });
+    vibrate(10);
+  };
+
+  const moveDrag = (x: number, y: number) => {
+    if (!drag) return;
+    ghostX.set(x - drag.offX);
+    ghostY.set(y - drag.offY);
+    // Test the card's centre as well as the finger, since the finger sits low on the card.
+    const cx = x - drag.offX + FAN_CARD.w / 2;
+    const cy = y - drag.offY + FAN_CARD.h / 2;
+    const hot = overPile(x, y) || overPile(cx, cy);
+    if (hot !== pileHotRef.current) {
+      pileHotRef.current = hot;
+      setPileHot(hot);
+      if (hot) vibrate(8);
+    }
+  };
+
+  const endDrag = (end: DragEnd) => {
+    const d = drag;
+    pileHotRef.current = false;
+    setPileHot(false);
+    if (!d) return;
+    const card = hand.find((c) => c.id === d.cardId);
+    const flung = end.dy < -70 || (end.dy < -28 && end.vy < -500);
+    const hot = overPile(end.x, end.y) || overPile(end.x - d.offX + FAN_CARD.w / 2, end.y - d.offY + FAN_CARD.h / 2);
+    if (!end.cancelled && card && (hot || flung)) {
+      const mode: "play" | "jump" = jumpable.has(card.id) && !myTurn ? "jump" : "play";
+      setDrag(null);
+      if (card.color === "wild") {
+        setWildPick({ cardId: card.id, mode, vx: end.vx, vy: end.vy });
+        return;
+      }
+      const from = centerOf(ghostEl.current);
+      const to = centerOf(pileEl.current);
+      if (!from || !to) {
+        sendPlay(card.id, mode, undefined);
+        return;
+      }
+      setHiddenCards((st) => new Set(st).add(card.id));
+      enqueue({
+        key: `throw-${card.id}-${Date.now()}`,
+        kind: "throw",
+        card,
+        wildTint: view.wildColor,
+        from,
+        to: { x: to.x + Math.max(-14, Math.min(14, end.vx * 0.01)), y: to.y },
+        startRotate: Math.max(-12, Math.min(12, end.vx * 0.02)),
+        vx: end.vx,
+        vy: Math.min(end.vy, -400),
+        size: "fan",
+        onComplete: () => sendPlay(card.id, mode, undefined),
+      });
+      return;
+    }
+    // Not dropped on the pile: the card slides back into the hand.
+    const back = { duration: reduce ? 0.1 : 0.22, ease: [0.3, 0.8, 0.4, 1] as const };
+    animate(ghostX, d.slotX, back);
+    animate(ghostY, d.slotY, back).then(() => setDrag((cur) => (cur?.cardId === d.cardId ? null : cur)));
   };
 
   /** A card that can't be played right now: shake it and say why. */
@@ -759,6 +932,8 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
             wildPulse={wildPulse}
             deckRef={deckRef}
             pileRef={pileRef}
+            drop={drag ? (pileHot ? "hot" : "ready") : "none"}
+            slapKey={slapKey}
           />
 
 
@@ -792,9 +967,9 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
                 {hint!.text}
               </p>
             )}
-            {!pickedCard && !canPass && !ekGlow && !catchTarget && !hintVisible && (myTurn || jumpReady) && (
+            {!drag && !pickedCard && !canPass && !ekGlow && !catchTarget && !hintVisible && (myTurn || jumpReady) && (
               <p className="w-full text-center font-display text-xs font-extrabold text-ink/70">
-                {myTurn ? "Patta upar swipe karo · ya tap karke Phenko · deck se lo" : "Same patta hai? Upar swipe karke jump karo!"}
+                {myTurn ? "Patta kheench ke dher pe chhodo · ya deck se lo" : "Same patta hai? Kheench ke dher pe daalo — jump!"}
               </p>
             )}
           </div>
@@ -823,6 +998,8 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
                     key={card.id}
                     card={card}
                     canPlay={can}
+                    active={myTurn || jumpReady}
+                    dragging={drag?.cardId === card.id}
                     selected={picked === card.id}
                     wildTint={view.wildColor}
                     rotate={rot}
@@ -837,10 +1014,9 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
                       else setPicked(card.id);
                     }}
                     onReject={() => rejectCard(card.id)}
-                    onFling={(el, vx, vy, ox, oy) => {
-                      setPicked(null);
-                      return playCard(card.id, el, vx, vy, ox, oy);
-                    }}
+                    onDragStart={(el, x, y) => startDrag(card.id, el, x, y)}
+                    onDragMove={moveDrag}
+                    onDragEnd={endDrag}
                   />
                 );
               })}
@@ -860,6 +1036,23 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
           setChipRef={setChipRef}
           countPulse={countPulse}
         />
+
+        {drag && (() => {
+          const card = hand.find((c) => c.id === drag.cardId);
+          if (!card) return null;
+          return (
+            <motion.div
+              ref={ghostEl}
+              aria-hidden
+              className="pointer-events-none fixed left-0 top-0 z-[90]"
+              style={{ x: ghostX, y: ghostY }}
+            >
+              <motion.div initial={{ scale: 1, rotate: 0 }} animate={{ scale: pileHot ? 0.9 : 1.08, rotate: pileHot ? 4 : -3 }} transition={snapSpring}>
+                <CardFace card={card} wildTint={view.wildColor} size="fan" selected />
+              </motion.div>
+            </motion.div>
+          );
+        })()}
 
         <CardFlightLayer queue={flights} pop={popFlight} />
 

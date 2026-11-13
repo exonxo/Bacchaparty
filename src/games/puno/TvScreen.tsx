@@ -29,21 +29,25 @@ export function TvScreen({ view, players, now }: ScreenProps<Pub>) {
       <div className="grid min-h-0 flex-1 gap-[2vh] lg:grid-cols-[1fr_22rem]">
         <div className="flex flex-col items-center justify-center gap-[3vh]">
           <div className="flex items-end gap-[4vw]">
-            <motion.div
-              animate={{ rotate: view.direction === 1 ? 0 : 180 }}
-              className={`rounded-md border-[5px] border-ink bg-turmeric px-[1.5vw] py-[1vh] font-display font-extrabold shadow-[8px_8px_0_0_var(--ink)] ${tv.lead}`}
+            <div
+              className={`flex items-center gap-[0.6vw] self-center rounded-full bg-ink/10 px-[1.2vw] py-[0.8vh] font-display font-extrabold uppercase tracking-wider text-ink/75 ${tv.lead}`}
+              role="img"
+              aria-label={view.direction === 1 ? "Chaal seedhi" : "Chaal ulti"}
             >
-              ↻
-            </motion.div>
+              <motion.span animate={{ scaleX: view.direction === 1 ? 1 : -1 }} className="inline-block">
+                ↻
+              </motion.span>
+              {view.direction === 1 ? "Seedha" : "Ulta"}
+            </div>
             <div className="relative">
               <CardFace card={view.top} wildTint={view.wildColor} size="tv" />
-              {view.lastPlay && now - view.lastPlay.at < 800 && (
+              {view.lastPlay && now - view.lastPlay.at < (view.lastPlay.swapWith ? 2500 : 800) && (
                 <motion.div
                   initial={{ scale: 0.5, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   className="absolute -right-[2vw] -top-[2vh] border-[4px] border-ink bg-leaf px-[1.2vw] py-[0.6vh] font-display text-lg font-extrabold uppercase text-paper shadow-[6px_6px_0_0_var(--ink)]"
                 >
-                  {view.lastPlay.jump ? "Jump!" : "Play!"}
+                  {view.lastPlay.swapWith ? "Badle!" : view.lastPlay.jump ? "Jump!" : "Play!"}
                 </motion.div>
               )}
             </div>

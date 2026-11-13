@@ -60,6 +60,8 @@ export function buildDeck(): PunoCard[] {
     out.push({ id: cid("wild", "wild", "rang-badal"), color: "wild", kind: "wild", value: "rang-badal" });
     out.push({ id: cid("wild", "wild", "chaar-le"), color: "wild", kind: "wild", value: "chaar-le" });
   }
+  // Puno's own card: play it, pick a colour, and swap hands with the player sitting opposite.
+  for (let i = 0; i < 2; i++) out.push({ id: cid("wild", "wild", "rishtedaar"), color: "wild", kind: "wild", value: "rishtedaar" });
   return out;
 }
 
@@ -132,6 +134,14 @@ export function reshuffleDiscard(s: PunoState): PunoState {
   return { ...s, deck: shuffle(rest), discard: [top] };
 }
 
+/** The player sitting opposite: halfway round the table (the only other player in a 2-player game). */
+export function oppositeOf(s: Pick<PunoState, "seats">, playerId: string): string | null {
+  const n = s.seats.length;
+  const i = s.seats.findIndex((x) => x.playerId === playerId);
+  if (i < 0 || n < 2) return null;
+  return s.seats[(i + Math.floor(n / 2)) % n]?.playerId ?? null;
+}
+
 function seatAt(s: PunoState, idx: number): Seat | undefined {
   return s.seats[idx];
 }
@@ -189,6 +199,10 @@ function applySpecials(s: PunoState, card: PunoCard, playerId: string, now: numb
     return next;
   }
   next = advanceTurn(next, now, 1);
+  const swapWith = next.lastPlay?.swapWith;
+  if (card.value === "rishtedaar" && swapWith) {
+    return { ...next, note: { kind: "swap", text: `${name} ne Rishtedaar — ${nameOf(swapWith)} se patte badle!`, at: now, playerId } };
+  }
   return { ...next, note: { kind: "play", text: `${name} ne card daala`, at: now, playerId } };
 }
 
@@ -227,6 +241,28 @@ function playOntoDiscard(
       note: { kind: "win", text: `${nameOf(playerId)} jeet gaye!`, at: now, playerId },
       ekBacha: null,
     };
+  }
+
+  if (card.value === "rishtedaar") {
+    const other = oppositeOf(s, playerId);
+    if (other) {
+      const theirs = next.hands[other] ?? [];
+      next = {
+        ...next,
+        hands: { ...next.hands, [playerId]: theirs, [other]: nextHand },
+        lastPlay: { ...moment, swapWith: other },
+        // Both hands changed, so both may call Ek Bacha afresh and nobody can be caught for the old hand.
+        ekBacha: null,
+        ekBachaSaid: next.ekBachaSaid.filter((id) => id !== playerId && id !== other),
+      };
+      const wasTurnR = currentPlayer(s) === playerId;
+      if (!wasTurnR && !jump) return next;
+      if (jump) {
+        const idx = next.seats.findIndex((x) => x.playerId === playerId);
+        if (idx >= 0) next = { ...next, turn: idx, turnStartedAt: now };
+      }
+      return resolveAfterPlay(next, card, playerId, now, nameOf, jump);
+    }
   }
 
   if (nextHand.length === 1 && !s.ekBachaSaid.includes(playerId)) {

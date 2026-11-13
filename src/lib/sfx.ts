@@ -2,7 +2,7 @@
 /**
  * Tiny synthesized sound effects (Web Audio) — no audio files to license or load.
  */
-export type Sfx = "tick" | "ding" | "buzz" | "fanfare" | "whoosh" | "pop" | "reveal" | "turn" | "rustle";
+export type Sfx = "tick" | "ding" | "buzz" | "fanfare" | "whoosh" | "pop" | "reveal" | "turn" | "rustle" | "thud";
 
 let ctx: AudioContext | null = null;
 const MUTE_KEY = "bacchaparty-muted";
@@ -111,6 +111,11 @@ export function playSfx(name: Sfx) {
       // Soft paper sound: two short, quiet bursts of filtered noise.
       noise(ac, t, 0.12, 0.035);
       noise(ac, t + 0.09, 0.16, 0.025);
+      break;
+    case "thud":
+      // A card slapped on the table: a low knock with a short papery burst.
+      tone(ac, 150, t, 0.12, "sine", 0.26, 70);
+      noise(ac, t, 0.07, 0.07);
       break;
   }
 }
