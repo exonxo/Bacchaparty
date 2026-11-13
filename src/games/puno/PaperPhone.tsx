@@ -741,7 +741,9 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   const noteVisible = !!(view.note && now - view.note.at < 3800);
   const noteText = view.note?.text;
 
-  const result = useMemo(() => (view.phase === "over" ? summarizeGame("puno", view, players, now) : null), [view, players, now]);
+  // Stamp the result with the winning play's time, not the ticking clock: a new id every tick re-fired the confetti.
+  const endedAt = view.phase === "over" ? (view.lastPlay?.at ?? view.turnStartedAt) : 0;
+  const result = useMemo(() => (view.phase === "over" ? summarizeGame("puno", view, players, endedAt) : null), [view, players, endedAt]);
 
   const sendPlay = (cardId: string, mode: "play" | "jump", wildColor?: PunoColor) => {
     send(mode, { cardId, wildColor });
@@ -911,7 +913,6 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
       <motion.div {...screenIn} className="space-y-4 p-3">
         <InkDefs />
         <ResultsCard result={result} />
-        <p className="text-center text-p-body text-muted">Host lobby mein agla game chun sakte hain.</p>
       </motion.div>
     );
   }

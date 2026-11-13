@@ -6,6 +6,8 @@ import type { GameResult } from "@/lib/results";
 import { Sticker } from "./paper/Paper";
 
 const DISMISS_KEY = "bacchaparty-result-seen";
+/** Results already celebrated on this page, so confetti fires once per result however often it re-renders. */
+const celebrated = new Set<string>();
 
 /**
  * "Khel khatam" scorecard for the game that just ended. Shown in the lobby until
@@ -19,7 +21,9 @@ export function ResultsCard({ result, big = false }: { result: GameResult | null
     } catch {}
   }, []);
   useEffect(() => {
-    if (result && hidden !== result.id) celebrate();
+    if (!result || hidden === result.id || celebrated.has(result.id)) return;
+    celebrated.add(result.id);
+    celebrate();
     // Celebrate once per result.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result?.id]);

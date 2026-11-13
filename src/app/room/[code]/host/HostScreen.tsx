@@ -11,6 +11,8 @@ import { BusyPaperButton, CassetteCue, GamesSkeleton, isMusicGameLoader, Shuffle
 import { PaperButton, PaperSheet, Sticker } from "@/components/paper/Paper";
 import { ProfileFields } from "@/components/ProfileForm";
 import { TestBanner } from "@/components/ProfileMenu";
+import { GameOverBar } from "@/components/GameOverBar";
+import { isGameOver } from "@/lib/gameOver";
 import { ResultsCard } from "@/components/ResultsCard";
 import { RoomShell, iconButtonClass } from "@/components/RoomShell";
 import { GAMES, getGameInfo } from "@/games/catalog";
@@ -98,12 +100,15 @@ export function HostScreen({
 
 const TEST_KEY = "bacchaparty-testmode";
 
-function useTestMode(): [boolean, (on: boolean) => void] {
+/** Test mode, saved on this device. `loaded` is false until the saved value has been read. */
+function useTestMode(): [boolean, (on: boolean) => void, boolean] {
   const [on, setOn] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     try {
       setOn(localStorage.getItem(TEST_KEY) === "1");
     } catch {}
+    setLoaded(true);
   }, []);
   const set = useCallback((next: boolean) => {
     setOn(next);
@@ -111,7 +116,7 @@ function useTestMode(): [boolean, (on: boolean) => void] {
       localStorage.setItem(TEST_KEY, next ? "1" : "0");
     } catch {}
   }, []);
-  return [on, set];
+  return [on, set, loaded];
 }
 
 function HostRoom({
@@ -126,12 +131,13 @@ function HostRoom({
   accountEmail: string | null;
 }) {
   const [me, setMe] = useState(initialMe);
-  const [testMode, setTestMode] = useTestMode();
-  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, endParty, removePlayer, takeOver, act, sendAsMe } = useHostRoom(
+  const [testMode, setTestMode, testModeLoaded] = useTestMode();
+  const { state, status, role, view, myPriv, clockOffset, startGame, endGame, endParty, removePlayer, takeOver, act, sendAsMe, voteRematch, finishGame } = useHostRoom(
     code,
     me,
     ownerAuthId,
-    testMode,
+    // Until the saved setting is read, don't tell the room test mode is off: that would remove the bots and end a running game.
+    testModeLoaded ? testMode : null,
   );
   const onIdentityChange = useCallback((next: Identity) => {
     saveIdentity(next);
@@ -309,6 +315,7 @@ function HostRoom({
           <TestBanner on={testMode} compact={playingMod?.id === "puno"} />
           <GameStage mod={playingMod} view={view} priv={myPriv} me={mePlayer} players={state.players} send={sendAsMe} now={now} isHost={true} hostAct={act} together={state.together} tvOn={!!state.tvOn} />
         </div>
+        {isGameOver(state.gameId, view) && <GameOverBar players={state.players} meId={me.id} votes={state.rematch ?? []} onRematch={voteRematch} onLobby={finishGame} />}
         {endGameSheet}
         {endPartySheet}
       </RoomShell>
