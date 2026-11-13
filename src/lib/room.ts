@@ -25,6 +25,8 @@ export interface RoomSnapshot {
   tvOn?: boolean;
   /** Scorecard of the last game that ended (lobby). */
   lastResult?: import("./results").GameResult | null;
+  /** Players who voted to play the finished game again. */
+  rematch?: string[];
 }
 
 /** Bumped whenever the messages below change shape. Devices on different versions can't play together. */
@@ -71,3 +73,6 @@ export interface ActionBody {
 
 /** Reserved action: the player leaves the room on purpose. */
 export const LEAVE_ACTION = "__leave";
+/** Room-level actions a phone sends once a game has ended: vote for a rematch (toggles), or end it now. */
+export const REMATCH_ACTION = "__rematch";
+export const FINISH_ACTION = "__finish";

@@ -7,6 +7,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getBrowserSupabase } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/env";
 import { GameStage } from "@/components/GameStage";
+import { GameOverBar } from "@/components/GameOverBar";
+import { isGameOver } from "@/lib/gameOver";
+import { FINISH_ACTION, REMATCH_ACTION } from "@/lib/room";
 import { ResultsCard } from "@/components/ResultsCard";
 import { paperButtonClass } from "@/components/paper/classes";
 import { BusyPaperButton } from "@/components/loaders";
@@ -168,6 +171,9 @@ export function PlayerScreen({ code }: { code: string }) {
               tvOn={!!room.tvOn}
             />
           </div>
+          {isGameOver(room.gameId, room.view) && (
+            <GameOverBar players={room.players} meId={me.id} votes={room.rematch ?? []} onRematch={() => send(REMATCH_ACTION)} onLobby={() => send(FINISH_ACTION)} />
+          )}
         </>
       )}
 

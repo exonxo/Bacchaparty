@@ -6,6 +6,8 @@ import { isSupabaseConfigured } from "./env";
 import { openRoom, type RoomTransport } from "./transport";
 import {
   LEAVE_ACTION,
+  REMATCH_ACTION,
+  FINISH_ACTION,
   PROTOCOL,
   type ActionBody,
   type ActionEnvelope,
@@ -19,6 +21,7 @@ import {
 import { deriveShared, generateExchangeKeys, generateSigningKeys, importSigner, open, seal, serialQueue, sign, type StoredKeyPair } from "./secure";
 import { HOST_ID, type GameAction, type Player } from "./types";
 import { summarizeGame, type GameResult } from "./results";
+import { isGameOver } from "./gameOver";
 import { BOTS, botActions, isBot } from "./testBots";
 import type { Identity } from "./usePlayerRoom";
 import { AVATARS, randomId } from "./util";
@@ -40,6 +43,10 @@ interface HostState {
   lastResult?: GameResult | null;
   /** A TV page is showing this room. */
   tvOn?: boolean;
+  /** Players who voted to play the finished game again. */
+  rematch?: string[];
+  /** Options the current game was started with, reused for a rematch. */
+  gameOptions?: unknown;
 }
 
 interface HostKeys {
@@ -148,8 +155,10 @@ async function registerKey(code: string, key: string) {
  * Runs a room on the host's device. The host is also a player (`me`), so the
  * host's phone can play while it runs the game.
  */
-export function useHostRoom(code: string, me: Identity | null, ownerAuthId: string | null = null, testMode = false) {
+export function useHostRoom(code: string, me: Identity | null, ownerAuthId: string | null = null, testMode: boolean | null = false) {
   const stateRef = useRef<HostState>(empty);
+  /** Rematch / finish handlers, read by the message listener set up before they're defined. */
+  const endRef = useRef<{ vote: (id: string) => void; finish: () => void }>({ vote: () => {}, finish: () => {} });
   const [state, setStateRaw] = useState<HostState>(empty);
   const [status, setStatus] = useState<"connecting" | "connected" | "error">("connecting");
   const [role, setRoleRaw] = useState<HostRole>("checking");
@@ -314,6 +323,7 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
             kicked: s.kicked,
             lastResult: s.lastResult ?? null,
             tvOn: !!s.tvOn,
+            rematch: s.rematch ?? [],
           };
           const d = JSON.stringify(snap);
           const msg: SignedRoom = { v: PROTOCOL, d, s: await sign(signer, d), k: keys.sign.publicKey };
@@ -515,6 +525,14 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
           commit({ ...cur, players: cur.players.filter((p) => p.id !== m.from) });
           return;
         }
+        if (body.type === REMATCH_ACTION) {
+          endRef.current.vote(m.from);
+          return;
+        }
+        if (body.type === FINISH_ACTION) {
+          endRef.current.finish();
+          return;
+        }
         applyAction({ playerId: m.from, type: body.type, payload: body.payload });
       }),
     );
@@ -582,6 +600,7 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
 
   // Test mode: add or remove the simulated players. Switching it off mid-game ends the game first.
   useEffect(() => {
+    if (testMode === null) return; // setting not read yet
     if (testMode) {
       for (const b of BOTS) upsertPlayer(b.id, b.name, b.avatar);
       return;
@@ -616,7 +635,7 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
       const players = s.players.filter((p) => p.connected);
       if (info && (players.length < info.minPlayers || players.length > info.maxPlayers)) return;
       const gameState = mod.init({ players, options: options ?? mod.defaultOptions, now: gameNow() });
-      commit({ ...s, phase: "playing", gameId, gameState, lastResult: null });
+      commit({ ...s, phase: "playing", gameId, gameState, lastResult: null, rematch: [], gameOptions: options ?? mod.defaultOptions });
     },
     [commit, gameNow],
   );
@@ -632,8 +651,51 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
         lastResult = null;
       }
     }
-    commit({ ...s, phase: "lobby", gameId: null, gameState: null, lastResult });
+    commit({ ...s, phase: "lobby", gameId: null, gameState: null, lastResult, rematch: [] });
   }, [commit]);
+
+  const finishedNow = () => {
+    const s = stateRef.current;
+    const mod = s.gameId ? getGameModule(s.gameId) : null;
+    return s.phase === "playing" && !!mod && !!s.gameState && isGameOver(s.gameId, mod.publicView(s.gameState));
+  };
+
+  /** Toggles a player's rematch vote; when every connected person has voted, the same game starts again. */
+  const voteRematch = useCallback(
+    (playerId: string) => {
+      if (roleRef.current !== "active" || !finishedNow()) return;
+      const s = stateRef.current;
+      const had = (s.rematch ?? []).includes(playerId);
+      const rematch = had ? (s.rematch ?? []).filter((id) => id !== playerId) : [...(s.rematch ?? []), playerId];
+      // Test-mode bots always agree.
+      const people = s.players.filter((p) => p.connected && !isBot(p.id));
+      if (!had && s.gameId && people.length > 0 && people.every((p) => rematch.includes(p.id))) {
+        startGame(s.gameId, s.gameOptions);
+        return;
+      }
+      commit({ ...s, rematch });
+    },
+     
+    [commit, startGame],
+  );
+
+  /** Ends a game that has already finished, without asking: anyone in the room may do this. */
+  const finishGame = useCallback(() => {
+    if (roleRef.current !== "active" || !finishedNow()) return;
+    endGame();
+     
+  }, [endGame]);
+
+  endRef.current = { vote: voteRematch, finish: finishGame };
+
+  // Someone who hadn't voted left: if everyone still here has voted, start the rematch.
+  useEffect(() => {
+    const s = stateRef.current;
+    if (roleRef.current !== "active" || !(s.rematch ?? []).length || !s.gameId || !finishedNow()) return;
+    const people = s.players.filter((p) => p.connected && !isBot(p.id));
+    if (people.length > 0 && people.every((p) => (s.rematch ?? []).includes(p.id))) startGame(s.gameId, s.gameOptions);
+     
+  }, [state.players, state.rematch, startGame]);
 
   const endParty = useCallback(() => {
     if (roleRef.current !== "active") return;
@@ -674,5 +736,9 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
   const view = playing ? mod.publicView(state.gameState) : null;
   const myPriv = playing && me && mod.privateView ? mod.privateView(state.gameState, me.id) : undefined;
 
-  return { state, status, role, view, myPriv, clockOffset: -state.pausedMs, startGame, endGame, endParty, removePlayer, setTogether, takeOver, act, sendAsMe };
+  const voteMine = useCallback(() => {
+    if (meRef.current) voteRematch(meRef.current.id);
+  }, [voteRematch]);
+
+  return { state, status, role, view, myPriv, clockOffset: -state.pausedMs, startGame, endGame, endParty, removePlayer, setTogether, takeOver, act, sendAsMe, voteRematch: voteMine, finishGame };
 }
