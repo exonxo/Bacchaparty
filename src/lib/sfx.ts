@@ -2,7 +2,7 @@
 /**
  * Tiny synthesized sound effects (Web Audio) — no audio files to license or load.
  */
-export type Sfx = "tick" | "ding" | "buzz" | "fanfare" | "whoosh" | "pop" | "reveal" | "turn" | "rustle" | "thud";
+export type Sfx = "tick" | "ding" | "buzz" | "fanfare" | "whoosh" | "pop" | "reveal" | "turn" | "rustle" | "thud" | "shuffle" | "deal";
 
 let ctx: AudioContext | null = null;
 const MUTE_KEY = "bacchaparty-muted";
@@ -72,10 +72,66 @@ function noise(ac: AudioContext, start: number, dur: number, gain = 0.12) {
   src.start(start);
 }
 
+/**
+ * Recorded sounds, played when the file is in /public. Until it is (or if it can't load),
+ * the synthesized version below plays instead.
+ */
+const FILES: Partial<Record<Sfx, string>> = {
+  shuffle: "/sfx/card-shuffle.mp3",
+  deal: "/sfx/card-deal.mp3",
+};
+const buffers = new Map<string, AudioBuffer | null>();
+const loading = new Map<string, Promise<AudioBuffer | null>>();
+
+function loadBuffer(ac: AudioContext, url: string): Promise<AudioBuffer | null> {
+  if (buffers.has(url)) return Promise.resolve(buffers.get(url) ?? null);
+  let p = loading.get(url);
+  if (!p) {
+    p = fetch(url)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then((b) => ac.decodeAudioData(b))
+      .catch(() => null)
+      .then((buf) => {
+        buffers.set(url, buf);
+        return buf;
+      });
+    loading.set(url, p);
+  }
+  return p;
+}
+
+/** Starts loading the recorded sounds so the first play isn't late. */
+export function preloadSfx(names: Sfx[]) {
+  const ac = audio();
+  if (!ac) return;
+  for (const n of names) {
+    const url = FILES[n];
+    if (url) void loadBuffer(ac, url);
+  }
+}
+
 export function playSfx(name: Sfx) {
   if (isMuted()) return;
   const ac = audio();
   if (!ac) return;
+  const url = FILES[name];
+  if (url) {
+    const cached = buffers.get(url);
+    if (cached) {
+      const src = ac.createBufferSource();
+      src.buffer = cached;
+      const g = ac.createGain();
+      g.gain.value = 0.9;
+      src.connect(g).connect(ac.destination);
+      src.start();
+      return;
+    }
+    if (!buffers.has(url)) void loadBuffer(ac, url); // not loaded yet: synth this time, file next time
+  }
+  synth(ac, name);
+}
+
+function synth(ac: AudioContext, name: Sfx) {
   const t = ac.currentTime + 0.01;
   switch (name) {
     case "tick":
@@ -111,6 +167,15 @@ export function playSfx(name: Sfx) {
       // Soft paper sound: two short, quiet bursts of filtered noise.
       noise(ac, t, 0.12, 0.035);
       noise(ac, t + 0.09, 0.16, 0.025);
+      break;
+    case "shuffle":
+      // Riffle: quick paper ticks that speed up, then the cards bridging together.
+      for (let i = 0; i < 24; i++) noise(ac, t + 0.75 * Math.sqrt(i / 24), 0.025, 0.05);
+      noise(ac, t + 0.8, 0.28, 0.04);
+      break;
+    case "deal":
+      noise(ac, t, 0.05, 0.05);
+      tone(ac, 900, t, 0.03, "triangle", 0.03, 500);
       break;
     case "thud":
       // A card slapped on the table: a low knock with a short papery burst.

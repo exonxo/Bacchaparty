@@ -22,9 +22,11 @@ import {
   fanMessyOffset,
   seedDecorativePile,
 } from "./Cards";
+import { DealIntro } from "./DealIntro";
 import { CardFlightLayer, centerOf, throwFromPan, type CardFlightRequest } from "./CardFlight";
 import { fanSpring, pileSpring, slapSpring, snapSpring } from "./springs";
 import type { Priv, Pub, PunoColor } from "./shared";
+import { TURN_MS } from "./shared";
 
 const nameOf = (players: Player[], id: string) => players.find((p) => p.id === id)?.name ?? "Khiladi";
 
@@ -566,7 +568,9 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
   const pendingSelfDraw = useRef(false);
   const reduce = useReducedMotion();
   const sfx = useSfx();
-  const left = Math.max(0, Math.ceil((view.deadline - now) / 1000));
+  // The first turn's deadline includes the deal, so cap the shown time at a full turn.
+  const left = Math.max(0, Math.min(TURN_MS / 1000, Math.ceil((view.deadline - now) / 1000)));
+  const [dealing, setDealing] = useState<number | null>(null);
   const turnName = nameOf(players, view.turnPlayerId);
   const step = fanStep(hand.length, handWidth);
 
@@ -596,6 +600,12 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
     const r = el.getBoundingClientRect();
     return { x: r.left + r.width * 0.45, y: r.bottom - 48 };
   }, []);
+
+  // A fresh deal (game start or rematch): play the shuffle-and-deal opening. Late joiners skip it.
+  useEffect(() => {
+    if (view.phase === "playing" && view.dealtAt && now - view.dealtAt < 1200) setDealing(view.dealtAt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view.dealtAt]);
 
   useOnChange(view.turnPlayerId, (id) => {
     if (id === me.id) {
@@ -1056,6 +1066,16 @@ export function Phone({ view, priv, me, players, send, now }: PhoneProps<Pub, Pr
         })()}
 
         <CardFlightLayer queue={flights} pop={popFlight} />
+
+        {dealing !== null && dealing === view.dealtAt && (
+          <DealIntro
+            seatIds={view.seats.map((x) => x.playerId)}
+            players={players}
+            meId={me.id}
+            onSound={(name) => sfx.shared(name)}
+            onDone={() => setDealing(null)}
+          />
+        )}
 
         <ColorPicker
           open={!!wildPick}

@@ -1,0 +1,2 @@
+Card sounds: "Casino Audio" by Kenney (www.kenney.nl), CC0 1.0.
+card-shuffle.mp3 = card-shuffle.ogg (first 1.65 s), card-deal.mp3 = card-slide-1.ogg (converted to mono MP3).
