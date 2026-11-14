@@ -326,6 +326,8 @@ function HostRoom({
   const mod = selected ? getGameModule(selected) : null;
   const look = selected ? gameLook(selected) : null;
   const options = selected ? (optionsByGame[selected] ?? mod?.defaultOptions) : undefined;
+  // Players in the room whose phone has dropped off (locked, backgrounded, or a weak connection).
+  const away = state.players.filter((p) => !p.connected && p.id !== me.id);
   const tooFew = info ? online.length < info.minPlayers : false;
   const tooMany = info ? online.length > info.maxPlayers : false;
   const ready = online.length >= 2;
@@ -458,7 +460,13 @@ function HostRoom({
               </BusyPaperButton>
               {(tooFew || tooMany || !mod) && (
                 <p className="mt-2 text-center text-p-note font-semibold text-vermilion">
-                  {!mod ? "Coming soon" : tooFew ? `Needs at least ${info.minPlayers} players` : `Max ${info.maxPlayers} players`}
+                  {!mod
+                    ? "Coming soon"
+                    : tooFew
+                      ? away.length
+                        ? `${online.length} online, ${away.map((p) => p.name).join(", ")} away — unka phone wapas kholne do (lock/background mein connection ruk jaata hai)`
+                        : `Needs at least ${info.minPlayers} players`
+                      : `Max ${info.maxPlayers} players`}
                 </p>
               )}
             </>
