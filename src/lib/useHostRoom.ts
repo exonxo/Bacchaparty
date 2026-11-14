@@ -244,6 +244,7 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
     const force = new Set<string>();
     const recentJoins: number[] = [];
     const joinedAt = new Map<string, number>();
+    const lastSeen = new Map<string, number>();
     const queue = serialQueue();
     let demo = false;
 
@@ -436,19 +437,27 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
       otherHost = presenceHostConflict(ids);
       presenceRounds++;
       if (roleRef.current === "checking" && presenceRounds >= 2) decide();
+      reconcile(ids);
+    });
+
+    /** Who counts as connected. A phone gets a grace period, so a brief drop (a screen flicker, a
+     *  moment in the background) doesn't pull it out of the game start or the turn order. */
+    const PRESENCE_GRACE_MS = 15_000;
+    const reconcile = (ids: string[]) => {
       if (roleRef.current !== "active") return;
       const tvOn = ids.some((id) => id.startsWith("tv-"));
       if (tvOn !== !!stateRef.current.tvOn) commit({ ...stateRef.current, tvOn });
       const s = stateRef.current;
-      const online = new Set(ids);
-      const hostId = meRef.current?.id;
       const nowMs = Date.now();
+      for (const id of ids) lastSeen.set(id, nowMs);
+      const hostId = meRef.current?.id;
       let changed = false;
       const back: Player[] = [];
       const players = s.players.map((p) => {
         // A phone that joined a moment ago may not have shown up in presence yet.
         const fresh = nowMs - (joinedAt.get(p.id) ?? 0) < 6000;
-        const c = p.id === hostId || isBot(p.id) || online.has(p.id) || (fresh && p.connected);
+        const seenRecently = nowMs - (lastSeen.get(p.id) ?? 0) < PRESENCE_GRACE_MS;
+        const c = p.id === hostId || isBot(p.id) || seenRecently || (fresh && p.connected);
         if (c === p.connected) return p;
         changed = true;
         const next = { ...p, connected: c };
@@ -461,7 +470,10 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
       const mod = s.gameId ? getGameModule(s.gameId) : null;
       if (s.phase === "playing" && mod?.onPlayerJoin) for (const p of back) gameState = mod.onPlayerJoin(gameState, p);
       commit({ ...s, players, gameState });
-    });
+    };
+
+    // Presence only reports changes, so re-check periodically to age out phones that went quiet.
+    const presenceTimer = setInterval(() => reconcile(latestPresence), 3000);
 
     const isSealed = (m: { iv?: unknown; ct?: unknown }, max: number) =>
       typeof m.iv === "string" && typeof m.ct === "string" && m.iv.length <= 32 && m.ct.length <= max;
@@ -589,6 +601,7 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
       offAction();
       offHost();
       clearInterval(tick);
+      clearInterval(presenceTimer);
       clearInterval(hb);
       clearInterval(keyCheck);
       document.removeEventListener("visibilitychange", onVisible);
