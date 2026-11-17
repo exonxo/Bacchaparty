@@ -6,7 +6,7 @@ import { gameLook, type TileShape } from "./gameLook";
 const INK = "#1e1a17";
 
 /** The small drawing that makes each tile its own object. Pure SVG, decorative. */
-function Motif({ shape, on }: { shape: TileShape; on: string }) {
+export function Motif({ shape, on }: { shape: TileShape; on: string }) {
   const line = { stroke: on, strokeWidth: 1.5, fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const soft = { ...line, opacity: 0.35 };
   switch (shape) {

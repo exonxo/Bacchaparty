@@ -67,7 +67,7 @@ function schemaFor(kind: SuggestKind): JsonSchema {
 function promptFor(kind: SuggestKind, context: Record<string, unknown>): string {
   switch (kind) {
     case "chor-kaun-topic":
-      return `You are helping an Indian family party game app (Bacchaparty). Create ONE new Chor Kaun topic pack for spotting the impostor.
+      return `You are helping an Indian family party game app (BAWAAL). Create ONE new Chor Kaun topic pack for spotting the impostor.
 Return JSON with: id (kebab-case English), label (short English title), emoji (single emoji), words (18-28 distinct short answers Indian families know — places, foods, names, etc.).
 Avoid duplicating these topic ids: ${JSON.stringify(context.excludeTopicIds ?? [])}.
 Keep words family-friendly, no politics, no explicit content.`;

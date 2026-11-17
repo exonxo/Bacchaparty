@@ -16,7 +16,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const g = getGameInfo(id);
-  return { title: g ? `${g.name} — Bacchaparty` : "Game — Bacchaparty", description: g?.tagline };
+  return { title: g ? `${g.name} — BAWAAL` : "Game — BAWAAL", description: g?.tagline };
 }
 
 export default async function GamePage({ params }: { params: Promise<{ id: string }> }) {
