@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Check, Gamepad2, Heart, MonitorSmartphone, PartyPopper, Smartphone, Tv, UserX, Users } from "lucide-react";
 import { BrandHeader } from "@/components/Header";
 import { Burst, Doodle, Splash, bwButtonClass } from "@/components/marketing/brand";
+import { BrandFooter } from "@/components/marketing/BrandFooter";
 import { RoomCodeJump } from "@/components/marketing/RoomCodeJump";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getUser } from "@/lib/supabase/server";
@@ -233,22 +234,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <footer className="bg-bw-ink px-4 py-10 text-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <Image src="/brand/bawaal-logo.webp" alt="BAWAAL" width={800} height={267} className="h-12 w-auto" />
-            <p className="mt-2 text-sm text-white/80">Desi party games for your family and friends.</p>
-          </div>
-          <nav className="flex flex-wrap gap-x-6 gap-y-2 font-bw-accent font-bold" aria-label="Footer">
-            <Link href="/games" className="inline-flex min-h-11 items-center underline decoration-bw-yellow decoration-2 underline-offset-4">All games</Link>
-            <Link href="/join" className="inline-flex min-h-11 items-center underline decoration-bw-yellow decoration-2 underline-offset-4">Join a party</Link>
-            <Link href="/privacy" className="inline-flex min-h-11 items-center underline decoration-bw-yellow decoration-2 underline-offset-4">Privacy Policy</Link>
-          </nav>
-        </div>
-        <p className="mx-auto mt-6 max-w-6xl text-xs text-white/60">
-          Illustrations: <a href="https://www.opendoodles.com" className="underline">Open Doodles</a> by Pablo Stanley (CC0), recoloured.
-        </p>
-      </footer>
+      <BrandFooter />
     </main>
   );
 }
