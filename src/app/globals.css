@@ -204,3 +204,6 @@ h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0
   mask: radial-gradient(circle 5px at 0 50%, transparent 98%, #000) 0 0 / 100% 18px, radial-gradient(circle 5px at 100% 50%, transparent 98%, #000) 0 0 / 100% 18px;
   mask-composite: intersect;
 }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

@@ -1,12 +1,12 @@
+import Image from "next/image";
 import Link from "next/link";
 
-/** Wordmark: the name on a slightly tilted paper label. */
-export function Logo({ className = "" }: { className?: string }) {
+/** Wordmark: the BAWAAL bubble-letter logo (transparent, so it sits on paper or the dark TV theme). */
+export function Logo({ className = "", size = "md" }: { className?: string; size?: "md" | "lg" }) {
+  const h = size === "lg" ? "h-14" : "h-10";
   return (
-    <Link href="/" className={`press inline-flex min-h-11 items-center self-start ${className}`} aria-label="Bacchaparty home">
-      <span className="cut font-display -rotate-2 rounded-cut bg-turmeric px-2.5 py-1 text-p-lead font-extrabold leading-none text-ink">
-        Baccha<span className="text-vermilion">party</span>
-      </span>
+    <Link href="/" className={`press inline-flex min-h-11 items-center self-start ${className}`} aria-label="BAWAAL home">
+      <Image src="/brand/bawaal-logo.webp" alt="BAWAAL" width={800} height={267} priority className={`${h} w-auto`} />
     </Link>
   );
 }

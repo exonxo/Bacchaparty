@@ -5,9 +5,17 @@ import "./globals.css";
 const paperDisplay = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"], weight: ["600", "700", "800"] });
 const paperBody = Mukta({ variable: "--font-mukta", subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
+const description =
+  "Desi party games for your family and friends. Put it on the big screen, join from your phones, and let the madness begin.";
+
 export const metadata: Metadata = {
-  title: "Bacchaparty — desi party games on your phone",
-  description: "Housie, Chor Kaun?, Dumb Charades and more. Play together in one room or across cities — everyone just uses their phone.",
+  metadataBase: new URL("https://playbawaal.vercel.app"),
+  title: "BAWAAL — Ghar mein sab hain? Toh BAWAAL karo!",
+  description,
+  applicationName: "BAWAAL",
+  appleWebApp: { title: "BAWAAL" },
+  openGraph: { type: "website", siteName: "BAWAAL", title: "BAWAAL — desi party games", description },
+  twitter: { card: "summary_large_image", title: "BAWAAL — desi party games", description },
 };
 
 export const viewport: Viewport = { themeColor: "#fbf6ee", width: "device-width", initialScale: 1, viewportFit: "cover" };
