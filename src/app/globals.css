@@ -285,3 +285,7 @@ html { scroll-behavior: smooth; }
 }
 .bw-wiggle { animation: bwWiggle 3.2s ease-in-out infinite; transform-origin: 50% 60%; }
 @keyframes bwWiggle { 0%,100% { transform: rotate(-3deg) } 50% { transform: rotate(2deg) translateY(-4px) } }
+/* Cards on the navy games section: yellow offset shadow so the comic pop still shows. */
+.bw-pop.bw-on-dark { box-shadow: var(--bw-shadow) var(--bw-shadow) 0 0 var(--bw-yellow); }
+.bw-pop.bw-on-dark.bw-btn:hover { box-shadow: calc(var(--bw-shadow) + 2px) calc(var(--bw-shadow) + 2px) 0 0 var(--bw-yellow); }
+.bw-pop.bw-on-dark.bw-btn:active { box-shadow: 0 0 0 0 var(--bw-yellow); }

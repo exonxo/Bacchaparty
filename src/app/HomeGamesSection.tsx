@@ -1,28 +1,38 @@
 import Link from "next/link";
 import { ArrowRight, Clock, Users } from "lucide-react";
 import { GameIcon } from "@/components/GameIcon";
+import { Motif } from "@/components/paper/GameTile";
+import { gameLook } from "@/components/paper/gameLook";
 import { GAMES } from "@/games/catalog";
 
 /** Curated first look; the full catalogue lives on /games. All facts come from the catalogue. */
-const FEATURED = ["chor-kaun", "housie", "charades", "kaun-banega-champion", "antakshari", "puno"];
-const BANDS = ["bg-bw-yellow", "bg-bw-red", "bg-bw-blue", "bg-bw-yellow", "bg-bw-red", "bg-bw-blue"];
-const BAND_TEXT = ["text-bw-ink", "text-white", "text-white", "text-bw-ink", "text-white", "text-white"];
+const FEATURED = ["chor-kaun", "housie", "charades", "kaun-banega-champion", "antakshari", "raja-mantri"];
+
+const look = gameLook;
 
 export function HomeGamesSection() {
   const featured = FEATURED.map((id) => GAMES.find((g) => g.id === id)).filter((g) => g !== undefined);
   return (
     <>
       <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {featured.map((g, i) => (
+        {featured.map((g) => (
           <li key={g.id}>
             <Link
               href={`/games/${g.id}`}
-              className="bw-pop bw-btn group flex h-full flex-col overflow-hidden rounded-2xl bg-white text-bw-ink"
+              className="bw-pop bw-on-dark bw-btn group flex h-full flex-col overflow-hidden rounded-2xl bg-white text-bw-ink"
             >
-              <span className={`relative flex items-center justify-between gap-3 border-b-[3px] border-bw-ink px-4 py-3 ${BANDS[i % 6]} ${BAND_TEXT[i % 6]}`}>
-                <span className="font-bw-accent text-sm font-extrabold uppercase tracking-wider">{g.category}</span>
-                <span className="bw-pop-sm grid size-11 place-items-center rounded-full bg-white text-bw-ink" aria-hidden>
-                  <GameIcon id={g.id} className="size-5" strokeWidth={2.5} />
+              {/* The game's own paper illustration + icon, as used across the app. */}
+              <span className="relative block aspect-[5/3] overflow-hidden border-b-[3px] border-bw-ink" style={{ background: look(g.id).color, color: look(g.id).on }}>
+                <Motif shape={look(g.id).shape} on={look(g.id).on} />
+                <span className="absolute left-3 top-3 rounded-full border-2 border-bw-ink bg-white px-2.5 py-0.5 font-bw-accent text-xs font-extrabold uppercase tracking-wider text-bw-ink">
+                  {g.category}
+                </span>
+                <span
+                  className="bw-pop absolute bottom-3 right-3 grid size-16 place-items-center rounded-full transition-transform duration-200 group-hover:-rotate-6 group-hover:scale-105"
+                  style={{ background: look(g.id).color, color: look(g.id).on }}
+                  aria-hidden
+                >
+                  <GameIcon id={g.id} className="size-8" strokeWidth={2.4} />
                 </span>
               </span>
               <span className="flex flex-1 flex-col gap-2 px-4 pb-4 pt-3">

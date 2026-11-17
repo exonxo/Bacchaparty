@@ -118,10 +118,9 @@ export default async function Home() {
             )}
           </div>
 
-          <div className="relative hidden lg:block" aria-hidden>
-            <Burst className="absolute -inset-10 -z-10 h-[calc(100%+5rem)] w-[calc(100%+5rem)] rotate-6" />
-            <Image src="/brand/bawaal-logo.webp" alt="" width={800} height={267} priority className="bw-wiggle relative w-full drop-shadow-[5px_5px_0_var(--bw-ink)]" />
-            <Doodle name="dancing" className="relative mx-auto -mt-2 w-[62%] rotate-3" />
+          <div className="relative hidden min-h-[30rem] place-items-center lg:grid" aria-hidden>
+            <Burst className="absolute inset-0 -z-10 m-auto size-[min(34rem,100%)] rotate-6" />
+            <Image src="/brand/bawaal-logo.webp" alt="" width={800} height={267} priority className="bw-wiggle relative w-[108%] max-w-none drop-shadow-[6px_6px_0_var(--bw-ink)]" />
           </div>
         </div>
       </section>
