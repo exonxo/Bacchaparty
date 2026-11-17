@@ -81,6 +81,42 @@
   --font-display: var(--font-bricolage), var(--font-mukta), system-ui, sans-serif;
 }
 
+
+/* ─── BAWAAL brand tokens (landing / marketing surfaces) ───
+ * Pulled from the logo: bubble yellow with orange shading, punchy red,
+ * electric blue, deep navy outlines. Text on yellow uses ink or red-ink (AA). */
+:root {
+  --bw-yellow: #ffd500;
+  --bw-yellow-soft: #fff1a8;
+  --bw-orange: #f7a400;
+  --bw-red: #e52521;
+  --bw-red-ink: #b3131a; /* red that passes AA as text on yellow/cream */
+  --bw-blue: #1e5bff;
+  --bw-blue-deep: #1440c4;
+  --bw-ink: #14112b;
+  --bw-cream: #fff7e8;
+  --bw-white: #ffffff;
+  --bw-green: #1d8a4e;
+  --bw-outline: 3px;
+  --bw-shadow: 5px;
+}
+
+@theme inline {
+  --color-bw-yellow: var(--bw-yellow);
+  --color-bw-yellow-soft: var(--bw-yellow-soft);
+  --color-bw-orange: var(--bw-orange);
+  --color-bw-red: var(--bw-red);
+  --color-bw-red-ink: var(--bw-red-ink);
+  --color-bw-blue: var(--bw-blue);
+  --color-bw-blue-deep: var(--bw-blue-deep);
+  --color-bw-ink: var(--bw-ink);
+  --color-bw-cream: var(--bw-cream);
+  --color-bw-green: var(--bw-green);
+  --font-bw-display: var(--font-bebas), "Arial Narrow", Impact, sans-serif;
+  --font-bw-accent: var(--font-baloo), var(--font-nunito), system-ui, sans-serif;
+  --font-bw-body: var(--font-nunito), system-ui, sans-serif;
+}
+
 @theme {
   /* Five type steps (size / line-height) */
   --text-p-note: 0.8125rem;
@@ -207,3 +243,45 @@ h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0
 
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ─── BAWAAL landing components ─── */
+.bw {
+  --font-display: var(--font-bebas), "Arial Narrow", Impact, sans-serif;
+  font-family: var(--font-nunito), system-ui, sans-serif;
+  color: var(--bw-ink);
+  background: var(--bw-cream);
+}
+.bw h1, .bw h2 { letter-spacing: 0.01em; }
+/* h3s are friendly accent headings (Baloo 2); this beats the global h1–h3 display rule. */
+.bw h3 { font-family: var(--font-baloo), var(--font-nunito), system-ui, sans-serif; letter-spacing: 0; }
+.bw :focus-visible { outline: 3px solid var(--bw-ink); outline-offset: 3px; box-shadow: 0 0 0 6px var(--bw-white); }
+/* Comic outline + chunky offset shadow, never blurred. */
+.bw-pop {
+  border: var(--bw-outline) solid var(--bw-ink);
+  box-shadow: var(--bw-shadow) var(--bw-shadow) 0 0 var(--bw-ink);
+}
+.bw-pop-sm {
+  border: 2.5px solid var(--bw-ink);
+  box-shadow: 3px 3px 0 0 var(--bw-ink);
+}
+.bw-btn {
+  transition: transform .14s var(--ease-out-soft), box-shadow .14s var(--ease-out-soft), background-color .2s;
+}
+.bw-btn:hover { transform: translate(-1px, -1px); box-shadow: calc(var(--bw-shadow) + 2px) calc(var(--bw-shadow) + 2px) 0 0 var(--bw-ink); }
+.bw-btn:active { transform: translate(var(--bw-shadow), var(--bw-shadow)); box-shadow: 0 0 0 0 var(--bw-ink); }
+/* Comic title: display type with a hard ink drop. */
+.bw-title-drop { text-shadow: 3px 3px 0 var(--bw-ink); }
+/* Halftone dots for backgrounds. */
+.bw-halftone {
+  background-image: radial-gradient(circle, currentColor 1.4px, transparent 1.6px);
+  background-size: 14px 14px;
+}
+/* Sunburst rays behind the hero. */
+.bw-rays {
+  background: repeating-conic-gradient(from 0deg at 70% 45%, var(--bw-yellow) 0deg 9deg, #ffdf33 9deg 18deg);
+}
+@media (max-width: 1023px) {
+  .bw-rays { background: repeating-conic-gradient(from 0deg at 50% 18%, var(--bw-yellow) 0deg 9deg, #ffdf33 9deg 18deg); }
+}
+.bw-wiggle { animation: bwWiggle 3.2s ease-in-out infinite; transform-origin: 50% 60%; }
+@keyframes bwWiggle { 0%,100% { transform: rotate(-3deg) } 50% { transform: rotate(2deg) translateY(-4px) } }
