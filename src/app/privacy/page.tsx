@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "What BAWAAL collects, why, and what we do with it.",
 };
 
-const CONTACT = "proloykarmakar25@gmail.com";
+const CONTACT = "uxproloy@gmail.com";
 const UPDATED = "11 November 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
