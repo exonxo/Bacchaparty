@@ -68,19 +68,11 @@ export default async function Home() {
       {/* ── Hero ── */}
       <section className="bw-rays relative isolate overflow-hidden border-b-[3px] border-bw-ink" aria-labelledby="hero-title">
         <div className="pointer-events-none absolute inset-0 -z-10 text-bw-orange opacity-25 bw-halftone [mask-image:linear-gradient(to_bottom,transparent,black)]" aria-hidden />
-        <Splash className="pointer-events-none absolute -left-3 top-6 -z-10 size-16 -rotate-12 sm:size-20" />
+        <Splash className="pointer-events-none absolute -left-3 top-6 -z-10 hidden size-20 -rotate-12 sm:block" />
         <Splash className="pointer-events-none absolute -right-2 bottom-10 -z-10 size-16 rotate-[160deg] sm:size-24" color="var(--bw-red)" />
 
         <div className="mx-auto grid max-w-6xl items-center gap-x-10 gap-y-6 px-4 pb-14 pt-6 sm:pt-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:pb-20 lg:pt-16">
           <div>
-            <Image
-              src="/brand/bawaal-logo.webp"
-              alt=""
-              width={800}
-              height={267}
-              priority
-              className="mx-auto mb-4 h-auto w-[78%] max-w-[300px] -rotate-3 drop-shadow-[3px_3px_0_var(--bw-ink)] lg:hidden"
-            />
             <h1 id="hero-title" className="text-balance font-bw-display text-[3.4rem] leading-[0.9] text-bw-ink sm:text-7xl lg:text-[5.5rem]">
               Ghar mein sab hain?
               <span className="mt-1 block text-bw-red-ink">
