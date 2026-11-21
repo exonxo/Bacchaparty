@@ -1,3 +1,4 @@
+import { lastTopup } from "../suggest/topup";
 import { providerStatus } from "../suggest/chain";
 import { getServiceClient } from "../supabase/service";
 
@@ -84,7 +85,7 @@ export async function quotaToday() {
 export async function health() {
   const { data, error } = await db().rpc("admin_health");
   if (error) throw error;
-  return data;
+  return { ...(data as Record<string, unknown>), lastTopup: await lastTopup() };
 }
 
 /** Room inspector: database facts only. Live game state is on the host's phone and is not stored. */
@@ -178,7 +179,7 @@ export async function library() {
   return { total: c.total ?? 0, active: c.active ?? 0, servedTotal: c.servedTotal ?? 0, viewers30d: c.viewers30d ?? 0, rows: c.rows ?? [] };
 }
 
-const CSV_COLUMNS = ["id", "game_id", "kind", "category", "lang", "text_key", "source", "active", "served_count", "last_served_at", "created_at", "data"] as const;
+const CSV_COLUMNS = ["id", "game_id", "kind", "category", "theme", "lang", "text_key", "source", "active", "served_count", "last_served_at", "created_at", "data"] as const;
 export const LIBRARY_CSV_MAX_ROWS = 20_000;
 
 /** Quotes a CSV cell, and defuses cells a spreadsheet would run as a formula. */
@@ -193,19 +194,35 @@ export function csvCell(v: unknown): string {
  * Leaves out which account an item was made for: the export carries no personal data.
  */
 export async function libraryCsv(): Promise<{ csv: string; rows: number; truncated: boolean }> {
-  const lines = [CSV_COLUMNS.join(",")];
+  // Before 0011 there is no theme column: export without it rather than failing.
+  const probe = await db().from("content_library").select("theme").limit(1);
+  const cols = probe.error ? CSV_COLUMNS.filter((c) => c !== "theme") : [...CSV_COLUMNS];
+  const lines = [cols.join(",")];
   let rows = 0;
   for (let from = 0; from < LIBRARY_CSV_MAX_ROWS; from += 1000) {
     const { data, error } = await db()
       .from("content_library")
-      .select(CSV_COLUMNS.join(", "))
+      .select(cols.join(", "))
       .order("id", { ascending: true })
       .range(from, from + 999);
     if (error) throw error;
     const page = (data ?? []) as unknown as Record<string, unknown>[];
-    for (const r of page) lines.push(CSV_COLUMNS.map((c) => csvCell(r[c])).join(","));
+    for (const r of page) lines.push(cols.map((c) => csvCell(r[c])).join(","));
     rows += page.length;
     if (page.length < 1000) return { csv: lines.join("\r\n") + "\r\n", rows, truncated: false };
   }
   return { csv: lines.join("\r\n") + "\r\n", rows, truncated: true };
+}
+
+export const LIBRARY_PAGE = 50;
+
+/** One page of library items for a kind, newest first, for the Library tab's list. No account ids. */
+export async function libraryItems(kind: string, page: number) {
+  const from = Math.max(0, page) * LIBRARY_PAGE;
+  const base = "id, kind, category, lang, text_key, source, active, served_count, created_at, data";
+  const pageOf = (cols: string) => db().from("content_library").select(cols, { count: "exact" }).eq("kind", kind).order("id", { ascending: false }).range(from, from + LIBRARY_PAGE - 1);
+  let res = await pageOf(`${base}, theme`);
+  if (res.error) res = await pageOf(base);
+  if (res.error) throw res.error;
+  return { kind, page, pageSize: LIBRARY_PAGE, total: res.count ?? 0, items: (res.data ?? []) as unknown as Record<string, unknown>[] };
 }

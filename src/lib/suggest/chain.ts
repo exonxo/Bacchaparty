@@ -17,10 +17,15 @@ const COOL_RATE_LIMIT_MS = 60_000;
 const COOL_ERROR_MS = 20_000;
 const COOL_BAD_OUTPUT_MS = 10_000;
 
+export interface CallOptions {
+  /** Lower is steadier. The games use the providers' default variety; admin generation asks for less. */
+  temperature?: number;
+}
+
 export interface Provider {
   name: string;
   configured: () => boolean;
-  call: (kind: SuggestKind, prompt: string, signal: AbortSignal) => Promise<unknown | null>;
+  call: (kind: SuggestKind, prompt: string, signal: AbortSignal, opts?: CallOptions) => Promise<unknown | null>;
 }
 
 const env = (k: string) => process.env[k]?.trim() || undefined;
@@ -36,9 +41,10 @@ const PROVIDERS: Provider[] = [
   {
     name: "groq",
     configured: () => !!env("GROQ_API_KEY"),
-    call: (_kind, prompt, signal) => {
+    call: (_kind, prompt, signal, opts) => {
       const model = env("GROQ_MODEL") ?? GROQ_DEFAULT_MODEL;
       return callOpenAICompat({
+        temperature: opts?.temperature,
         url: "https://api.groq.com/openai/v1/chat/completions",
         apiKey: env("GROQ_API_KEY")!,
         model,
@@ -52,13 +58,14 @@ const PROVIDERS: Provider[] = [
   {
     name: "gemini",
     configured: () => !!env("GEMINI_API_KEY"),
-    call: (kind, prompt, signal) => callGemini(env("GEMINI_API_KEY")!, kind, prompt, signal),
+    call: (kind, prompt, signal, opts) => callGemini(env("GEMINI_API_KEY")!, kind, prompt, signal, opts?.temperature),
   },
   {
     name: "openrouter",
     configured: () => !!env("OPENROUTER_API_KEY"),
-    call: (_kind, prompt, signal) =>
+    call: (_kind, prompt, signal, opts) =>
       callOpenAICompat({
+        temperature: opts?.temperature,
         url: "https://openrouter.ai/api/v1/chat/completions",
         apiKey: env("OPENROUTER_API_KEY")!,
         model: env("OPENROUTER_MODEL") ?? OPENROUTER_DEFAULT_MODEL,
@@ -72,8 +79,9 @@ const PROVIDERS: Provider[] = [
   {
     name: "cloudflare",
     configured: () => !!env("CF_ACCOUNT_ID") && !!env("CF_API_TOKEN"),
-    call: (_kind, prompt, signal) =>
+    call: (_kind, prompt, signal, opts) =>
       callOpenAICompat({
+        temperature: opts?.temperature,
         url: `https://api.cloudflare.com/client/v4/accounts/${env("CF_ACCOUNT_ID")}/ai/v1/chat/completions`,
         apiKey: env("CF_API_TOKEN")!,
         model: env("CF_MODEL") ?? "@cf/meta/llama-3.1-8b-instruct",
@@ -118,7 +126,7 @@ export function makeChain(providers: Provider[], now: () => number = Date.now) {
       kind: SuggestKind,
       prompt: string,
       accept: (raw: unknown) => unknown | null,
-      opts?: { allow?: (name: string) => boolean },
+      opts?: { allow?: (name: string) => boolean; temperature?: number },
     ): Promise<ChainResult | null> {
       const started = now();
       const deadline = started + TOTAL_BUDGET_MS;
@@ -127,7 +135,7 @@ export function makeChain(providers: Provider[], now: () => number = Date.now) {
         if (left < 1_000) break;
         const t0 = now();
         try {
-          const raw = await p.call(kind, prompt, AbortSignal.timeout(Math.min(PER_CALL_MS, left)));
+          const raw = await p.call(kind, prompt, AbortSignal.timeout(Math.min(PER_CALL_MS, left)), { temperature: opts?.temperature });
           const data = raw == null ? null : accept(unwrapPayload(kind, raw));
           if (data != null) return { data, provider: p.name, ms: now() - t0 };
           cool(p.name, COOL_BAD_OUTPUT_MS);

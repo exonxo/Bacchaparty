@@ -45,6 +45,8 @@ export interface LibraryItem {
   category: string;
   key: string;
   data: Record<string, unknown>;
+  /** The admin's topic for "Generate more" (0011). Games don't set it. */
+  theme?: string;
 }
 
 const builtinEmoji = new Set(EMOJI_PUZZLES.map((p) => `${p.emojis}|${p.answer.toLowerCase()}`));
@@ -116,6 +118,11 @@ export async function pickFromLibrary(
 
 /** Turns validated AI output into library rows. Built-in puzzles used to pad a short reply are left out. */
 export function itemsFrom(kind: LibraryKind, data: unknown, context: Record<string, unknown> = {}): LibraryItem[] {
+  const theme = typeof context.theme === "string" && context.theme ? context.theme : undefined;
+  return rawItems(kind, data, context).map((i) => (theme ? { ...i, theme } : i));
+}
+
+function rawItems(kind: LibraryKind, data: unknown, context: Record<string, unknown>): LibraryItem[] {
   if (kind === "emoji-puzzle" && Array.isArray(data)) {
     return (data as EmojiPuzzle[])
       .filter((p) => p && typeof p.answer === "string" && !builtinEmoji.has(`${p.emojis}|${p.answer.toLowerCase()}`))

@@ -1,5 +1,5 @@
 // Content library: can two picks at the same moment give one viewer the same item? Needs a REAL
-// local Postgres (PGlite runs one connection at a time). Creates a scratch database, applies 0010
+// local Postgres (PGlite runs one connection at a time). Creates a scratch database, applies 0010 and 0011
 // on a minimal Supabase stand-in, fires parallel picks for one viewer over separate connections,
 // then drops the scratch database.
 //   PG_URL=postgres://user:pass@127.0.0.1:5432/postgres PG_DIR=/path/to/node_modules/pg \
@@ -46,6 +46,7 @@ try {
     create table auth.users (id uuid primary key default gen_random_uuid(), email text);
   `);
   await setup.query(migration("0010_content_library.sql"));
+  await setup.query(migration("0011_library_theme.sql"));
   const items = Array.from({ length: 40 }, (_, i) => ({ category: "family", key: `Race dare number ${i}`, data: { text: `Race dare number ${i}` } }));
   await setup.query(`select library_add('dare', 'dare', 'en', 'llm:test', $1::jsonb)`, [JSON.stringify(items)]);
   const user = (await setup.query(`insert into auth.users (email) values ('race@example.test') returning id`)).rows[0].id;

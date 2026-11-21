@@ -61,6 +61,7 @@ await db.exec(`
 const FILES = [
   "0004_admin_and_events.sql", "0005_admin_stats_and_retention.sql", "0006_lasting_room_counts_and_safe_stats.sql",
   "0007_power_admin.sql", "0008_review_followups.sql", "0009_session_revocation_and_atomic_lockout.sql", "0010_content_library.sql",
+  "0011_library_theme.sql",
 ];
 let migrationsOk = true;
 for (const f of FILES) {
@@ -71,9 +72,11 @@ for (const f of FILES) {
     check("MIG", `migration ${f} applies cleanly`, false, e.message.split("\n")[0]);
   }
 }
-check("MIG-1", "migrations 0004 to 0010 apply cleanly in order", migrationsOk);
+check("MIG-1", "migrations 0004 to 0011 apply cleanly in order", migrationsOk);
 const rerun = await db.exec(migration("0010_content_library.sql")).then(() => null, (e) => e.message.split("\n")[0]);
 check("MIG-2", "0010 can be run a second time", rerun === null, rerun ?? "");
+const rerun11 = await db.exec(migration("0011_library_theme.sql")).then(() => null, (e) => e.message.split("\n")[0]);
+check("MIG-3", "0011 can be run a second time (after 0010 again too)", rerun11 === null, rerun11 ?? "");
 
 const asRole = async (role, sql, params) => {
   try {
@@ -247,6 +250,26 @@ const emptyCounts = await (async () => {
   }
 })();
 check("CNT-3", "counts on an empty library are zero and an empty list", emptyCounts.total === 0 && emptyCounts.servedTotal === 0 && Array.isArray(emptyCounts.rows) && emptyCounts.rows.length === 0, JSON.stringify(emptyCounts));
+
+// --- Themes (0011) ------------------------------------------------------------------------------------
+const themed = await add("emoji-puzzle", "emoji-picture", [
+  { ...emoji("Taare Zameen Par", "family"), theme: "Bollywood movies" },
+  { ...emoji("Swades", "family"), theme: "  Bollywood\n movies\t " },
+  { ...emoji("Ghajini", "family"), theme: "x".repeat(80) },
+  emoji("Dhoom", "family"),
+]);
+check("THEME-1", "items with themes are stored (4 new)", themed.ok && themed.rows[0].n === 4, themed.error ?? JSON.stringify(themed.rows));
+const themes = Object.fromEntries((await svc(`select text_key, theme from content_library where text_key in ('Taare Zameen Par', 'Swades', 'Ghajini', 'Dhoom')`)).rows.map((r) => [r.text_key, r.theme]));
+check("THEME-2", "the theme is saved on the item", themes["Taare Zameen Par"] === "Bollywood movies", JSON.stringify(themes));
+check("THEME-3", "line breaks and tabs in a theme are turned into single spaces, not refused", themes["Swades"] === "Bollywood movies", JSON.stringify(themes));
+check("THEME-4", "a theme is cut to 60 characters", themes["Ghajini"]?.length === 60, JSON.stringify(themes));
+check("THEME-5", "an item without a theme keeps theme = null", themes["Dhoom"] === null, JSON.stringify(themes));
+const rawLong = await svc(`insert into content_library (kind, game_id, category, lang, text_key, text_norm, data, source, theme) values ('dare', 'dares', 'family', 'en', 'x', 'x-theme-test', '{}', 'qa', repeat('y', 61))`);
+check("THEME-6", "the table refuses a theme over 60 characters", !rawLong.ok && /content_library_theme_check/.test(rawLong.error), rawLong.error ?? "inserted");
+const themeGrants = await svc(`select grantee, privilege_type from information_schema.column_privileges where table_name = 'content_library' and column_name = 'theme' and grantee in ('anon', 'authenticated')`);
+check("THEME-7", "anon and authenticated have no access to the theme column", themeGrants.ok && themeGrants.rows.length === 0, JSON.stringify(themeGrants.rows));
+const addFn = await svc(`select p.prosecdef, p.proconfig, has_function_privilege('anon', p.oid, 'execute') anon_exec, has_function_privilege('authenticated', p.oid, 'execute') auth_exec from pg_proc p where p.proname = 'library_add'`);
+check("THEME-8", "library_add is still one security-definer function anon and authenticated can't call", addFn.rows.length === 1 && addFn.rows[0].prosecdef && !addFn.rows[0].anon_exec && !addFn.rows[0].auth_exec, JSON.stringify(addFn.rows));
 
 // --- Account deletion ---------------------------------------------------------------------------------
 await db.exec(`delete from auth.users where id = '${hostB}'`);

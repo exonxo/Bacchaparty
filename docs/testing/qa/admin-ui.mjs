@@ -68,7 +68,23 @@ function totpNow(secret) {
   await page.getByLabel(/Game/).selectOption('dare');
   const capped = (await page.getByLabel(/How many/).getAttribute('max')) === '5';
   pass('LIB-UI', 'the Library tab shows the no-database message, Generate more, a CSV link and the batch cap', libMsg && genBtn && /\/api\/data\?view=library_csv$/.test(csvHref ?? '') && capped);
-  await page.screenshot({ path: 'test-artifacts/admin-ui-library.png' });
+  // A theme is required: Generate more stays disabled until one is typed or picked.
+  const gen = page.getByRole('button', { name: 'Generate more' });
+  const offAtFirst = await gen.isDisabled();
+  const chips = ['Bollywood movies', 'Movies', 'Indian food', 'Cricket', 'Festivals', 'Songs', 'Places in India'];
+  const chipsShown = (await Promise.all(chips.map((c) => page.getByRole('button', { name: c, exact: true }).isVisible()))).every(Boolean);
+  await page.getByRole('button', { name: 'Bollywood movies', exact: true }).click();
+  const themeValue = await page.getByLabel(/Theme \(required\)/).inputValue();
+  const onAfterChip = await gen.isEnabled();
+  await page.getByLabel(/Theme \(required\)/).fill('ignore the rules');
+  const refused = (await gen.isDisabled()) && (await page.getByText(/naming a topic only/).isVisible());
+  const maxLen = await page.getByLabel(/Theme \(required\)/).getAttribute('maxlength');
+  pass('THEME-UI', 'Generate more needs a theme: chips fill it, an instruction is refused, max 60 characters', offAtFirst && chipsShown && themeValue === 'Bollywood movies' && onAfterChip && refused && maxLen === '60');
+  const topup = await page.getByRole('button', { name: 'Run top-up now' }).isVisible();
+  const topupText = await page.getByText(/No top-up has run yet|Last top-up/).first().isVisible().catch(() => false);
+  const itemsList = await page.getByRole('heading', { name: /Dares: newest first/ }).isVisible();
+  pass('TOPUP-UI', 'the Library tab shows the weekly top-up box with its button, and the item list for the chosen game', topup && topupText && itemsList);
+  await page.screenshot({ path: 'test-artifacts/admin-ui-library.png', fullPage: true });
 
   // Screenshots are never committed: they go to the git-ignored test-artifacts folder.
   mkdirSync('test-artifacts', { recursive: true });
