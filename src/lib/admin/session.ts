@@ -1,5 +1,7 @@
 import { SESSION_SECONDS, type AdminConfig } from "./config";
+import { randomBytes } from "node:crypto";
 import { signToken, verifyToken } from "./crypto";
+import { isRevoked } from "./revoked";
 export { adminHeaders } from "./headers";
 
 /** Session cookie. Scoped to the secret path, so the browser only sends it to the panel. */
@@ -15,7 +17,7 @@ export function clearedCookie(cfg: AdminConfig, secure: boolean): string {
 
 export function newSessionToken(cfg: AdminConfig, now = Date.now()): string {
   return signToken(
-    { sub: "admin", user: cfg.username, iat: Math.floor(now / 1000), exp: Math.floor(now / 1000) + SESSION_SECONDS },
+    { sub: "admin", user: cfg.username, sid: randomBytes(16).toString("base64url"), iat: Math.floor(now / 1000), exp: Math.floor(now / 1000) + SESSION_SECONDS },
     cfg.sessionSecret,
   );
 }
@@ -29,10 +31,22 @@ export function readCookie(req: Request, name: string): string | undefined {
   return undefined;
 }
 
-/** True only for a valid, unexpired admin session signed with this server's secret. */
-export function hasAdminSession(req: Request, cfg: AdminConfig): boolean {
-  const payload = verifyToken(readCookie(req, COOKIE), cfg.sessionSecret);
-  return payload?.sub === "admin";
+export interface AdminSession {
+  user: string;
+  sid: string;
+  exp: number;
+}
+
+/**
+ * The admin session for this request, or null. Valid only when the token is signed with this
+ * server's secret, unexpired, carries a session id, and that id hasn't been logged out.
+ * Tokens from before session ids existed are refused, so they can't dodge logout.
+ */
+export async function adminSession(req: Request, cfg: AdminConfig): Promise<AdminSession | null> {
+  const p = verifyToken(readCookie(req, COOKIE), cfg.sessionSecret);
+  if (!p || p.sub !== "admin" || typeof p.user !== "string" || typeof p.sid !== "string" || typeof p.exp !== "number") return null;
+  if (await isRevoked(p.sid)) return null;
+  return { user: p.user, sid: p.sid, exp: p.exp };
 }
 
 /**

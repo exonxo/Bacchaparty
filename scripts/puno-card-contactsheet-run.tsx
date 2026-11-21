@@ -55,7 +55,7 @@ const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
   .label { margin: 6px 0 0; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #1e1a17; }
 </style></head><body>${body}</body></html>`;
 
-const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".tmp");
+const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "test-artifacts");
 mkdirSync(outDir, { recursive: true });
 const htmlPath = path.join(outDir, "puno-card-contactsheet.html");
 writeFileSync(htmlPath, html);

@@ -2,14 +2,14 @@
  * Layout checks for the brief's acceptance rules:
  *  - tap targets >= 44x44, content left edges in one column (±2px),
  *  - no horizontal page scroll, CTA text centred in its box (±1px).
- * Usage: BASE=http://localhost:3000 OUT=./shots node scripts/align-check.cjs [route ...]
+ * Usage: BASE=http://localhost:3000 OUT=test-artifacts/shots node scripts/align-check.cjs [route ...]
  */
 const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 
 const BASE = process.env.BASE || "http://localhost:3000";
-const OUT = process.env.OUT || "shots";
+const OUT = process.env.OUT || "test-artifacts/shots";
 const ROUTES = process.argv.slice(2).length ? process.argv.slice(2) : ["/", "/games", "/join", "/login?next=/host", "/games/housie", "/games/chor-kaun", "/privacy"];
 const VIEWPORTS = [
   { name: "390", width: 390, height: 844, isMobile: true, hasTouch: true },

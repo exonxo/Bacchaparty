@@ -1,11 +1,14 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/env";
-import { logEvent } from "@/lib/admin/events";
+import { logLater } from "@/lib/admin/events";
+import { approvedChorTopic, approvedEmojiPuzzles } from "@/lib/admin/bank";
+import { flagMap } from "@/lib/admin/flags";
 import { findOwnRoom } from "@/lib/rooms";
 import { getUser } from "@/lib/supabase/server";
 import { fallbackFor } from "@/lib/suggest/fallbacks";
 import { runChain } from "@/lib/suggest/chain";
 import { buildPrompt } from "@/lib/suggest/prompts";
+import { isLibraryKind, itemsFrom, pickFromLibrary, saveToLibrary, type Viewer } from "@/lib/suggest/library";
 import { cleanAvoid, notRepeated } from "@/lib/suggest/avoid";
 import { checkRateLimit, inflightKey, rateLimitKey, runDeduped } from "@/lib/suggest/rate-limit";
 import { SUGGEST_KINDS, type SuggestKind } from "@/lib/suggest/types";
@@ -98,13 +101,34 @@ export async function POST(req: Request) {
   const fallbackNow = () => fallbackFor(kind, { kind, ...context });
   const ip = clientIp(req);
   if (!checkRateLimit(rateLimitKey(ip, roomCode))) {
-    void logEvent("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "rate_limited" });
+    logLater("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "rate_limited" });
     return ok(fallbackNow(), true);
   }
 
   const contextCount = kind === "emoji-puzzle" && typeof context.count === "number" ? context.count : 10;
   const playerCount = kind === "next-game" && typeof context.playerCount === "number" ? context.playerCount : 4;
   const emojiLevel = (kind === "emoji-puzzle" && typeof context.level === "string" ? context.level : "family") as Level;
+
+  // Kill switches: "suggest" stops all model calls and the content library; "library" skips the
+  // library only; "llm:<name>" skips one provider.
+  const flags = await flagMap();
+  if (flags["suggest"] === false) {
+    logLater("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "switched_off" });
+    return ok((await bankFallback(kind, context)) ?? fallbackNow(), true);
+  }
+
+  // The content library comes first: something already made that this host hasn't been shown in
+  // 30 days. Keyed by the host's account id. The AI services are asked only when nothing is left.
+  const viewer: Viewer = { userId: user.id };
+  const useLibrary = isLibraryKind(kind) && flags["library"] !== false;
+  if (useLibrary) {
+    const t0 = Date.now();
+    const fromLibrary = await pickFromLibrary(kind, context, viewer);
+    if (fromLibrary != null) {
+      logLater("suggest", { suggest_kind: kind, provider: "library", fallback: false, ms: Date.now() - t0 });
+      return ok(fromLibrary, false);
+    }
+  }
 
   const prompt = buildPrompt(kind, context);
   const accept = (raw: unknown) => {
@@ -113,14 +137,57 @@ export async function POST(req: Request) {
   };
 
   try {
-    const result = await runDeduped(inflightKey(kind, { ...context, roomCode }), () => runChain(kind, prompt, accept));
+    const result = await runDeduped(inflightKey(kind, { ...context, roomCode }), () =>
+      runChain(kind, prompt, accept, { allow: (name) => flags[`llm:${name}`] !== false }),
+    );
     if (result) {
-      void logEvent("suggest", { suggest_kind: kind, provider: result.provider, fallback: false, ms: result.ms });
+      logLater("suggest", { suggest_kind: kind, provider: result.provider, fallback: false, ms: result.ms });
+      if (useLibrary && isLibraryKind(kind)) {
+        // Keep it for other hosts, and record it as shown to this one. After the response, so the game doesn't wait.
+        const items = itemsFrom(kind, result.data, context);
+        const save = () => saveToLibrary(kind, items, `llm:${result.provider}`, viewer).then(() => undefined);
+        try {
+          after(save);
+        } catch {
+          void save();
+        }
+      }
       return ok(result.data, false);
     }
   } catch {
-    /* fall through to the built-in content */
+    logLater("api_error", { route: "suggest", status: 500 });
   }
-  void logEvent("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "all_providers_failed" });
+
+  // No AI answer: a smaller set from the library (at least 3 emoji puzzles) beats the fixed lists.
+  if (useLibrary && isLibraryKind(kind) && kind === "emoji-puzzle") {
+    const partial = await pickFromLibrary(kind, context, viewer, { min: 3 });
+    if (partial != null) {
+      logLater("suggest", { suggest_kind: kind, provider: "library", fallback: true, ms: 0, reason: "all_providers_failed" });
+      return ok(partial, true);
+    }
+  }
+
+  // Approved, human-reviewed content comes before the fixed built-in lists.
+  const banked = await bankFallback(kind, context);
+  if (banked) {
+    logLater("suggest", { suggest_kind: kind, provider: "bank", fallback: true, ms: 0, reason: "all_providers_failed" });
+    return ok(banked, true);
+  }
+  logLater("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "all_providers_failed" });
   return ok(fallbackNow(), true);
+}
+
+/** Approved review-bank content for this kind, or null when there isn't enough of it. */
+async function bankFallback(kind: SuggestKind, context: Record<string, unknown>): Promise<unknown | null> {
+  const avoid = Array.isArray(context.avoid) ? (context.avoid as string[]) : [];
+  if (kind === "emoji-puzzle") {
+    const level = (typeof context.level === "string" ? context.level : "family") as Level;
+    const count = typeof context.count === "number" ? context.count : 10;
+    return approvedEmojiPuzzles(level, count, avoid);
+  }
+  if (kind === "chor-kaun-topic") {
+    const exclude = Array.isArray(context.excludeTopicIds) ? (context.excludeTopicIds as string[]) : [];
+    return approvedChorTopic(avoid, exclude);
+  }
+  return null;
 }

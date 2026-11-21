@@ -4,11 +4,11 @@ import { Header } from "@/components/Header";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — BAWAAL",
-  description: "What BAWAAL collects, why, and what we do with it.",
+  description: "What BAWAAL stores, who can see it, and how long we keep it.",
 };
 
 const CONTACT = "uxproloy@gmail.com";
-const UPDATED = "11 November 2026";
+const UPDATED = "21 November 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -27,62 +27,132 @@ export default function PrivacyPage() {
         <h1 className="mt-4 text-p-show font-extrabold">Privacy Policy</h1>
         <p className="mt-2 text-muted">Last updated: {UPDATED}</p>
         <p className="mt-6 text-lg leading-relaxed">
-          BAWAAL is a set of party games you play on a big screen with everyone joining from their phones. We collect as little as we can.
-          Here’s exactly what that means.
+          BAWAAL is a set of party games you play on a big screen, with everyone joining from their phones. This page says what we store,
+          why, who can see it, and how long we keep it.
         </p>
 
         <Section title="Hosts (people who sign in with Google)">
           <p>
-            To host a party you sign in with Google. We only use your basic Google profile — your <b>name</b> and <b>email address</b> — to
-            create your party rooms and run them. We don’t get your Google password, and we don’t read your contacts, Drive, Gmail or anything
-            else in your Google account.
+            To host a party you sign in with Google. From Google we receive your <b>name</b>, your <b>email address</b> and your Google account
+            ID. Your name is the default name shown to players in your rooms, and you can change it on the host screen. We don’t get your
+            Google password, and we don’t read your contacts, Drive or Gmail.
+          </p>
+          <p>
+            We also record when you first signed in, when you last signed in, and a running count of how many rooms you have created
+            (with the dates of your first and latest room). The count stays with your account after the rooms themselves are deleted.
           </p>
         </Section>
 
         <Section title="Players (people who join with a room code)">
           <p>
-            Players don’t need an account. To join, you type a room code and a <b>display name</b> (a nickname is fine) and pick an animal
-            avatar. That’s all we ask for.
+            Players don’t need an account. To join, you type a room code, a <b>nickname</b> and pick an animal avatar. Everyone in that room sees
+            the nickname and avatar while the game runs.
           </p>
           <p>
-            Your phone remembers your nickname and a random player ID in the browser’s local storage so you can rejoin if the page reloads. You
-            can clear it any time by clearing your browser data.
-          </p>
-        </Section>
-
-        <Section title="What we store">
-          <p>
-            For each party room we store the <b>room code</b>, <b>which host created it</b>, and <b>when it was created and closed</b>. This is
-            kept in Supabase, our database and login provider, and deleted after 7 days.
-          </p>
-          <p>
-            While you play, game moves (answers, votes, drawings, display names) pass through Supabase’s real-time service between the phones
-            and the big screen. We don’t save them in our database. The host’s browser keeps the current game in its own local storage so a
-            refresh doesn’t lose your progress.
-          </p>
-          <p>
-            The website is hosted on Vercel, which, like any web host, may keep standard technical logs (such as IP addresses and browser type)
-            for security and to keep the site running.
+            Your phone keeps your nickname, avatar and a random player ID in the browser’s storage, so you can rejoin if the page reloads. It
+            also remembers small settings: whether you have already seen a game’s “how to play” tip, the Housie auto-mark setting, and which
+            results card you closed (until you close the tab). Clearing your browser data removes them.
           </p>
         </Section>
 
-        <Section title="We don’t sell or share your data">
+        <Section title="What we store, why, and for how long">
+          <ul className="list-disc space-y-2 pl-6">
+            <li>
+              <b>Host account</b> — name, email, Google account ID, sign-up and last sign-in times, and a running count of rooms created. To run
+              your account. Kept until you ask us to delete it.
+            </li>
+            <li>
+              <b>Party rooms</b> — room code, the host, a security key (the host’s screen signs game updates with it, so players’ phones can
+              ignore fake ones), and when the room was created and closed. To run the party. Deleted after <b>7 days</b>; only the running count
+              on the host’s account is kept.
+            </li>
+            <li>
+              <b>Game starts</b> — which game was started and when. Not linked to a person, a room or a nickname. To see which games are played.
+              Deleted after <b>180 days</b>.
+            </li>
+            <li>
+              <b>Suggestions</b> — that a topic or puzzle was suggested, which AI service answered (or that the built-in list was used), and how
+              long it took. Not linked to a person or a room. Deleted after <b>180 days</b>.
+            </li>
+            <li>
+              <b>Content library</b> — topics, puzzles and dares the AI services made are kept and shown to other hosts, so we ask the AI less
+              often. For each host account we record which library items were shown and when (by account ID, not email), so the same item
+              isn’t shown to that host again within 30 days. Those records are removed after <b>30 days</b> (the next time that host gets a
+              suggestion) or when the account is deleted. The library also notes which account’s game an item was first made for; that link
+              is cleared when the account is deleted.
+            </li>
+            <li>
+              <b>Admin sign-in attempts</b> — only for the site owner’s admin panel: the IP address, whether the sign-in worked, and the time.
+              Deleted after <b>90 days</b>.
+            </li>
+            <li>
+              <b>Admin audit log</b> — a record of what the owner did in the admin panel: which account or room was looked at, exports, and
+              changes such as switching a game off or deleting an account. It records the owner’s actions, not player content. Deleted after
+              <b>365 days</b>.
+            </li>
+            <li>
+              <b>Game play</b> — answers, votes, drawings and nicknames pass through Supabase’s real-time service between the phones and the big
+              screen. We don’t save them in our database.
+            </li>
+            <li>
+              <b>On your device</b> — on the host’s device: the current game and the room’s signing key (so a refresh doesn’t lose them; cleared
+              the next time the site opens after a day), the mute setting, and a short list of recently shown topics or puzzles so new suggestions don’t repeat. On players’
+              phones: the nickname, avatar, player ID, a key pair used to encrypt private messages in the room, and the small settings described above. It stays on that device.
+            </li>
+            <li>
+              <b>Hosting logs</b> — Vercel, which hosts the site, keeps standard technical logs such as IP address, browser and pages requested, for
+              security and reliability. These follow Vercel’s own retention.
+            </li>
+          </ul>
+        </Section>
+
+        <Section title="Who can see your data">
           <p>
-            We don’t sell, rent or share your data with anyone. We don’t show ads and we don’t use tracking or advertising cookies. The only
-            services that handle data are the ones that run the app: Google (sign-in), Supabase (database and real-time) and Vercel (hosting). When a host taps a ✨ suggestion button, we ask Google’s Gemini AI for game ideas; that request contains only game settings (such as the number of players and games already played), never names or other personal details.
+            <b>The site owner</b> is the only person with access to the admin panel. Through it, the owner can see the list of host accounts
+            (email, sign-in method, sign-up and last sign-in dates, number of rooms created), game starts (totals and daily counts), suggestion
+            totals for the last 7 days by AI service, and admin sign-in attempts. The admin panel does <b>not</b> show passwords, player nicknames, game answers or drawings.
+          </p>
+          <p>
+            The owner can look up a room by its code to see the room record (who hosted it, when it was created and closed). Live game play is
+            not stored, so it can’t be looked up. Every account lookup, room lookup, export and change is recorded in the audit log above.
+          </p>
+          <p>
+            <b>Service providers</b> that run the app for us: Google (sign-in), Supabase (database, sign-in and real-time) and Vercel (hosting,
+            logs and scheduled clean-up).
+          </p>
+          <p>
+            <b>AI services.</b> When a host taps a ✨ suggestion button, the app first looks in the content library; only if nothing new is there does the request go to
+            the first available of: Groq, Google Gemini, OpenRouter or Cloudflare Workers AI. The request contains only game settings (such as the number of players) and the short list of
+            topics or puzzles the device has already been shown. It never contains names, emails, room codes or other personal details. These
+            services process requests under their own terms, and some free plans may keep requests to improve their services.
+          </p>
+        </Section>
+
+        <Section title="We don’t sell your data">
+          <p>
+            We don’t sell, rent or give your data to advertisers. We don’t show ads, and we don’t use tracking or advertising cookies. The
+            services above process data only to run BAWAAL for us.
+          </p>
+        </Section>
+
+        <Section title="Cookies">
+          <p>
+            BAWAAL uses no tracking or advertising cookies. The only cookies are the ones needed to run it: a sign-in session cookie that
+            keeps a host signed in (set by our login provider, Supabase), and, for the site owner only, a cookie for the admin panel.
           </p>
         </Section>
 
         <Section title="Children">
           <p>
-            BAWAAL is made for families, and children often play as guests. Players under 13 should join with a parent or guardian
-            present. Guests only enter a nickname, so please encourage kids to use a nickname rather than their full name.
+            BAWAAL is made for families, and children often play as guests. Players under 13 should join with a parent or guardian present.
+            Guests only enter a nickname, so please encourage children to use a nickname rather than their full name.
           </p>
         </Section>
 
         <Section title="Deleting your data">
           <p>
-            Hosts can ask us to delete their account and room records at any time by emailing us. Players can remove their nickname by clearing
+            Hosts can ask us to delete their account and rooms at any time by emailing us. The owner then deletes them from the admin panel,
+            within 30 days. On request we can first send the host a copy of their account record and room list. Players can remove their nickname by clearing
             their browser data.
           </p>
         </Section>

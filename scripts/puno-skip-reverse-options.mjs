@@ -7,7 +7,7 @@ import { chromium } from "playwright";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const runner = path.join(__dirname, "puno-skip-reverse-options-run.tsx");
-const artifact = "/opt/cursor/artifacts/puno-skip-reverse-options-2x.png";
+const artifact = "test-artifacts/puno-skip-reverse-options-2x.png";
 
 const gen = spawnSync("npx", ["--yes", "tsx", runner], { cwd: path.join(__dirname, ".."), encoding: "utf8" });
 if (gen.status !== 0) {

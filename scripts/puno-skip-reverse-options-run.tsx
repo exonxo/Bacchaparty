@@ -311,7 +311,7 @@ const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
   .opt-label { margin: 8px 0 0; font-size: 22px; font-weight: 900; letter-spacing: 0.08em; }
 </style></head><body>${body}</body></html>`;
 
-const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".tmp");
+const outDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "test-artifacts");
 mkdirSync(outDir, { recursive: true });
 const htmlPath = path.join(outDir, "puno-skip-reverse-options.html");
 writeFileSync(htmlPath, html);

@@ -69,9 +69,24 @@ const DAY = 24 * 60 * 60 * 1000;
 const MAX_PLAYERS = 50;
 const DEMO_OWNER_KEY = "bacchaparty-demo-host-owner";
 
-/** Presence id for an active host tab (auth user id + tab id, not socket ref). */
+/**
+ * A short tag for the host's auth user id. Presence is visible to everyone in the room, so the
+ * real id must not go out. Every tab of the same host gets the same tag, which is all the
+ * takeover check needs. Two 32-bit FNV-1a hashes with different seeds give 64 bits.
+ */
+export function ownerTag(ownerId: string): string {
+  let h1 = 0x811c9dc5, h2 = 0x9e3779b9;
+  for (let i = 0; i < ownerId.length; i++) {
+    const c = ownerId.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+    h2 = Math.imul(h2 ^ c, 0x01000193) >>> 0;
+  }
+  return h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0");
+}
+
+/** Presence id for an active host tab (owner tag + tab id, never the auth user id). */
 export function hostPresenceId(ownerId: string, tabId: string) {
-  return `host:${ownerId}:${tabId}`;
+  return `host:${ownerTag(ownerId)}:${tabId}`;
 }
 
 export function parseHostPresence(id: string): { ownerId: string; tabId: string } | null {
@@ -409,7 +424,7 @@ export function useHostRoom(code: string, me: Identity | null, ownerAuthId: stri
       for (const id of ids) {
         const who = parseHostPresence(id);
         if (!who) continue;
-        if (who.ownerId !== ownerId) return true;
+        if (who.ownerId !== ownerTag(ownerId)) return true;
         if (who.tabId !== tabId) return seenRemoteRoom;
       }
       return false;

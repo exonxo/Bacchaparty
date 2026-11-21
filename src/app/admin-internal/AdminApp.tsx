@@ -1,12 +1,13 @@
 "use client";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { AccountPanel, AuditPanel, ContentPanel, LibraryPanel, FlagsPanel, FunnelPanel, HealthPanel, QuotaPanel, RoomPanel } from "./AdminPower";
 
 /**
  * The admin panel UI. It only shows the login form until the server confirms a session.
  * API calls go to the same secret path the page was opened from (middleware rewrites them).
  */
 
-type Tab = "overview" | "users" | "games" | "llm" | "logins";
+type Tab = "overview" | "users" | "content" | "library" | "flags" | "games" | "llm" | "health" | "funnel" | "room" | "audit" | "logins";
 type Session = "checking" | "out" | "in";
 
 const base = () => (typeof window === "undefined" ? "" : window.location.pathname.replace(/\/+$/, ""));
@@ -46,7 +47,7 @@ export function AdminApp() {
         </button>
       </header>
       <nav className="mb-4 flex flex-wrap gap-2">
-        {(["overview", "users", "games", "llm", "logins"] as Tab[]).map((t) => (
+        {(["overview", "users", "content", "library", "flags", "games", "llm", "health", "funnel", "room", "audit", "logins"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -57,9 +58,16 @@ export function AdminApp() {
         ))}
       </nav>
       {tab === "overview" && <Overview onAuthLost={() => setSession("out")} />}
-      {tab === "users" && <Users onAuthLost={() => setSession("out")} />}
+      {tab === "users" && (<><Users onAuthLost={() => setSession("out")} /><AccountPanel /></>)}
+      {tab === "content" && <ContentPanel />}
+      {tab === "library" && <LibraryPanel />}
+      {tab === "flags" && <FlagsPanel />}
+      {tab === "health" && <HealthPanel />}
+      {tab === "funnel" && <FunnelPanel />}
+      {tab === "room" && <RoomPanel />}
+      {tab === "audit" && <AuditPanel />}
       {tab === "games" && <Games onAuthLost={() => setSession("out")} />}
-      {tab === "llm" && <Llm onAuthLost={() => setSession("out")} />}
+      {tab === "llm" && (<><Llm onAuthLost={() => setSession("out")} /><QuotaPanel /></>)}
       {tab === "logins" && <Logins onAuthLost={() => setSession("out")} />}
     </div>
   );
@@ -149,10 +157,10 @@ function Overview({ onAuthLost }: { onAuthLost: () => void }) {
       <Stat label="Users" value={String(data.users_total ?? 0)} />
       <Stat label="Signups, 7 days" value={String(data.users_7d ?? 0)} />
       <Stat label="Signups, 30 days" value={String(data.users_30d ?? 0)} />
-      <Stat label="Active logins, 7 days" value={String(data.last_signin_7d ?? 0)} />
+      <Stat label="Accounts signed in, 7 days" value={String(data.last_signin_7d ?? 0)} />
       <Stat label="Rooms (all time)" value={String(data.rooms_total ?? 0)} />
       <Stat label="Rooms, 7 days" value={String(data.rooms_7d ?? 0)} />
-      <Stat label="Hosts" value={String(data.hosts_total ?? 0)} />
+      <Stat label="Hosts (made a room)" value={String(data.hosts_total ?? 0)} />
       <Stat label="Sign-in methods" value={Object.entries(providers).map(([k, v]) => `${k} ${v}`).join(", ") || "—"} />
     </div>
   );
@@ -259,7 +267,7 @@ function Games({ onAuthLost }: { onAuthLost: () => void }) {
         </table>
       </div>
       <div>
-        <h2 className="mb-2 font-extrabold">Last 14 days</h2>
+        <h2 className="mb-2 font-extrabold">Last 14 days (UTC dates)</h2>
         <ul className="space-y-1 text-sm">
           {days.map(([d, n]) => (
             <li key={d} className="flex items-center gap-2">

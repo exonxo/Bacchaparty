@@ -38,13 +38,22 @@ switch (cmd) {
     console.log(randomBytes(48).toString("base64url"));
     break;
   case "password": {
-    if (!arg || arg.length < 12) {
+    // Prefer stdin, so the password never appears in shell history or the process list:
+    //   printf '%s' 'your password' | node scripts/admin-setup.mjs password --stdin
+    // Passing it as an argument also works, but it is then visible in shell history.
+    let password = arg;
+    if (arg === "--stdin") {
+      const chunks = [];
+      for await (const c of process.stdin) chunks.push(c);
+      password = Buffer.concat(chunks).toString("utf8").replace(/\r?\n$/, "");
+    }
+    if (!password || password.length < 12) {
       console.error("Use a password of at least 12 characters.");
       process.exit(1);
     }
     const N = 16384, R = 8, P = 1;
     const salt = randomBytes(16);
-    const key = await scrypt(arg, salt, 64, { N, r: R, p: P, maxmem: 64 * 1024 * 1024 });
+    const key = await scrypt(password, salt, 64, { N, r: R, p: P, maxmem: 64 * 1024 * 1024 });
     console.log(`scrypt$${N}$${R}$${P}$${salt.toString("base64")}$${key.toString("base64")}`);
     break;
   }

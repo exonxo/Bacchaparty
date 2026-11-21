@@ -1,7 +1,7 @@
 # Bacchaparty QA testing report
 
 **Branch tested:** `claude/peaceful-fermi-o078sd` (local commit at QA time)  
-**Environment:** Local demo mode (`npm run dev`, no Supabase env) — host + 4 mobile players (393×852) in one Chromium context (BroadcastChannel sync). Spot checks on production **https://bacchaparty.vercel.app/join** (wrong code only; no room spam).  
+**Environment:** Local demo mode (`npm run dev`, no Supabase env) — host + 4 mobile players (393×852) in one Chromium context (BroadcastChannel sync). Spot checks on production **https://bacchaparty.vercel.app/join** (this address now serves BAWAAL at https://playbawaal.vercel.app) (wrong code only; no room spam).  
 **Tools:** `scripts/qa-games.mjs`, `scripts/qa-e2e.mjs` (Playwright 1.49).  
 **Host OAuth:** Not tested (requires Google sign-in); production host flow not exercised.
 
@@ -84,13 +84,15 @@ _None reproduced in the latest `qa-games` cycle._
 
 ## Screenshots
 
-Under `docs/testing/e2e-run/`:
+Screenshots are **not committed** (repository policy). The QA scripts write them to the git-ignored `test-artifacts/e2e-run/` folder when you run them, for example:
 
 - `lobby-4-players.png` — host lobby with code + roster  
 - `start-chor-kaun-host.png` — paper game UI  
 - `blocked-raja-mantri.png` — max-player gate  
 - `error-emoji-picture.png` — classic-mode host play  
 - `cycle-*.png` — post-game lobby after each cycle  
+
+The run log `game-cycle.json` is written to the same git-ignored `test-artifacts/e2e-run/` folder by `node scripts/qa-games.mjs`. The old committed copy and the earlier PNGs were removed from the tree in rounds 5–6; they remain in git history.
 
 ## Fixes in this PR
 

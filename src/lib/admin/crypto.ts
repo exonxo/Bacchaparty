@@ -24,7 +24,13 @@ export async function verifyPassword(password: string, stored: string | undefine
   }
   const [, n, r, p, saltB64, hashB64] = parts;
   const expected = Buffer.from(hashB64, "base64");
-  const key = await scrypt(password, Buffer.from(saltB64, "base64"), expected.length, {
+  const salt = Buffer.from(saltB64, "base64");
+  // A truncated hash must never match: an empty expected value would compare equal to an empty key.
+  if (expected.length !== KEYLEN || salt.length < 8) {
+    await scrypt(password, Buffer.alloc(16), KEYLEN, { N, r: R, p: P, maxmem: 64 * 1024 * 1024 });
+    return false;
+  }
+  const key = await scrypt(password, salt, expected.length, {
     N: Number(n),
     r: Number(r),
     p: Number(p),

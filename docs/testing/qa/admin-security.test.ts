@@ -1,10 +1,11 @@
-// QA round 4: admin panel security building blocks (ADM-3, ADM-4, ADM-6..10, ADM-15).
+// QA rounds 4-8: admin panel security building blocks (ADM-3, ADM-4, ADM-6..10, ADM-15).
 // Run from the repo root:  npx -y tsx docs/testing/qa/admin-security.test.ts
 import assert from "node:assert/strict";
-import { adminConfig } from "../../../src/lib/admin/config";
+import { adminConfig, isCompleteScryptHash } from "../../../src/lib/admin/config";
 import { hashPassword, signToken, totpAt, verifyPassword, verifyToken, verifyTotp, randomSecretBase32, base32Decode } from "../../../src/lib/admin/crypto";
-import { clientIp, clearedCookie, newSessionToken, sameOrigin, sessionCookie } from "../../../src/lib/admin/session";
-import { isLocked, recordAttempt, MAX_FAILS } from "../../../src/lib/admin/throttle";
+import { adminSession, clientIp, clearedCookie, COOKIE, newSessionToken, sameOrigin, sessionCookie } from "../../../src/lib/admin/session";
+import { beginAttempt, isLocked, recordAttempt, MAX_FAILS } from "../../../src/lib/admin/throttle";
+import { revokeSession } from "../../../src/lib/admin/revoked";
 
 let passed = 0;
 const lines: string[] = [];
@@ -22,6 +23,8 @@ const SECRET = "x".repeat(40);
 const req = (headers: Record<string, string> = {}, url = "https://example.test/x") => new Request(url, { headers });
 
 (async () => {
+  // A real hash for the config fixtures (the old fake value was too short to be a real hash).
+  const VALID_HASH = await hashPassword("correct horse battery");
   await check("ADM-15a", "TOTP matches the RFC 6238 SHA-1 test vector (T=59 → 287082)", () => {
     const secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"; // base32 of "12345678901234567890"
     assert.equal(totpAt(secret, 59_000), "287082");
@@ -91,6 +94,15 @@ const req = (headers: Record<string, string> = {}, url = "https://example.test/x
     assert.equal(sameOrigin(req({ origin: "not a url", host: "example.test" })), false);
   });
 
+  await check("ADM-6b", "a truncated password hash never matches and is refused by the config check", async () => {
+    const truncated = VALID_HASH.slice(0, VALID_HASH.lastIndexOf("$") + 1);
+    assert.equal(await verifyPassword("anything", truncated), false, "truncated hash must not verify");
+    assert.equal(await verifyPassword("", truncated), false, "empty password must not verify against a truncated hash");
+    assert.equal(isCompleteScryptHash(truncated), false);
+    assert.equal(isCompleteScryptHash("scrypt$16384$8$1$aaaa$bbbb"), false);
+    assert.equal(isCompleteScryptHash(VALID_HASH), true);
+  });
+
   await check("ADM-3", "admin is off without ADMIN_PATH", () => {
     const saved = { ...process.env };
     delete process.env.ADMIN_PATH;
@@ -102,7 +114,7 @@ const req = (headers: Record<string, string> = {}, url = "https://example.test/x
     const saved = { ...process.env };
     process.env.ADMIN_PATH = "short";
     process.env.ADMIN_USERNAME = "owner";
-    process.env.ADMIN_PASSWORD_HASH = "scrypt$16384$8$1$aaaa$bbbb";
+    process.env.ADMIN_PASSWORD_HASH = VALID_HASH;
     process.env.ADMIN_TOTP_SECRET = randomSecretBase32();
     process.env.ADMIN_SESSION_SECRET = SECRET;
     assert.equal(adminConfig(), null);
@@ -127,6 +139,22 @@ const req = (headers: Record<string, string> = {}, url = "https://example.test/x
     assert.equal(await isLocked(ip, t0 + 16 * 60_000), false);
   });
 
+  await check("ADM-7d", "if the database query fails, the lockout still works from memory", async () => {
+    const saved = { url: process.env.NEXT_PUBLIC_SUPABASE_URL, key: process.env.SUPABASE_SERVICE_ROLE_KEY };
+    // A configured but unreachable database: supabase-js returns an error instead of throwing.
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:9";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-not-a-real-key";
+    try {
+      const ip = `10.2.0.${Math.floor(Math.random() * 200) + 1}`;
+      for (let i = 0; i < MAX_FAILS; i++) await recordAttempt(ip, false, "bad_credentials");
+      assert.equal(await isLocked(ip), true);
+      assert.equal(await isLocked("10.9.9.8"), false);
+    } finally {
+      if (saved.url === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL; else process.env.NEXT_PUBLIC_SUPABASE_URL = saved.url;
+      if (saved.key === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = saved.key;
+    }
+  });
+
   await check("ADM-7c", "the throttle reads the proxy-appended IP, not a spoofed first entry", () => {
     assert.equal(clientIp(req({ "x-forwarded-for": "9.9.9.9, 203.0.113.7" })), "203.0.113.7");
     assert.equal(clientIp(req({ "x-forwarded-for": "203.0.113.7" })), "203.0.113.7");
@@ -137,6 +165,59 @@ const req = (headers: Record<string, string> = {}, url = "https://example.test/x
     const cfg = { path: "p", username: "u", passwordHash: "", totpSecret: "", sessionSecret: SECRET };
     const t = newSessionToken(cfg);
     assert.equal(verifyToken(t, SECRET)?.user, "u");
+  });
+
+  // --- Round 8: logout revocation and the atomic lockout (no database: the in-memory paths) ---
+  const cfg8 = { path: "p".repeat(24), username: "owner", passwordHash: "", totpSecret: "", sessionSecret: SECRET };
+  const withCookie = (t: string) => req({ cookie: `${COOKIE}=${t}` });
+
+  await check("ADM-14b", "a logged-out session token is refused even though its signature and expiry are fine", async () => {
+    const t = newSessionToken(cfg8);
+    const s = await adminSession(withCookie(t), cfg8);
+    assert.ok(s, "fresh token accepted");
+    const other = newSessionToken(cfg8);
+    await revokeSession(s!.sid, s!.exp);
+    assert.equal(await adminSession(withCookie(t), cfg8), null, "revoked token refused");
+    assert.ok(await adminSession(withCookie(other), cfg8), "a different session is unaffected");
+  });
+
+  await check("ADM-14c", "every session token gets its own random id", () => {
+    const a = verifyToken(newSessionToken(cfg8), SECRET)?.sid, b = verifyToken(newSessionToken(cfg8), SECRET)?.sid;
+    assert.equal(typeof a, "string");
+    assert.ok((a as string).length >= 16 && a !== b);
+  });
+
+  await check("ADM-14d", "an old-style token without a session id is refused (it could not be logged out)", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const legacy = signToken({ sub: "admin", user: "owner", iat: now, exp: now + 3600 }, SECRET);
+    assert.ok(verifyToken(legacy, SECRET), "signature is valid");
+    assert.equal(await adminSession(withCookie(legacy), cfg8), null);
+  });
+
+  await check("ADM-7e", "parallel attempts from one IP: exactly 5 get through, the rest are locked (no race)", async () => {
+    const ip = `10.3.0.${Math.floor(Math.random() * 200) + 1}`;
+    const attempts = await Promise.all(Array.from({ length: 12 }, () => beginAttempt(ip)));
+    assert.equal(attempts.filter((a) => !a.locked).length, MAX_FAILS);
+    await Promise.all(attempts.filter((a) => !a.locked).map((a) => a.finish(false, "bad_credentials")));
+    assert.equal((await beginAttempt(ip)).locked, true);
+  });
+
+  await check("ADM-7f", "a successful attempt frees its reserved slot", async () => {
+    const ip = `10.4.0.${Math.floor(Math.random() * 200) + 1}`;
+    for (let i = 0; i < MAX_FAILS - 1; i++) await (await beginAttempt(ip)).finish(false, "bad_totp");
+    const ok = await beginAttempt(ip);
+    assert.equal(ok.locked, false);
+    await ok.finish(true, "ok");
+    const next = await beginAttempt(ip);
+    assert.equal(next.locked, false, "the success did not count as a failure");
+    await next.finish(false, "bad_totp");
+    assert.equal((await beginAttempt(ip)).locked, true, "now 5 failures: locked");
+  });
+
+  await check("ADM-7g", "an attempt that never finishes still counts as a failure", async () => {
+    const ip = `10.5.0.${Math.floor(Math.random() * 200) + 1}`;
+    for (let i = 0; i < MAX_FAILS; i++) await beginAttempt(ip); // no finish(): request died mid-way
+    assert.equal((await beginAttempt(ip)).locked, true);
   });
 
   lines.push(`\n${passed} passed, ${lines.length - passed} failed`);

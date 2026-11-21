@@ -59,7 +59,7 @@ Status column: **planned** → **pass** / **fail** / **not verified (why)**. Fil
 
 ## Results (filled after the run)
 
-Runs: `npx -y tsx docs/testing/qa/llm-chain.test.ts`, `npx -y tsx docs/testing/qa/admin-security.test.ts`, `BASE=… node docs/testing/qa/admin-http.js` and `node docs/testing/qa/admin-ui.js` against a dev server started with throwaway admin settings, the production build with the bundle scan, and the layout sweep (`/tmp/claude-0/audit/audit.js 390`).
+Runs: `npx -y tsx docs/testing/qa/llm-chain.test.ts`, `npx -y tsx docs/testing/qa/admin-security.test.ts`, `BASE=… node docs/testing/qa/admin-http.mjs` and `node docs/testing/qa/admin-ui.mjs` against a dev server started with throwaway admin settings, the production build with the bundle scan, and the layout sweep (`/tmp/claude-0/audit/audit.js 390`).
 
 | ID | Status | Note |
 |---|---|---|
@@ -67,10 +67,10 @@ Runs: `npx -y tsx docs/testing/qa/llm-chain.test.ts`, `npx -y tsx docs/testing/q
 | LLM-8 | pass (by build scan) | No key value in the client bundle. Responses only carry validated suggestion data. |
 | LLM-12 | not verified | Needs the Supabase tables; code path is in `src/app/api/suggest/route.ts` (`logEvent`). |
 | LLM (live providers) | not verified | No provider keys in this environment. Each provider's adapter is code-reviewed only. |
-| ADM-1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15 | pass | `admin-http.js` 26 checks, `admin-security.test.ts` 14 checks, `admin-ui.js` 5 steps |
+| ADM-1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15 | pass | `admin-http.mjs` 26 checks, `admin-security.test.ts` 14 checks, `admin-ui.mjs` 5 steps |
 | ADM-12 | pass | Build with admin values set: no secret value, no `SUPABASE_SERVICE_ROLE_KEY` in client chunks. |
 | ADM-13 | not verified | Writes to `admin_login_log` need the Supabase tables. |
-| DATA-1..5 | not verified | Needs the migration applied and real data. The SQL functions are in `supabase/migrations/0004_admin_and_events.sql`. |
+| DATA-1..5 | not verified | Needs the migrations applied and real data. The SQL functions are in `supabase/migrations/0004_admin_and_events.sql`, `0005_admin_stats_and_retention.sql` and `0006_lasting_room_counts_and_safe_stats.sql`. The SQL is tested by `docs/testing/qa/admin-sql.test.mjs`. |
 | REG-1 | pass | `tsc`, eslint, `next build` (25 static pages + admin routes). |
 | REG-2 | pass (by sweep) | Chor Kaun and Emoji start with the built-in content. |
-| REG-3 | pass | Public pages 200, `/admin-internal` 404, layout sweep: no new issues. |
+| REG-3 | pass for public pages and `/admin-internal` 404. The layout sweep was run from a script kept outside the repository, so it is not reproducible from here. | Public pages 200, `/admin-internal` 404, layout sweep: no new issues on the day it was run. |

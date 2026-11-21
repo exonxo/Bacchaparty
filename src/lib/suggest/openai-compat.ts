@@ -13,6 +13,8 @@ export async function callOpenAICompat(opts: {
   signal: AbortSignal;
   jsonMode: boolean;
   extraHeaders?: Record<string, string>;
+  /** Provider-specific request fields (for example a reasoning-effort setting). */
+  extraBody?: Record<string, unknown>;
 }): Promise<unknown | null> {
   const body: Record<string, unknown> = {
     model: opts.model,
@@ -24,6 +26,7 @@ export async function callOpenAICompat(opts: {
     max_tokens: 1800,
   };
   if (opts.jsonMode) body.response_format = { type: "json_object" };
+  if (opts.extraBody) Object.assign(body, opts.extraBody);
   const res = await fetch(opts.url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${opts.apiKey}`, ...(opts.extraHeaders ?? {}) },
