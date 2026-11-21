@@ -1,6 +1,7 @@
 import { CHOR_TOPICS, type ChorTopic } from "@/content/chor-kaun";
 import { GAMES } from "@/games/catalog";
 import type { EmojiPuzzle } from "@/content/emoji-picture";
+import type { KbcNews, KbcQuestion } from "@/content/kbc";
 import type { Level } from "@/lib/types";
 import { randomId } from "@/lib/util";
 import { fallbackEmojiPuzzles, isEmojiCategory } from "./fallbacks";
@@ -177,6 +178,54 @@ export function validateDare(raw: unknown): DareResult | null {
   return { text };
 }
 
+/** A news question for Kaun Banega Champion: 4 distinct options, 1 correct, with its source. */
+export type KbcLibraryQuestion = KbcQuestion & { level: "family" | "adults"; category?: string };
+
+const KBC_CATEGORIES = ["Sports", "Entertainment", "Science", "Business", "India", "World", "Culture", "Environment"];
+
+export function validateKbcQuestion(raw: unknown): KbcLibraryQuestion | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const safety: SafetyContext = { level: "family" };
+  const text = (v: unknown, max: number) => (typeof v === "string" ? v.normalize("NFKC").replace(/\s+/g, " ").trim() : "").slice(0, max + 1);
+  const q = text(o.q, 220);
+  const a = text(o.a, 80);
+  const w = Array.isArray(o.w) ? o.w.map((x) => text(x, 80)) : [];
+  if (q.length < 12 || q.length > 220 || !q.endsWith("?")) return null;
+  if (!a || a.length > 80 || w.length !== 3 || w.some((x) => !x || x.length > 80)) return null;
+  const all = [a, ...w].map((x) => x.toLowerCase());
+  if (new Set(all).size !== 4) return null;
+  if ([q, a, ...w].some((x) => isUnsafeSuggestText(x, safety))) return null;
+  const step = Math.round(Number(o.step));
+  if (!(step >= 1 && step <= 10)) return null;
+  const level = o.level === "adults" ? "adults" : o.level === "family" || o.level == null ? "family" : null;
+  if (!level) return null;
+  const n = (o.news ?? {}) as Record<string, unknown>;
+  const source = n.source === "newsapi" || n.source === "bharat" ? n.source : null;
+  const headline = text(n.headline, 240);
+  const date = typeof n.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(n.date) ? n.date : "";
+  if (!source || !headline || headline.length > 240 || !date) return null;
+  const url = typeof n.url === "string" && /^https:\/\/[^\s"<>]{4,400}$/.test(n.url) ? n.url : undefined;
+  const outlet = text(n.outlet, 60) || undefined;
+  const news: KbcNews = { source, headline, date, ...(url ? { url } : {}), ...(outlet ? { outlet } : {}) };
+  const category = typeof o.category === "string" && KBC_CATEGORIES.includes(o.category) ? o.category : undefined;
+  return { q, a, w: [w[0], w[1], w[2]], step, level, news, ...(category ? { category } : {}) };
+}
+
+export function validateKbcQuestions(raw: unknown, max = 10): KbcLibraryQuestion[] | null {
+  if (!Array.isArray(raw)) return null;
+  const seen = new Set<string>();
+  const out: KbcLibraryQuestion[] = [];
+  for (const r of raw) {
+    const v = validateKbcQuestion(r);
+    if (!v || seen.has(v.q.toLowerCase())) continue;
+    seen.add(v.q.toLowerCase());
+    out.push(v);
+    if (out.length >= max) break;
+  }
+  return out.length ? out : null;
+}
+
 export function validateGeminiPayload(
   kind: SuggestKind,
   raw: unknown,
@@ -193,6 +242,8 @@ export function validateGeminiPayload(
       return validateNextGame(raw, playerCount ?? 4);
     case "dare":
       return validateDare(raw);
+    case "kbc-question":
+      return validateKbcQuestions(raw, contextCount ?? 10);
     default:
       return null;
   }

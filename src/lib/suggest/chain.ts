@@ -20,6 +20,8 @@ const COOL_BAD_OUTPUT_MS = 10_000;
 export interface CallOptions {
   /** Lower is steadier. The games use the providers' default variety; admin generation asks for less. */
   temperature?: number;
+  /** Reply format for Gemini when it isn't one of the game kinds (the news prompts). */
+  schema?: Record<string, unknown>;
 }
 
 export interface Provider {
@@ -58,7 +60,7 @@ const PROVIDERS: Provider[] = [
   {
     name: "gemini",
     configured: () => !!env("GEMINI_API_KEY"),
-    call: (kind, prompt, signal, opts) => callGemini(env("GEMINI_API_KEY")!, kind, prompt, signal, opts?.temperature),
+    call: (kind, prompt, signal, opts) => callGemini(env("GEMINI_API_KEY")!, kind, prompt, signal, opts?.temperature, opts?.schema),
   },
   {
     name: "openrouter",
@@ -126,7 +128,7 @@ export function makeChain(providers: Provider[], now: () => number = Date.now) {
       kind: SuggestKind,
       prompt: string,
       accept: (raw: unknown) => unknown | null,
-      opts?: { allow?: (name: string) => boolean; temperature?: number },
+      opts?: { allow?: (name: string) => boolean; temperature?: number; schema?: Record<string, unknown> },
     ): Promise<ChainResult | null> {
       const started = now();
       const deadline = started + TOTAL_BUDGET_MS;
@@ -135,7 +137,7 @@ export function makeChain(providers: Provider[], now: () => number = Date.now) {
         if (left < 1_000) break;
         const t0 = now();
         try {
-          const raw = await p.call(kind, prompt, AbortSignal.timeout(Math.min(PER_CALL_MS, left)), { temperature: opts?.temperature });
+          const raw = await p.call(kind, prompt, AbortSignal.timeout(Math.min(PER_CALL_MS, left)), { temperature: opts?.temperature, schema: opts?.schema });
           const data = raw == null ? null : accept(unwrapPayload(kind, raw));
           if (data != null) return { data, provider: p.name, ms: now() - t0 };
           cool(p.name, COOL_BAD_OUTPUT_MS);

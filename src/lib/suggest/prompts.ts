@@ -29,6 +29,8 @@ const SHAPES: Record<SuggestKind, string> = {
   "emoji-puzzle": `{"puzzles": [{"emojis": "2-6 emoji", "decode": "which emoji means what", "category": "Movie|Food|Place|Festival|Phrase|Cartoon|Sport|Song", "answer": "the single correct answer", "alt": ["other accepted answers"], "hint": "short hint without the answer", "level": "kids|family|adults"}]}`,
   "next-game": `{"gameId": "one of the ids below", "reason": "one friendly sentence"}`,
   dare: `{"text": "one short dare or icebreaker"}`,
+  // Not used by buildPrompt: news questions have their own prompts (news.ts).
+  "kbc-question": `{"items": []}`,
 };
 
 /** A random theme for variety. Chosen on the server, so the model can't be steered by the browser. */

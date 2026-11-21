@@ -1,4 +1,4 @@
-// Content library SQL (migration 0010, applied after 0004 to 0009) against an in-process Postgres.
+// Content library SQL (migrations 0010 to 0012, applied after 0004 to 0009) against an in-process Postgres.
 // Simulates the parts of Supabase the migrations rely on (auth.users, anon / authenticated /
 // service_role and Supabase's default privileges). Not a substitute for testing on the real project.
 // Run after: npm i --no-save @electric-sql/pglite   (or set PGLITE_DIR to the package folder)
@@ -61,7 +61,7 @@ await db.exec(`
 const FILES = [
   "0004_admin_and_events.sql", "0005_admin_stats_and_retention.sql", "0006_lasting_room_counts_and_safe_stats.sql",
   "0007_power_admin.sql", "0008_review_followups.sql", "0009_session_revocation_and_atomic_lockout.sql", "0010_content_library.sql",
-  "0011_library_theme.sql",
+  "0011_library_theme.sql", "0012_kbc_news.sql",
 ];
 let migrationsOk = true;
 for (const f of FILES) {
@@ -72,11 +72,14 @@ for (const f of FILES) {
     check("MIG", `migration ${f} applies cleanly`, false, e.message.split("\n")[0]);
   }
 }
-check("MIG-1", "migrations 0004 to 0011 apply cleanly in order", migrationsOk);
+check("MIG-1", "migrations 0004 to 0012 apply cleanly in order", migrationsOk);
 const rerun = await db.exec(migration("0010_content_library.sql")).then(() => null, (e) => e.message.split("\n")[0]);
 check("MIG-2", "0010 can be run a second time", rerun === null, rerun ?? "");
 const rerun11 = await db.exec(migration("0011_library_theme.sql")).then(() => null, (e) => e.message.split("\n")[0]);
 check("MIG-3", "0011 can be run a second time (after 0010 again too)", rerun11 === null, rerun11 ?? "");
+// Re-running 0010/0011 put back their versions of library_pick/library_add; 0012 must come last again.
+const rerun12 = await db.exec(migration("0012_kbc_news.sql")).then(() => null, (e) => e.message.split("\n")[0]);
+check("MIG-4", "0012 can be run a second time", rerun12 === null, rerun12 ?? "");
 
 const asRole = async (role, sql, params) => {
   try {
@@ -270,6 +273,37 @@ const themeGrants = await svc(`select grantee, privilege_type from information_s
 check("THEME-7", "anon and authenticated have no access to the theme column", themeGrants.ok && themeGrants.rows.length === 0, JSON.stringify(themeGrants.rows));
 const addFn = await svc(`select p.prosecdef, p.proconfig, has_function_privilege('anon', p.oid, 'execute') anon_exec, has_function_privilege('authenticated', p.oid, 'execute') auth_exec from pg_proc p where p.proname = 'library_add'`);
 check("THEME-8", "library_add is still one security-definer function anon and authenticated can't call", addFn.rows.length === 1 && addFn.rows[0].prosecdef && !addFn.rows[0].anon_exec && !addFn.rows[0].auth_exec, JSON.stringify(addFn.rows));
+
+// --- News questions and expiry (0012) -----------------------------------------------------------------
+const kbc = (q, extra = {}) => ({ category: "family", key: q, data: { q, a: "A", w: ["B", "C", "D"], step: 3, level: "family", news: { source: "bharat", headline: q, date: "2026-11-01" } }, ...extra });
+const soon = new Date(Date.now() + 30 * 86400_000).toISOString();
+const past = new Date(Date.now() - 86400_000).toISOString();
+const farOff = new Date(Date.now() + 400 * 86400_000).toISOString();
+const news = await svc(`select library_add('kbc-question', 'kaun-banega-champion', 'en', 'news:bharat', $1::jsonb, null, null, false) as n`, [JSON.stringify([
+  kbc("Live news question one?", { expires_at: soon }),
+  kbc("Live news question two?", { expires_at: soon }),
+  kbc("Expired news question?", { expires_at: past }),
+  kbc("Far future news question?", { expires_at: farOff }),
+  kbc("Bad date news question?", { expires_at: "not a date" }),
+  kbc("Impossible date news question?", { expires_at: "2026-13-45" }),
+  kbc("No expiry news question?"),
+])]);
+check("NEWS-1", "the library accepts KBC news questions (7 stored, tagged news:bharat)", news.ok && news.rows[0].n === 7, news.error ?? JSON.stringify(news.rows));
+const exp = Object.fromEntries((await svc(`select text_key, expires_at, source, game_id from content_library where kind = 'kbc-question'`)).rows.map((r) => [r.text_key, r]));
+check("NEWS-2", "the expiry is stored as given", Math.abs(new Date(exp["Live news question one?"].expires_at) - new Date(soon)) < 1000, JSON.stringify(exp["Live news question one?"]));
+const capDays = (new Date(exp["Far future news question?"].expires_at) - Date.now()) / 86400_000;
+check("NEWS-3", "an expiry is capped at 90 days ahead", capDays > 89 && capDays <= 90.01, `${capDays.toFixed(2)} days`);
+check("NEWS-4", "a bad or impossible date, or none, means no expiry instead of a failed batch", exp["Bad date news question?"].expires_at === null && exp["Impossible date news question?"].expires_at === null && exp["No expiry news question?"].expires_at === null, JSON.stringify([exp["Bad date news question?"], exp["Impossible date news question?"], exp["No expiry news question?"]].map((r) => r.expires_at)));
+check("NEWS-5", "source and game are recorded", exp["Live news question one?"].source === "news:bharat" && exp["Live news question one?"].game_id === "kaun-banega-champion", JSON.stringify(exp["Live news question one?"]));
+const kp = await svc(`select data->>'q' q from library_pick(null, 'guest_newsnewsnews000001', 'kbc-question', array['family'], 'en', 10, 1)`);
+const kq = kp.rows.map((r) => r.q).sort();
+check("NEWS-6", "expired news questions are never served; the other 6 are", kp.ok && kq.length === 6 && !kq.includes("Expired news question?"), kp.error ?? JSON.stringify(kq));
+const dareStill = await svc(`select count(*)::int n from library_pick(null, 'guest_newsnewsnews000002', 'dare', array['family','mixed'], 'en', 30, 1)`);
+check("NEWS-7", "items without an expiry (dares) are still served", dareStill.ok && dareStill.rows[0].n > 0, dareStill.error ?? "");
+const tsFn = await svc(`select has_function_privilege('anon', 'public.library_ts(text)', 'execute') a, has_function_privilege('authenticated', 'public.library_ts(text)', 'execute') b`);
+check("NEWS-8", "anon and authenticated can't call the date helper", tsFn.ok && !tsFn.rows[0].a && !tsFn.rows[0].b, JSON.stringify(tsFn.rows));
+const bad = await svc(`insert into content_library (kind, game_id, text_key, text_norm, data, source) values ('kbc', 'x', 'k2', 'k2', '{}', 'manual')`);
+check("NEWS-9", "kinds other than the four known ones are still refused", !bad.ok && /content_library_kind_check/.test(bad.error), bad.error ?? "inserted");
 
 // --- Account deletion ---------------------------------------------------------------------------------
 await db.exec(`delete from auth.users where id = '${hostB}'`);

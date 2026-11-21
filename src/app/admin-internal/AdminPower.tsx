@@ -61,6 +61,9 @@ const REASON_TEXT: Record<string, string> = {
   emojis: "emoji missing or not only emoji", answer: "answer missing or too long", hint: "hint missing or gives the answer away",
   category: "off theme", level: "wrong level", unsafe: "unsafe", shape: "unreadable", duplicate: "repeated", invalid: "unusable",
   not_from_list: "not one of the movies", no_new_topic: "no new topic left", extra: "more than asked",
+  skipped_by_ai: "story not suitable", answer_not_in_source: "answer not in the story", checker_unsure: "check: not sure",
+  checker_disagrees: "check: different answer", quote_not_in_source: "check: quote not in the story", not_checked: "check failed",
+  no_time_to_check: "no time to check", no_answer: "AI did not answer",
 };
 
 /** "Made 10 · kept 7 · rejected 3 (off theme 2, no answer 1)". */
@@ -70,6 +73,15 @@ function madeKeptText(r: Record<string, unknown>): string {
     .map(([k, n]) => `${REASON_TEXT[k] ?? k} ${n}`)
     .join(", ");
   return `Made ${r.made ?? 0} · kept ${r.kept ?? 0} · rejected ${r.rejected ?? 0}${reasons ? ` (${reasons})` : ""}`;
+}
+
+/** " News: NewsAPI 70 headlines, Bharat News API down (timeout); 120 filtered out." */
+function newsSourcesText(r: Record<string, unknown>): string {
+  const src = r.sources as Record<string, { ok: boolean; count: number; error?: string }> | undefined;
+  if (!src) return "";
+  const one = (name: string, s?: { ok: boolean; count: number; error?: string }) =>
+    !s ? "" : s.ok ? `${name} ${s.count} headlines` : `${name} unavailable (${s.error ?? "error"})`;
+  return ` News: ${[one("NewsAPI", src.newsapi), one("Bharat News API", src.bharat)].filter(Boolean).join(", ")}; ${r.blocked ?? 0} filtered out before the AI.`;
 }
 
 /* ---------------- Account lookup and actions ---------------- */
@@ -285,6 +297,14 @@ function PendingRow({ item, onDone }: { item: PendingItem; onDone: () => void })
 
 /* ---------------- Content library ---------------- */
 
+interface NewsCounts {
+  total: number;
+  live: number;
+  expired: number;
+  bySource: Record<string, number>;
+  newest: string | null;
+}
+
 interface LibraryRow {
   game_id: string;
   kind: string;
@@ -301,10 +321,11 @@ const LIBRARY_KINDS: { kind: string; label: string; max: number }[] = [
   { kind: "emoji-puzzle", label: "Emoji Picture puzzles", max: 50 },
   { kind: "chor-kaun-topic", label: "Chor Kaun topics", max: 5 },
   { kind: "dare", label: "Dares", max: 5 },
+  { kind: "kbc-question", label: "KBC news questions", max: 10 },
 ];
 
 export function LibraryPanel() {
-  const [data, setData] = useState<{ total: number; active: number; servedTotal: number; viewers30d: number; rows: LibraryRow[] } | null>(null);
+  const [data, setData] = useState<{ total: number; active: number; servedTotal: number; viewers30d: number; rows: LibraryRow[]; news?: NewsCounts | null } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
   const [kind, setKind] = useState("emoji-puzzle");
@@ -316,7 +337,7 @@ export function LibraryPanel() {
   const max = LIBRARY_KINDS.find((k) => k.kind === kind)?.max ?? 5;
 
   const load = () =>
-    view<{ total: number; active: number; servedTotal: number; viewers30d: number; rows: LibraryRow[] }>("library")
+    view<{ total: number; active: number; servedTotal: number; viewers30d: number; rows: LibraryRow[]; news?: NewsCounts | null }>("library")
       .then((d) => {
         setData(d);
         setErr(null);
@@ -333,8 +354,8 @@ export function LibraryPanel() {
     setBusy(false);
     setMsg(
       r.ok
-        ? { text: `${madeKeptText(r)}. ${r.stored} new in the library, ${r.duplicates} already there. Rejected items were not saved.`, bad: false }
-        : { text: `Not generated: ${r.error}${r.made != null ? ` · ${madeKeptText(r)}` : ""}`, bad: true },
+        ? { text: `${madeKeptText(r)}. ${r.stored} new in the library, ${r.duplicates} already there. Rejected items were not saved.${newsSourcesText(r)}`, bad: false }
+        : { text: `Not generated: ${r.error}${r.made != null ? ` · ${madeKeptText(r)}` : ""}${newsSourcesText(r)}`, bad: true },
     );
     load();
     setListKey((k) => k + 1);
@@ -350,6 +371,12 @@ export function LibraryPanel() {
       <p className="text-sm">
         Items: {data?.total ?? "—"} · Switched on: {data?.active ?? "—"} · Times served: {data?.servedTotal ?? "—"} · Hosts served (30 days): {data?.viewers30d ?? "—"}
       </p>
+      {data?.news && (
+        <p className="text-sm">
+          KBC news questions: {data.news.live} being served · {data.news.expired} expired (older than about 60 days, no longer served) · by source:{" "}
+          {Object.entries(data.news.bySource).map(([k, v]) => `${k} ${v}`).join(", ") || "none yet"}
+        </p>
+      )}
       {err && <p className="text-sm text-[#c23a22]">{err}</p>}
       {data && (
         <table className="w-full text-left text-sm">
@@ -397,7 +424,8 @@ interface TopupInfo {
   ranAt: string;
   ok: boolean;
   detail: { trigger?: string; done?: boolean; made?: number; kept?: number; rejected?: number; stored?: number; skipped?: string;
-    emoji?: { movies?: number; kept?: number }; chor?: { movie?: number; ai?: number }; dare?: { kept?: number } };
+    emoji?: { movies?: number; kept?: number }; chor?: { movie?: number; ai?: number }; dare?: { kept?: number };
+    news?: { kept?: number; fetched?: number; sources?: Record<string, { ok: boolean; error?: string }> } };
 }
 
 function topupText(t: TopupInfo | null): string {
@@ -406,7 +434,8 @@ function topupText(t: TopupInfo | null): string {
   const when = new Date(t.ranAt).toLocaleString();
   if (d.skipped) return `Last top-up ${when} (${d.trigger ?? "?"}): skipped, ${d.skipped}.`;
   return `Last top-up ${when} (${d.trigger === "admin" ? "button" : "weekly"}): made ${d.made ?? 0} · kept ${d.kept ?? 0} · rejected ${d.rejected ?? 0} · ${d.stored ?? 0} new in the library ` +
-    `(emoji ${d.emoji?.kept ?? 0} from ${d.emoji?.movies ?? 0} movies, Chor Kaun ${d.chor?.movie ?? 0} movie + ${d.chor?.ai ?? 0} AI, dares ${d.dare?.kept ?? 0})${d.done ? "" : " · not finished: tries again tonight"}.`;
+    `(emoji ${d.emoji?.kept ?? 0} from ${d.emoji?.movies ?? 0} movies, Chor Kaun ${d.chor?.movie ?? 0} movie + ${d.chor?.ai ?? 0} AI, dares ${d.dare?.kept ?? 0}, KBC news ${d.news?.kept ?? 0} from ${d.news?.fetched ?? 0} headlines${
+      d.news?.sources ? Object.entries(d.news.sources).filter(([, v]) => !v.ok).map(([k, v]) => `; ${k} unavailable (${v.error ?? "error"})`).join("") : ""})${d.done ? "" : " · not finished: tries again tonight"}.`;
 }
 
 /** Weekly automatic top-up: last run, and a button to run it now. */
@@ -431,7 +460,7 @@ function TopupBox({ onRan }: { onRan: () => void }) {
   return (
     <div className={`${box} space-y-2 text-sm`}>
       <p className="font-bold">Weekly top-up</p>
-      <p>Once a week, after the nightly clean-up, the library adds about 40 popular Indian movie puzzles (titles from TMDB, emoji from the AI), a few Chor Kaun topics (about a third movie titles) and a couple of dares. Only items that pass the checks are saved.</p>
+      <p>Once a week, after the nightly clean-up, the library adds about 40 popular Indian movie puzzles (titles from TMDB, emoji from the AI), a few Chor Kaun topics (about a third movie titles), a couple of dares and about 10 KBC news questions (from NewsAPI and the Bharat News API, checked against the story, served for about 60 days). Only items that pass the checks are saved.</p>
       <p>{t === undefined ? "Loading…" : topupText(t)}</p>
       <button className={button} onClick={run} disabled={busy}>Run top-up now</button>
       {msg && <Msg text={msg.text} bad={msg.bad} />}
@@ -448,7 +477,9 @@ interface LibraryEntry {
   active: boolean;
   served_count: number;
   created_at: string;
-  data: { emojis?: string; answer?: string; hint?: string; label?: string; words?: string[]; text?: string };
+  expires_at?: string | null;
+  data: { emojis?: string; answer?: string; hint?: string; label?: string; words?: string[]; text?: string;
+    q?: string; a?: string; w?: string[]; news?: { source?: string; headline?: string; date?: string; url?: string; outlet?: string } };
 }
 
 /** Newest items of one game, with a switch to stop serving any one of them. */
@@ -489,6 +520,17 @@ function LibraryItems({ kind, onChanged }: { kind: string; onChanged: () => void
               <p><b>{item.data.label}</b>: {(item.data.words ?? []).join(", ")}</p>
             )}
             {kind === "dare" && <p>{item.data.text}</p>}
+            {kind === "kbc-question" && (
+              <>
+                <p><b>{item.data.q}</b></p>
+                <p>✓ {item.data.a} · ✗ {(item.data.w ?? []).join(" · ")}</p>
+                <p className="text-xs">
+                  From {item.data.news?.source === "bharat" ? "Bharat News API" : item.data.news?.outlet ?? "NewsAPI"}, {item.data.news?.date}:{" "}
+                  {item.data.news?.url ? <a className="underline" href={item.data.news.url} target="_blank" rel="noopener noreferrer">{item.data.news?.headline}</a> : item.data.news?.headline}
+                  {item.expires_at ? ` · served until ${new Date(item.expires_at).toLocaleDateString()}` : ""}
+                </p>
+              </>
+            )}
             <p className="text-xs text-[#6b6258]">
               #{item.id} · {item.category}{item.theme ? ` · theme: ${item.theme}` : ""} · {item.source} · served {item.served_count}× · {new Date(item.created_at).toLocaleDateString()}{item.active ? "" : " · off"}
             </p>

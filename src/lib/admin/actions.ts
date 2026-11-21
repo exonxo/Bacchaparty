@@ -4,6 +4,7 @@ import { isMovieTheme, languagesForTheme, tmdbConfigured } from "../suggest/tmdb
 import { libraryTexts, movieChorTopic, movieItems, moviePuzzles, pickMovies } from "../suggest/movies";
 import { normText, type LibraryItem } from "../suggest/library";
 import { runTopup } from "../suggest/topup";
+import { makeNewsQuestions, saveNews } from "../suggest/news";
 import type { EmojiPuzzle } from "@/content/emoji-picture";
 import type { Level } from "@/lib/types";
 import { buildPrompt } from "../suggest/prompts";
@@ -136,7 +137,7 @@ function screenInto(stats: { made: number; rejected: number; reasons: Record<str
 }
 
 /** Largest "Generate more" batch per kind. Emoji puzzles come 10 per AI call; topics and dares one per call. */
-export const LIBRARY_BATCH_MAX: Record<LibraryKind, number> = { "emoji-puzzle": 50, "chor-kaun-topic": 5, dare: 5 };
+export const LIBRARY_BATCH_MAX: Record<LibraryKind, number> = { "emoji-puzzle": 50, "chor-kaun-topic": 5, dare: 5, "kbc-question": 10 };
 
 /**
  * "Generate more": asks the AI services for a batch and adds it to the content library. Duplicates
@@ -155,9 +156,10 @@ async function libraryGenerate(body: Record<string, unknown>, ctx: ActionContext
   const flags = await flagMap();
   if (flags["suggest"] === false) return fail(409, "suggest_switched_off");
   const allow = (name: string) => flags[`llm:${name}`] !== false;
-  const useTmdb = isMovieTheme(theme) && tmdbConfigured() && kind !== "dare";
+  const useTmdb = isMovieTheme(theme) && tmdbConfigured() && kind !== "dare" && kind !== "kbc-question";
   await auditOrThrow({ actor: ctx.actor, action: "library.generate", target: kind, details: { count, level, audience, theme, tmdb: useTmdb }, ip: ctx.ip });
   if (useTmdb) return movieGenerate(kind, count, theme, allow);
+  if (kind === "kbc-question") return newsGenerate(count, theme, allow);
 
   const category = kind === "emoji-puzzle" ? categoryForTheme(theme) : undefined;
   const stats = { made: 0, rejected: 0, reasons: {} as Record<string, number> };
@@ -205,6 +207,21 @@ async function libraryGenerate(body: Record<string, unknown>, ctx: ActionContext
   const summary = { kind, theme, made: stats.made, kept, rejected: stats.rejected, reasons: stats.reasons, stored, duplicates: kept - stored, calls, providers };
   if (!kept) return fail(503, "no_provider_answered", summary);
   return ok({ ...summary, generated: kept });
+}
+
+/** KBC news questions: fetched headlines, AI selection and writing, a second check against the source. */
+async function newsGenerate(count: number, theme: string, allow: (name: string) => boolean): Promise<ActionResult> {
+  const r = await makeNewsQuestions({ want: count, theme, allow, deadline: Date.now() + 30_000, maxBatches: 3 });
+  const stored = r.items.length ? await saveNews(r.items, (items, source) => saveToLibrary("kbc-question", items, source)) : 0;
+  if (stored == null) return fail(503, "library_unavailable");
+  const st = r.stats;
+  const summary = {
+    kind: "kbc-question", theme, source: "news", sources: st.sources, fetched: st.fetched, blocked: st.blocked, considered: st.considered,
+    made: st.made, kept: r.items.length, rejected: st.rejected, reasons: st.reasons, stored, duplicates: r.items.length - stored, calls: st.calls, providers: st.providers,
+  };
+  if (!st.sources.newsapi.ok && !st.sources.bharat.ok) return fail(503, "news_unavailable", summary);
+  if (!r.items.length) return fail(503, "no_questions_kept", summary);
+  return ok({ ...summary, generated: r.items.length });
 }
 
 /** Movie themes: titles come from TMDB. Emoji puzzles get AI emoji for those titles; Chor Kaun topics use no AI. */

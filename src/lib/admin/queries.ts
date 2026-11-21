@@ -176,10 +176,23 @@ export async function library() {
   const { data, error } = await db().rpc("admin_library_counts");
   if (error) throw error;
   const c = (data ?? {}) as { total?: number; active?: number; servedTotal?: number; viewers30d?: number; rows?: unknown[] };
-  return { total: c.total ?? 0, active: c.active ?? 0, servedTotal: c.servedTotal ?? 0, viewers30d: c.viewers30d ?? 0, rows: c.rows ?? [] };
+  return { total: c.total ?? 0, active: c.active ?? 0, servedTotal: c.servedTotal ?? 0, viewers30d: c.viewers30d ?? 0, rows: c.rows ?? [], news: await newsCounts() };
 }
 
-const CSV_COLUMNS = ["id", "game_id", "kind", "category", "theme", "lang", "text_key", "source", "active", "served_count", "last_served_at", "created_at", "data"] as const;
+/** KBC news questions: live (switched on, not expired), expired, and by source. Null before 0012. */
+export async function newsCounts(): Promise<{ total: number; live: number; expired: number; bySource: Record<string, number>; newest: string | null } | null> {
+  const { data, error } = await db().from("content_library").select("source, active, expires_at, created_at").eq("kind", "kbc-question").limit(10_000);
+  if (error) return null;
+  const now = Date.now();
+  const rows = (data ?? []) as { source: string; active: boolean; expires_at: string | null; created_at: string }[];
+  const expired = rows.filter((r) => r.expires_at && Date.parse(r.expires_at) <= now).length;
+  const bySource: Record<string, number> = {};
+  for (const r of rows) bySource[r.source] = (bySource[r.source] ?? 0) + 1;
+  const newest = rows.reduce<string | null>((m, r) => (!m || r.created_at > m ? r.created_at : m), null);
+  return { total: rows.length, live: rows.filter((r) => r.active && !(r.expires_at && Date.parse(r.expires_at) <= now)).length, expired, bySource, newest };
+}
+
+const CSV_COLUMNS = ["id", "game_id", "kind", "category", "theme", "lang", "text_key", "source", "active", "served_count", "last_served_at", "created_at", "expires_at", "data"] as const;
 export const LIBRARY_CSV_MAX_ROWS = 20_000;
 
 /** Quotes a CSV cell, and defuses cells a spreadsheet would run as a formula. */
@@ -195,8 +208,10 @@ export function csvCell(v: unknown): string {
  */
 export async function libraryCsv(): Promise<{ csv: string; rows: number; truncated: boolean }> {
   // Before 0011 there is no theme column: export without it rather than failing.
-  const probe = await db().from("content_library").select("theme").limit(1);
-  const cols = probe.error ? CSV_COLUMNS.filter((c) => c !== "theme") : [...CSV_COLUMNS];
+  // Columns added by later migrations are left out until those migrations have run.
+  const has = async (col: string) => !(await db().from("content_library").select(col).limit(1)).error;
+  const [hasTheme, hasExpiry] = await Promise.all([has("theme"), has("expires_at")]);
+  const cols = CSV_COLUMNS.filter((c) => (c !== "theme" || hasTheme) && (c !== "expires_at" || hasExpiry));
   const lines = [cols.join(",")];
   let rows = 0;
   for (let from = 0; from < LIBRARY_CSV_MAX_ROWS; from += 1000) {
@@ -221,7 +236,8 @@ export async function libraryItems(kind: string, page: number) {
   const from = Math.max(0, page) * LIBRARY_PAGE;
   const base = "id, kind, category, lang, text_key, source, active, served_count, created_at, data";
   const pageOf = (cols: string) => db().from("content_library").select(cols, { count: "exact" }).eq("kind", kind).order("id", { ascending: false }).range(from, from + LIBRARY_PAGE - 1);
-  let res = await pageOf(`${base}, theme`);
+  let res = await pageOf(`${base}, theme, expires_at`);
+  if (res.error) res = await pageOf(`${base}, theme`);
   if (res.error) res = await pageOf(base);
   if (res.error) throw res.error;
   return { kind, page, pageSize: LIBRARY_PAGE, total: res.count ?? 0, items: (res.data ?? []) as unknown as Record<string, unknown>[] };

@@ -64,13 +64,13 @@ function schemaFor(kind: SuggestKind): JsonSchema {
 }
 
 /** Gemini's own API. Throws a `ProviderError` with the HTTP status when the call fails. */
-export async function callGemini(apiKey: string, kind: SuggestKind, prompt: string, signal: AbortSignal, temperature = 1.1): Promise<unknown | null> {
+export async function callGemini(apiKey: string, kind: SuggestKind, prompt: string, signal: AbortSignal, temperature = 1.1, schema?: Record<string, unknown>): Promise<unknown | null> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
   const body = {
     contents: [{ role: "user", parts: [{ text: prompt }] }],
     generationConfig: {
       responseMimeType: "application/json",
-      responseSchema: schemaFor(kind),
+      responseSchema: schema ?? schemaFor(kind),
       temperature,
       thinkingConfig: { thinkingBudget: 0 },
     },

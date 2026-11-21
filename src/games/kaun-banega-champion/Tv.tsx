@@ -256,6 +256,11 @@ export function TvScreen({ view, players, now }: ScreenProps<Pub>) {
         <div className="font-bold uppercase tracking-[0.2em] opacity-80" style={{ fontSize: "clamp(0.85rem, 2vh, 1.3rem)" }}>
           Sawaal {view.rung + 1}
         </div>
+        {q.news && (
+          <div className="mt-[0.4vh] font-semibold opacity-80" style={{ fontSize: "clamp(0.8rem, 1.8vh, 1.15rem)" }}>
+            {q.news}
+          </div>
+        )}
         <h2 className="font-display mt-[0.8vh] font-extrabold leading-tight text-balance" style={{ fontSize: "clamp(1.8rem, 5.6vh, 4.4rem)" }}>
           {q.q}
         </h2>

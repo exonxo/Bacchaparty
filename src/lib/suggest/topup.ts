@@ -5,7 +5,8 @@
  *
  * One run: about 40 popular Indian movies from TMDB not yet in the library → AI emoji for each → only
  * puzzles that pass validation and match a TMDB title are saved. Plus a few Chor Kaun topics (about a
- * third real movie titles, the rest AI non-movie topics) and a couple of dares.
+ * third real movie titles, the rest AI non-movie topics), a couple of dares and about 10 KBC news
+ * questions (see news.ts).
  * It stops starting new work near the time budget. A run that kept fewer than 20 puzzles is not
  * "done", so the next night tries again: the work spreads over days if the AI is slow or down.
  */
@@ -18,6 +19,7 @@ import { chorMovieShare, libraryTexts, movieChorTopic, movieItems, moviePuzzles,
 import { buildPrompt } from "./prompts";
 import { tmdbConfigured } from "./tmdb";
 import { validateGeminiPayload } from "./validate";
+import { makeNewsQuestions, saveNews, type NewsStats } from "./news";
 
 export const TOPUP_EVERY_DAYS = 7;
 export const TOPUP_MOVIES = 40;
@@ -25,6 +27,10 @@ export const TOPUP_MOVIES = 40;
 export const TOPUP_TARGET_MIN = 20;
 export const TOPUP_CHOR = 3;
 export const TOPUP_DARES = 2;
+/** KBC news questions per run; the news step runs last, in the time kept back for it. */
+export const TOPUP_NEWS = 10;
+/** Time kept back from the emoji step for the news step. */
+const NEWS_RESERVE_MS = 15_000;
 const ALL_LANGS = "hi|ta|te|ml|kn|bn|mr|pa|gu";
 const CHOR_THEMES = ["Indian food", "Festivals", "Places in India", "Cricket", "Indian sweets", "Street food", "Indian states", "Kitchen items", "Wedding rituals", "Indian trains"];
 const DARE_THEMES = ["Family party", "Diwali night", "Wedding season", "Road trip", "Cricket match night", "Monsoon evening"];
@@ -42,6 +48,7 @@ export interface TopupResult {
   emoji: { movies: number; made: number; kept: number; rejected: number; stored: number; reasons: Record<string, number> };
   chor: { movie: number; ai: number; kept: number; stored: number };
   dare: { kept: number; stored: number };
+  news: { sources?: NewsStats["sources"]; fetched: number; made: number; kept: number; rejected: number; stored: number; reasons: Record<string, number> };
   providers: Record<string, number>;
   /** Why Chor Kaun / dare calls produced nothing ("no_answer": every AI service failed or was refused). */
   otherReasons?: Record<string, number>;
@@ -84,6 +91,7 @@ export async function runTopup(trigger: "cron" | "admin", budgetMs = 45_000): Pr
     emoji: { movies: 0, made: 0, kept: 0, rejected: 0, stored: 0, reasons: {} },
     chor: { movie: 0, ai: 0, kept: 0, stored: 0 },
     dare: { kept: 0, stored: 0 },
+    news: { fetched: 0, made: 0, kept: 0, rejected: 0, stored: 0, reasons: {} },
     providers: {},
     ms: 0,
   };
@@ -149,24 +157,34 @@ export async function runTopup(trigger: "cron" | "admin", budgetMs = 45_000): Pr
   res.dare.kept = dareItems.length;
   res.dare.stored = dareItems.length ? ((await saveToLibrary("dare", dareItems, "cron:llm")) ?? 0) : 0;
 
-  // 3. Emoji puzzles for movies not yet in the library, most-rated first.
+  // 3. Emoji puzzles for movies not yet in the library, most-rated first. The main job, so it goes
+  // before news; it stops starting batches early enough to leave the news step its time.
   const movies = await pickMovies(ALL_LANGS, TOPUP_MOVIES, await libraryTexts("emoji-puzzle"));
   res.emoji.movies = movies.length;
   if (movies.length) {
-    // No new batch starts in the last 8 s, so the last one (up to 8 s) ends within the budget.
-    const r = await moviePuzzles(movies, { allow, temperature: TEMPERATURE, deadline: deadline - 8_000 });
+    // No new batch starts in the last 8 s + the news reserve, so the last one (up to 8 s) ends in time.
+    const r = await moviePuzzles(movies, { allow, temperature: TEMPERATURE, deadline: deadline - 8_000 - NEWS_RESERVE_MS });
     addProviders(r.providers);
     const stored = r.puzzles.length ? await saveToLibrary("emoji-puzzle", movieItems(r.puzzles), "cron:tmdb:llm") : 0;
     res.emoji = { movies: movies.length, made: r.stats.made, kept: r.puzzles.length, rejected: r.stats.rejected, reasons: r.stats.reasons, stored: stored ?? 0 };
   }
+  // 4. KBC news questions: fetched only here and from the admin button, never during a game. A write
+  // call and a check call (up to 8 s each) can follow the last start, so starts stop 16 s before the end.
+  if (left() > 12_000) {
+    const n = await makeNewsQuestions({ want: TOPUP_NEWS, allow, deadline: deadline - 16_000, maxBatches: 2 });
+    addProviders(n.stats.providers);
+    const stored = n.items.length ? await saveNews(n.items, (items, source) => saveToLibrary("kbc-question", items, source)) : 0;
+    res.news = { sources: n.stats.sources, fetched: n.stats.fetched, made: n.stats.made, kept: n.items.length, rejected: n.stats.rejected, stored: stored ?? 0, reasons: n.stats.reasons };
+  }
+
   // Done for the week once enough were kept, or when TMDB has nothing new left to give.
   res.done = res.emoji.kept >= TOPUP_TARGET_MIN || movies.length === 0;
 
-  res.made = res.emoji.made + res.chor.movie + stats.made;
-  res.kept = res.emoji.kept + res.chor.kept + res.dare.kept;
-  res.rejected = res.emoji.rejected + stats.rejected;
+  res.made = res.emoji.made + res.chor.movie + stats.made + res.news.made;
+  res.kept = res.emoji.kept + res.chor.kept + res.dare.kept + res.news.kept;
+  res.rejected = res.emoji.rejected + stats.rejected + res.news.rejected;
   res.otherReasons = stats.reasons;
-  res.stored = res.emoji.stored + res.chor.stored + res.dare.stored;
+  res.stored = res.emoji.stored + res.chor.stored + res.dare.stored + res.news.stored;
   return record(res, start);
 }
 

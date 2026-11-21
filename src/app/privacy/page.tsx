@@ -165,6 +165,13 @@ export default function PrivacyPage() {
             </a>
             . This product uses the TMDB API but is not endorsed or certified by TMDB. Movie titles in some puzzles and Chor Kaun topics come from TMDB; no information about you is sent to TMDB.
           </p>
+          <p>
+            Some Kaun Banega Champion questions are written from recent headlines from{" "}
+            <a href="https://newsapi.org/" className="inline-flex min-h-11 items-center font-semibold underline decoration-2 underline-offset-4" rel="noopener noreferrer" target="_blank">
+              NewsAPI
+            </a>{" "}
+            and the Bharat News API. Each shows its date on screen. No information about you is sent to them.
+          </p>
         </Section>
 
         <Section title="Changes">
