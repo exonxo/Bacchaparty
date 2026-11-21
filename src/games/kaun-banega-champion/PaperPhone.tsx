@@ -167,6 +167,7 @@ function QuestionCard({ view, now }: { view: Pub; now: number }) {
           </span>
         )}
       </div>
+      {q.news && <p className="mt-1 text-p-note font-semibold opacity-80">{q.news}</p>}
       <h2 className="font-display mt-2 text-[1.4rem] font-extrabold leading-snug text-balance">{q.q}</h2>
       <div aria-hidden className="absolute inset-x-3 -bottom-[7px] h-2 rounded-b-[4px] border-x-[1.5px] border-b-[1.5px] border-ink" style={{ background: NAVY_DEEP }} />
     </motion.section>

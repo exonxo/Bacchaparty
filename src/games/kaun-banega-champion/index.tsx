@@ -1,7 +1,12 @@
 "use client";
-import { KBC_QUESTIONS, type KbcQuestion } from "@/content/kbc";
+import { useParams } from "next/navigation";
+import { useRef, useState } from "react";
+import { SuggestPaperButton } from "@/components/suggest/SuggestPaperButton";
+import { KBC_QUESTIONS } from "@/content/kbc";
+import { requestSuggest } from "@/lib/suggest/client";
 import { HOST_ID, type ControllerProps, type GameModule, type Level } from "@/lib/types";
 import { shuffle } from "@/lib/util";
+import { pickQuestion, type NewsQuestion, type Question } from "./questions";
 import { Phone } from "./PaperPhone";
 import { TvScreen } from "./Tv";
 
@@ -15,11 +20,6 @@ const AWAY_MS = 10_000;
 /** "over": one hot seat finished. "final": the whole game is over (everyone played, or the host ended it). */
 export type Phase = "pick" | "level" | "question" | "locked" | "reveal" | "over" | "final";
 
-interface Question {
-  q: string;
-  options: string[];
-  answer: number;
-}
 
 export interface State {
   phase: Phase;
@@ -46,6 +46,12 @@ export interface State {
   timedOut: boolean;
   /** Since when the hot-seat player has been disconnected. */
   hotAwaySince: number | null;
+  /** News questions the host loaded before the game (from the content library). */
+  news: NewsQuestion[];
+}
+
+export interface Options {
+  news?: NewsQuestion[];
 }
 
 export interface Pub {
@@ -53,7 +59,7 @@ export interface Pub {
   hotSeat: string | null;
   level: Level | null;
   rung: number;
-  question: { q: string; options: string[] } | null;
+  question: { q: string; options: string[]; news?: string } | null;
   removed: number[];
   lifelines: { fifty: boolean; family: boolean };
   family: number[] | null;
@@ -78,26 +84,8 @@ export interface Priv {
   myAnswer: number | null;
 }
 
-function pickQuestion(level: Level, step: number, used: string[]): Question {
-  const bank = KBC_QUESTIONS[level].filter((q) => !used.includes(q.q));
-  const pool = bank.length ? bank : KBC_QUESTIONS[level];
-  // Closest difficulty step available, random among ties.
-  let bestDist = Infinity;
-  let cands: KbcQuestion[] = [];
-  for (const q of pool) {
-    const d = Math.abs(q.step - step);
-    if (d < bestDist) {
-      bestDist = d;
-      cands = [q];
-    } else if (d === bestDist) cands.push(q);
-  }
-  const chosen = cands[Math.floor(Math.random() * cands.length)];
-  const options = shuffle([chosen.a, ...chosen.w]);
-  return { q: chosen.q, options, answer: options.indexOf(chosen.a) };
-}
-
 function newQuestion(s: State, rung: number, now: number): State {
-  const question = pickQuestion(s.level!, rung + 1, s.used);
+  const question = pickQuestion(s.level!, rung + 1, s.used, s.news, rung);
   return {
     ...s,
     phase: "question",
@@ -152,12 +140,45 @@ function Controller(props: ControllerProps<Pub, Priv>) {
   return <Phone {...props} isHost={false} hostAct={() => {}} together />;
 }
 
-const game: GameModule<State, Pub, Priv, Record<string, never>> = {
+/** Optional: load news questions from the library before starting. Nothing is generated while you wait. */
+function OptionsForm({ value, onChange }: { value: Options; onChange: (o: Options) => void }) {
+  const params = useParams();
+  const roomCode = typeof params?.code === "string" ? params.code : undefined;
+  const [loading, setLoading] = useState(false);
+  const [hint, setHint] = useState<string | null>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const load = async () => {
+    setLoading(true);
+    setHint(null);
+    try {
+      const { data } = await requestSuggest<NewsQuestion[]>("kbc-question", { level: "adults", count: 10 }, roomCode);
+      const list = Array.isArray(data) ? data : [];
+      onChange({ ...valueRef.current, news: list.length ? list : undefined });
+      setHint(list.length ? `${list.length} news questions added: they come up on every other question (not for Kids)` : "No new news questions right now: the usual questions will be used");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <SuggestPaperButton loading={loading} onClick={() => void load()}>
+          📰 News questions
+        </SuggestPaperButton>
+      </div>
+      {hint && <p className="text-p-note text-muted">{hint}</p>}
+    </div>
+  );
+}
+
+const game: GameModule<State, Pub, Priv, Options> = {
   id: "kaun-banega-champion",
   paper: true,
   tvPaper: true,
   defaultOptions: {},
-  init({ players }) {
+  OptionsForm,
+  init({ players, options }) {
     return {
       phase: "pick",
       hotSeat: null,
@@ -178,6 +199,9 @@ const game: GameModule<State, Pub, Priv, Record<string, never>> = {
       pausedLeft: null,
       timedOut: false,
       hotAwaySince: null,
+      news: (Array.isArray(options?.news) ? options.news : [])
+        .filter((n) => n && typeof n.q === "string" && typeof n.a === "string" && Array.isArray(n.w) && n.w.length === 3 && n.w.every((w) => typeof w === "string") && Number.isFinite(n.step))
+        .slice(0, 20),
     };
   },
   reduce(s, a, { players, now }) {
@@ -288,7 +312,7 @@ const game: GameModule<State, Pub, Priv, Record<string, never>> = {
       hotSeat: s.hotSeat,
       level: s.level,
       rung: s.rung,
-      question: s.question ? { q: s.question.q, options: s.question.options } : null,
+      question: s.question ? { q: s.question.q, options: s.question.options, ...(s.question.news ? { news: s.question.news } : {}) } : null,
       removed: s.removed,
       lifelines: s.lifelines,
       family: s.familyShown ? counts : null,

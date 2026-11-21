@@ -71,7 +71,7 @@ function totpNow(secret) {
   // A theme is required: Generate more stays disabled until one is typed or picked.
   const gen = page.getByRole('button', { name: 'Generate more' });
   const offAtFirst = await gen.isDisabled();
-  const chips = ['Bollywood movies', 'Movies', 'Indian food', 'Cricket', 'Festivals', 'Songs', 'Places in India'];
+  const chips = ['Bollywood movies', 'Movies', 'Indian food', 'Cricket', 'Festivals', 'Songs', 'Places in India', 'Current affairs'];
   const chipsShown = (await Promise.all(chips.map((c) => page.getByRole('button', { name: c, exact: true }).isVisible()))).every(Boolean);
   await page.getByRole('button', { name: 'Bollywood movies', exact: true }).click();
   const themeValue = await page.getByLabel(/Theme \(required\)/).inputValue();
@@ -84,6 +84,11 @@ function totpNow(secret) {
   const topupText = await page.getByText(/No top-up has run yet|Last top-up/).first().isVisible().catch(() => false);
   const itemsList = await page.getByRole('heading', { name: /Dares: newest first/ }).isVisible();
   pass('TOPUP-UI', 'the Library tab shows the weekly top-up box with its button, and the item list for the chosen game', topup && topupText && itemsList);
+  await page.getByLabel(/Game/).selectOption('kbc-question');
+  const kbcCap = (await page.getByLabel(/How many/).getAttribute('max')) === '10';
+  const kbcList = await page.getByRole('heading', { name: /KBC news questions: newest first/ }).waitFor({ timeout: 10000 }).then(() => true, () => false);
+  const newsTopup = await page.getByText(/about 10 KBC news questions/).isVisible();
+  pass('KBC-UI', 'KBC news questions can be chosen in Generate more (up to 10), have an item list, and the top-up box mentions them', kbcCap && kbcList && newsTopup);
   await page.screenshot({ path: 'test-artifacts/admin-ui-library.png', fullPage: true });
 
   // Screenshots are never committed: they go to the git-ignored test-artifacts folder.

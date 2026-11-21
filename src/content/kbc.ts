@@ -6,6 +6,18 @@ export interface KbcQuestion {
   a: string;
   w: [string, string, string];
   step: number;
+  /** Set on questions made from a news story (the weekly top-up or the admin panel). */
+  news?: KbcNews;
+}
+
+/** Where a news question came from. The game shows it as "📰 In the news" with the date. */
+export interface KbcNews {
+  source: "newsapi" | "bharat";
+  headline: string;
+  /** YYYY-MM-DD: the article's date (NewsAPI) or the feed's update date (Bharat News API). */
+  date: string;
+  url?: string;
+  outlet?: string;
 }
 
 const kids: KbcQuestion[] = [

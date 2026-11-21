@@ -15,13 +15,14 @@ import { validateGeminiPayload } from "./validate";
  * skipped and the app behaves as it did before.
  */
 
-export const LIBRARY_KINDS = ["chor-kaun-topic", "emoji-puzzle", "dare"] as const;
+export const LIBRARY_KINDS = ["chor-kaun-topic", "emoji-puzzle", "dare", "kbc-question"] as const;
 export type LibraryKind = (typeof LIBRARY_KINDS)[number];
 
 export const GAME_FOR: Record<LibraryKind, string> = {
   "chor-kaun-topic": "chor-kaun",
   "emoji-puzzle": "emoji-picture",
   dare: "dare",
+  "kbc-question": "kaun-banega-champion",
 };
 
 export const LANG = "en";
@@ -47,6 +48,8 @@ export interface LibraryItem {
   data: Record<string, unknown>;
   /** The admin's topic for "Generate more" (0011). Games don't set it. */
   theme?: string;
+  /** When to stop serving it (0012): news questions, about 60 days after the story. */
+  expires_at?: string;
 }
 
 const builtinEmoji = new Set(EMOJI_PUZZLES.map((p) => `${p.emojis}|${p.answer.toLowerCase()}`));
@@ -69,6 +72,13 @@ export function pickPlan(kind: LibraryKind, context: Record<string, unknown>) {
     const ids = Array.isArray(context.excludeTopicIds) ? (context.excludeTopicIds as string[]) : [];
     return { categories: ["any"], count: 1, min: 1, excludeNorms, excludeIds: ids, level: "family" as Level };
   }
+  if (kind === "kbc-question") {
+    // News questions are family or adults; kids keep the built-in bank only.
+    const level = (context.level === "adults" ? "adults" : context.level === "kids" ? "kids" : "family") as Level;
+    const count = typeof context.count === "number" ? context.count : 5;
+    const categories = level === "adults" ? ["family", "adults"] : level === "family" ? ["family"] : ["none"];
+    return { categories, count, min: 1, excludeNorms, excludeIds: [] as string[], level };
+  }
   const audience = context.audience === "mixed" ? "mixed" : "family";
   return { categories: [audience], count: 1, min: 1, excludeNorms, excludeIds: [] as string[], level: "family" as Level };
 }
@@ -80,6 +90,7 @@ export function shapeServed(kind: LibraryKind, rows: { data: unknown }[], contex
     const plan = pickPlan(kind, context);
     return validateGeminiPayload(kind, rows.map((r) => r.data), plan.count, 4, plan.level);
   }
+  if (kind === "kbc-question") return validateGeminiPayload(kind, rows.map((r) => r.data), pickPlan(kind, context).count);
   return validateGeminiPayload(kind, rows[0]?.data);
 }
 
@@ -131,6 +142,19 @@ function rawItems(kind: LibraryKind, data: unknown, context: Record<string, unkn
   if (kind === "chor-kaun-topic" && data && typeof data === "object") {
     const t = data as { label?: unknown };
     return typeof t.label === "string" ? [{ category: "any", key: t.label, data: { ...(data as Record<string, unknown>) } }] : [];
+  }
+  if (kind === "kbc-question" && Array.isArray(data)) {
+    return (data as { q?: unknown; level?: unknown; expires_at?: unknown }[])
+      .filter((x) => x && typeof x.q === "string")
+      .map((x) => {
+        const { expires_at, ...rest } = x as Record<string, unknown>;
+        return {
+          category: x.level === "adults" ? "adults" : "family",
+          key: String(x.q),
+          data: rest,
+          ...(typeof expires_at === "string" ? { expires_at } : {}),
+        };
+      });
   }
   if (kind === "dare" && data && typeof data === "object") {
     const d = data as { text?: unknown };

@@ -51,6 +51,8 @@ function cleanContext(kind: SuggestKind, raw: Record<string, unknown>): Record<s
     }
     case "dare":
       return { audience: raw.audience === "mixed" ? "mixed" : "family", avoid };
+    case "kbc-question":
+      return { level: LEVELS.includes(raw.level as string) ? raw.level : "family", count: int(raw.count, 1, 10, 5), avoid };
     default:
       return {};
   }
@@ -120,6 +122,15 @@ export async function POST(req: Request) {
   // The content library comes first: something already made that this host hasn't been shown in
   // 30 days. Keyed by the host's account id. The AI services are asked only when nothing is left.
   const viewer: Viewer = { userId: user.id };
+
+  // KBC news questions come from the library only (made in the weekly top-up or by the admin), never
+  // from a news fetch or an AI call while a game waits. None left: the game uses its own bank.
+  if (kind === "kbc-question") {
+    const t0 = Date.now();
+    const news = flags["library"] === false ? null : await pickFromLibrary(kind, context, viewer, { min: 1 });
+    logLater("suggest", { suggest_kind: kind, provider: news ? "library" : "none", fallback: !news, ms: Date.now() - t0, ...(news ? {} : { reason: "library_empty" }) });
+    return ok(news ?? [], !news);
+  }
   const useLibrary = isLibraryKind(kind) && flags["library"] !== false;
   if (useLibrary) {
     const t0 = Date.now();

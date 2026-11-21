@@ -14,6 +14,7 @@ export const THEME_CHIPS: { label: string; category?: string }[] = [
   { label: "Festivals", category: "Festival" },
   { label: "Songs", category: "Song" },
   { label: "Places in India", category: "Place" },
+  { label: "Current affairs" },
 ];
 
 const INSTRUCTION_WORDS =
