@@ -6,10 +6,6 @@ import { getServiceClient } from "../supabase/service";
  * with the service role client (server side).
  */
 
-const DAY = 86_400_000;
-const isoDaysAgo = (d: number) => new Date(Date.now() - d * DAY).toISOString();
-const dayKey = (iso: string) => iso.slice(0, 10);
-
 function db() {
   const client = getServiceClient();
   if (!client) throw new Error("database_not_configured");
@@ -32,58 +28,22 @@ export async function users(search: string, page: number) {
   return data;
 }
 
+/** Counted in the database (see 0005): the API's 1000-row page limit would undercount here. */
 export async function games() {
-  const { data, error } = await db()
-    .from("app_events")
-    .select("detail, created_at")
-    .eq("kind", "game_started")
-    .gte("created_at", isoDaysAgo(30))
-    .order("created_at", { ascending: false })
-    .limit(20_000);
+  const { data, error } = await db().rpc("admin_game_stats");
   if (error) throw error;
-  const byGame: Record<string, { d7: number; d30: number }> = {};
-  const byDay: Record<string, number> = {};
-  const week = Date.now() - 7 * DAY;
-  for (const row of data ?? []) {
-    const game = String((row.detail as { game?: unknown })?.game ?? "unknown");
-    byGame[game] ??= { d7: 0, d30: 0 };
-    byGame[game].d30++;
-    if (Date.parse(row.created_at) >= week) byGame[game].d7++;
-    byDay[dayKey(row.created_at)] = (byDay[dayKey(row.created_at)] ?? 0) + 1;
-  }
-  return { totalSample: data?.length ?? 0, byGame, byDay };
+  const stats = data as { totalSample: number; byGame: Record<string, { d7: number; d30: number }>; byDay: Record<string, number> };
+  return { totalSample: stats.totalSample ?? 0, byGame: stats.byGame ?? {}, byDay: stats.byDay ?? {} };
 }
 
 export async function llm() {
-  const { data, error } = await db()
-    .from("app_events")
-    .select("detail, created_at")
-    .eq("kind", "suggest")
-    .gte("created_at", isoDaysAgo(7))
-    .order("created_at", { ascending: false })
-    .limit(20_000);
+  const { data, error } = await db().rpc("admin_llm_stats");
   if (error) throw error;
-  const byProvider: Record<string, { count: number; fallback: number; msSum: number }> = {};
-  let total = 0, fallback = 0;
-  for (const row of data ?? []) {
-    const d = row.detail as { provider?: string; fallback?: boolean; ms?: number };
-    const p = String(d.provider ?? "unknown");
-    byProvider[p] ??= { count: 0, fallback: 0, msSum: 0 };
-    byProvider[p].count++;
-    byProvider[p].msSum += Number(d.ms ?? 0);
-    total++;
-    if (d.fallback) {
-      byProvider[p].fallback++;
-      fallback++;
-    }
-  }
-  const providers = Object.fromEntries(
-    Object.entries(byProvider).map(([k, v]) => [k, { count: v.count, fallback: v.fallback, avgMs: v.count ? Math.round(v.msSum / v.count) : 0 }]),
-  );
+  const stats = data as { total: number; fallbackRate: number; providers: Record<string, { count: number; fallback: number; avgMs: number }> };
   return {
-    total,
-    fallbackRate: total ? Math.round((fallback / total) * 100) : 0,
-    providers,
+    total: stats.total ?? 0,
+    fallbackRate: stats.fallbackRate ?? 0,
+    providers: stats.providers ?? {},
     // Which providers this server instance has configured or is cooling down. No keys are returned.
     live: providerStatus(),
   };

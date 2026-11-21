@@ -7,7 +7,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
-const OUT = "/opt/cursor/artifacts/responsive";
+const OUT = "test-artifacts/responsive";
 const WIDTHS = [393, 768, 1280, 1920];
 
 async function overflow(page) {

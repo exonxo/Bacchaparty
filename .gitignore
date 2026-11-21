@@ -41,3 +41,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .claude/
+
+# test artifacts: screenshots, generated pages and other large outputs are never committed
+/test-artifacts/
+/.tmp/
+docs/testing/**/*.png
+docs/testing/**/*.jpg
+docs/testing/**/*.webm

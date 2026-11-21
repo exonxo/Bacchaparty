@@ -9,7 +9,7 @@ const fs = require("fs");
 const path = require("path");
 
 const BASE = process.env.BASE || "http://localhost:3000";
-const OUT = process.env.OUT || "shots";
+const OUT = process.env.OUT || "test-artifacts/shots";
 const ROUTES = process.argv.slice(2).length ? process.argv.slice(2) : ["/", "/games", "/join", "/login?next=/host", "/games/housie", "/games/chor-kaun", "/privacy"];
 const VIEWPORTS = [
   { name: "390", width: 390, height: 844, isMobile: true, hasTouch: true },

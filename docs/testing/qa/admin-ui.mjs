@@ -1,9 +1,21 @@
 // QA round 4: the admin login form in a real browser (ADM-5, ADM-6, ADM-8 from the UI side).
-// Same environment as admin-http.js: BASE, ADMIN_PATH, ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_TOTP_SECRET.
-const { chromium } = require('playwright');
-const crypto = require('node:crypto');
+// Same environment as admin-http.mjs: BASE, ADMIN_PATH, ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_TOTP_SECRET.
+import pw from 'playwright';
+import crypto from 'node:crypto';
+const { chromium } = pw;
+// Use CHROMIUM_PATH to point at a local browser build; otherwise Playwright's own download is used.
+const launchOpts = process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH, args: ["--no-sandbox"] } : {};
 
 const BASE = process.env.BASE || 'http://localhost:3100';
+
+// These tests make deliberate failed sign-ins, which lock the IP they run from for 15 minutes.
+// They refuse to run against a live site unless you explicitly accept that.
+const LOCAL_BASE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(BASE);
+if (!LOCAL_BASE && process.env.ALLOW_LIVE_FAILED_LOGINS !== '1') {
+  console.log(`Refusing to run against ${BASE}: this test makes failed sign-ins on purpose. Use admin-live-check.mjs for a live site.`);
+  process.exit(2);
+}
+
 const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 function totpNow(secret) {
   let bits = 0, val = 0; const out = [];
@@ -18,7 +30,7 @@ function totpNow(secret) {
 }
 
 (async () => {
-  const b = await chromium.launch();
+  const b = await chromium.launch(launchOpts);
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
   const out = [];
@@ -38,12 +50,12 @@ function totpNow(secret) {
 
   await page.getByPlaceholder('6-digit code').fill(totpNow(process.env.ADMIN_TOTP_SECRET));
   await page.getByRole('button', { name: 'Log in' }).click();
-  await page.getByRole('heading', { name: 'Bacchaparty admin' }).waitFor({ timeout: 15000 });
+  await page.getByRole('heading', { name: 'BAWAAL admin' }).waitFor({ timeout: 15000 });
   pass('ADM-8', 'the correct login reaches the panel', true);
 
   // No database in this run: the views say so, without showing an error stack.
   await page.getByRole('button', { name: 'Users' }).click();
-  await page.getByText(/Database not configured|Could not load|No users/).first().waitFor({ timeout: 15000 });
+  await page.getByText(/Database not connected|Could not load|No users/).first().waitFor({ timeout: 15000 });
   pass('DATA-0', 'without a database the panel says so instead of crashing', true);
 
   await page.screenshot({ path: '/tmp/claude-0/emoji/admin-ui.png' });

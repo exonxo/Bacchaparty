@@ -1,7 +1,10 @@
 // QA: confetti ("graffiti") should fire once per finished game, not on every page load or tab.
-// Needs the dev or preview server. Run: BASE=http://localhost:3000 node docs/testing/qa/confetti.js
-// Uses Playwright from the machine's own install (require('playwright')).
-const { chromium } = require('playwright');
+// Needs the dev or preview server. Run: BASE=http://localhost:3000 node docs/testing/qa/confetti.mjs
+// Uses Playwright from the machine's own install ('playwright').
+import pw from 'playwright';
+const { chromium } = pw;
+// Use CHROMIUM_PATH to point at a local browser build; otherwise Playwright's own download is used.
+const launchOpts = process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH, args: ["--no-sandbox"] } : {};
 const BASE = process.env.BASE || 'http://localhost:3000';
 
 // canvas-confetti appends a <canvas> while it animates; any canvas seen in the window counts as "fired".
@@ -29,7 +32,7 @@ async function forceOver(host, code) {
 }
 
 (async () => {
-  const b = await chromium.launch();
+  const b = await chromium.launch(launchOpts);
   const out = [];
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const host = await ctx.newPage();

@@ -84,13 +84,15 @@ _None reproduced in the latest `qa-games` cycle._
 
 ## Screenshots
 
-Under `docs/testing/e2e-run/`:
+Screenshots are **not committed** (repository policy). The QA scripts write them to the git-ignored `test-artifacts/e2e-run/` folder when you run them, for example:
 
 - `lobby-4-players.png` — host lobby with code + roster  
 - `start-chor-kaun-host.png` — paper game UI  
 - `blocked-raja-mantri.png` — max-player gate  
 - `error-emoji-picture.png` — classic-mode host play  
 - `cycle-*.png` — post-game lobby after each cycle  
+
+The run log `docs/testing/e2e-run/game-cycle.json` is kept. The earlier PNGs were removed from the tree in round 5; they remain in git history.
 
 ## Fixes in this PR
 

@@ -5,7 +5,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
-const OUT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "docs", "testing", "e2e-run");
+// Screenshots are not committed: they go to the git-ignored test-artifacts/ folder.
+const OUT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "test-artifacts", "e2e-run");
 const GAMES = [
   { id: "chor-kaun", name: "Chor Kaun?" },
   { id: "housie", name: "Housie (Tambola)" },

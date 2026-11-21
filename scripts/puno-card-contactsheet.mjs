@@ -7,7 +7,7 @@ import { chromium } from "playwright";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const runner = path.join(__dirname, "puno-card-contactsheet-run.tsx");
-const artifact = "/opt/cursor/artifacts/puno-card-contactsheet-2x.png";
+const artifact = "test-artifacts/puno-card-contactsheet-2x.png";
 
 const gen = spawnSync("npx", ["--yes", "tsx", runner], { cwd: path.join(__dirname, ".."), encoding: "utf8" });
 if (gen.status !== 0) {

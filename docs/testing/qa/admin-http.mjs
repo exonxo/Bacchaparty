@@ -1,12 +1,22 @@
 // QA round 4: the hidden admin panel over HTTP (ADM-1, 2, 5, 6, 7, 8, 9, 10, 11, 14).
 // Start a server with the admin variables set, then run this against it:
 //   BASE=http://localhost:3100 ADMIN_PATH=... ADMIN_USERNAME=... ADMIN_PASSWORD=... ADMIN_TOTP_SECRET=... \
-//     node docs/testing/qa/admin-http.js
+//     node docs/testing/qa/admin-http.mjs
 // ADMIN_PASSWORD is the plain password (only for this test; never store it anywhere).
-const { request } = require('playwright');
-const crypto = require('node:crypto');
+import pw from 'playwright';
+import crypto from 'node:crypto';
+const { request } = pw;
 
 const BASE = process.env.BASE || 'http://localhost:3100';
+
+// These tests make deliberate failed sign-ins, which lock the IP they run from for 15 minutes.
+// They refuse to run against a live site unless you explicitly accept that.
+const LOCAL_BASE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(BASE);
+if (!LOCAL_BASE && process.env.ALLOW_LIVE_FAILED_LOGINS !== '1') {
+  console.log(`Refusing to run against ${BASE}: this test makes failed sign-ins on purpose. Use admin-live-check.mjs for a live site.`);
+  process.exit(2);
+}
+
 const SECRET_PATH = process.env.ADMIN_PATH;
 const USER = process.env.ADMIN_USERNAME;
 const PASS = process.env.ADMIN_PASSWORD;

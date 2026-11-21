@@ -1,7 +1,10 @@
 // QA: a finished Emoji Picture game should celebrate once, and reloading its results screen
 // shouldn't celebrate again. Needs the dev or preview server.
-// Run: BASE=http://localhost:3000 node docs/testing/qa/confetti-results.js
-const { chromium } = require('playwright');
+// Run: BASE=http://localhost:3000 node docs/testing/qa/confetti-results.mjs
+import pw from 'playwright';
+const { chromium } = pw;
+// Use CHROMIUM_PATH to point at a local browser build; otherwise Playwright's own download is used.
+const launchOpts = process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH, args: ["--no-sandbox"] } : {};
 const BASE = process.env.BASE || 'http://localhost:3000';
 
 async function fired(page, ms = 2600) {
@@ -14,7 +17,7 @@ async function fired(page, ms = 2600) {
 }
 
 (async () => {
-  const b = await chromium.launch();
+  const b = await chromium.launch(launchOpts);
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const host = await ctx.newPage();
   await host.goto(BASE + '/host'); await host.waitForURL(/\/room\/[A-Z]{4}\/host/, { timeout: 60000 });

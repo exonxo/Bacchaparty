@@ -1,7 +1,7 @@
 # QA round 3 — confetti, Emoji answers, repeats, LLM suggestions
 
 Date: 21 Nov 2026 · Browser: Chromium, 390×844 phone emulation (touch) · Host + 3 bots, or host + 2 real-browser phones.
-Scripts: `docs/testing/qa/confetti.js`, `docs/testing/qa/confetti-results.js`. The matcher table and repeat numbers come from the code in `src/lib/util.ts`, `src/content/emoji-picture.ts`, `src/lib/suggest/`.
+Scripts: `docs/testing/qa/confetti.mjs`, `docs/testing/qa/confetti-results.mjs`. The matcher table and repeat numbers come from the code in `src/lib/util.ts`, `src/content/emoji-picture.ts`, `src/lib/suggest/`.
 
 ## 1. Confetti ("graffiti" keeps firing)
 
