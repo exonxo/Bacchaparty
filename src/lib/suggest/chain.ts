@@ -87,9 +87,9 @@ export function makeChain(providers: Provider[], now: () => number = Date.now) {
   const cool = (name: string, ms: number) => coolUntil.set(name, now() + ms);
 
   /** Configured providers that aren't cooling down, in the order to try them this time. */
-  const order = (): Provider[] => {
+  const order = (allow?: (name: string) => boolean): Provider[] => {
     const t = now();
-    const ready = providers.filter((p) => p.configured() && (coolUntil.get(p.name) ?? 0) <= t);
+    const ready = providers.filter((p) => p.configured() && (allow ? allow(p.name) : true) && (coolUntil.get(p.name) ?? 0) <= t);
     if (ready.length < 2 || env("LLM_MODE") === "primary") return ready;
     // "rotate" (default): each request starts with a different provider, so every free quota gets used.
     const start = rotation++ % ready.length;
@@ -103,10 +103,15 @@ export function makeChain(providers: Provider[], now: () => number = Date.now) {
      * Runs the providers until one returns output that `accept` approves. `accept` returns the
      * cleaned value, or null to reject it (and move on to the next provider).
      */
-    async run(kind: SuggestKind, prompt: string, accept: (raw: unknown) => unknown | null): Promise<ChainResult | null> {
+    async run(
+      kind: SuggestKind,
+      prompt: string,
+      accept: (raw: unknown) => unknown | null,
+      opts?: { allow?: (name: string) => boolean },
+    ): Promise<ChainResult | null> {
       const started = now();
       const deadline = started + TOTAL_BUDGET_MS;
-      for (const p of order()) {
+      for (const p of order(opts?.allow)) {
         const left = deadline - now();
         if (left < 1_000) break;
         const t0 = now();

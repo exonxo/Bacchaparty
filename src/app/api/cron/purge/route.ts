@@ -23,6 +23,11 @@ export async function GET(req: Request) {
   if (!db) return NextResponse.json({ ok: false, error: "not_configured" }, { status: 503, headers: noStore });
 
   const { data, error } = await db.rpc("purge_old_data");
+  // Record the run so the admin health view can show when it last ran and whether it worked.
+  await db.from("cron_runs").insert({ job: "purge", ok: !error, detail: error ? { error: "purge_failed" } : (data ?? {}) }).then(
+    () => undefined,
+    () => undefined,
+  );
   if (error) {
     // Don't echo the database message: it can name internal tables.
     return NextResponse.json({ ok: false, error: "purge_failed" }, { status: 500, headers: noStore });

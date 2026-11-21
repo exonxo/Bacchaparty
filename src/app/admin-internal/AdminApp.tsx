@@ -1,12 +1,13 @@
 "use client";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { AccountPanel, AuditPanel, ContentPanel, FlagsPanel, FunnelPanel, HealthPanel, QuotaPanel, RoomPanel } from "./AdminPower";
 
 /**
  * The admin panel UI. It only shows the login form until the server confirms a session.
  * API calls go to the same secret path the page was opened from (middleware rewrites them).
  */
 
-type Tab = "overview" | "users" | "games" | "llm" | "logins";
+type Tab = "overview" | "users" | "content" | "flags" | "games" | "llm" | "health" | "funnel" | "room" | "audit" | "logins";
 type Session = "checking" | "out" | "in";
 
 const base = () => (typeof window === "undefined" ? "" : window.location.pathname.replace(/\/+$/, ""));
@@ -46,7 +47,7 @@ export function AdminApp() {
         </button>
       </header>
       <nav className="mb-4 flex flex-wrap gap-2">
-        {(["overview", "users", "games", "llm", "logins"] as Tab[]).map((t) => (
+        {(["overview", "users", "content", "flags", "games", "llm", "health", "funnel", "room", "audit", "logins"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -57,9 +58,15 @@ export function AdminApp() {
         ))}
       </nav>
       {tab === "overview" && <Overview onAuthLost={() => setSession("out")} />}
-      {tab === "users" && <Users onAuthLost={() => setSession("out")} />}
+      {tab === "users" && (<><Users onAuthLost={() => setSession("out")} /><AccountPanel /></>)}
+      {tab === "content" && <ContentPanel />}
+      {tab === "flags" && <FlagsPanel />}
+      {tab === "health" && <HealthPanel />}
+      {tab === "funnel" && <FunnelPanel />}
+      {tab === "room" && <RoomPanel />}
+      {tab === "audit" && <AuditPanel />}
       {tab === "games" && <Games onAuthLost={() => setSession("out")} />}
-      {tab === "llm" && <Llm onAuthLost={() => setSession("out")} />}
+      {tab === "llm" && (<><Llm onAuthLost={() => setSession("out")} /><QuotaPanel /></>)}
       {tab === "logins" && <Logins onAuthLost={() => setSession("out")} />}
     </div>
   );

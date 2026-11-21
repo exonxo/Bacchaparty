@@ -116,6 +116,16 @@ function clock(start = 1_000_000) {
     assert.ok(took < 8_500, `took ${took} ms`);
   });
 
+  await check("LLM-13", "a provider switched off by the owner is never called (kill switch)", async () => {
+    const a = fake("a", async () => topic());
+    const b = fake("b", async () => topic());
+    const r = await makeChain([a, b]).run("chor-kaun-topic", "p", accept, { allow: (name) => name !== "a" });
+    assert.equal(r?.provider, "b");
+    assert.equal(a.calls, 0);
+    const none = await makeChain([a, b]).run("chor-kaun-topic", "p", accept, { allow: () => false });
+    assert.equal(none, null, "with every provider switched off, the caller uses built-in content");
+  });
+
   await check("LLM-9", "repeats are rejected: a topic label already shown, or too few new puzzles", () => {
     const avoid = ["Kitchen", "Ganesh", "Cricket", "Chai", "Monsoon"];
     assert.equal(notRepeated("chor-kaun-topic", topic("Kitchen"), avoid), null);

@@ -66,3 +66,9 @@ export function clientIp(req: Request): string {
   }
   return req.headers.get("x-real-ip")?.trim() || "unknown";
 }
+
+/** The signed-in admin's name from the session token, or null. Used as the actor in the audit log. */
+export function adminActor(req: Request, cfg: AdminConfig): string | null {
+  const payload = verifyToken(readCookie(req, COOKIE), cfg.sessionSecret);
+  return payload?.sub === "admin" && typeof payload.user === "string" ? payload.user : null;
+}

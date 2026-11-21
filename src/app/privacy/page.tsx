@@ -79,6 +79,11 @@ export default function PrivacyPage() {
               Deleted after <b>90 days</b>.
             </li>
             <li>
+              <b>Admin audit log</b> — a record of what the owner did in the admin panel: which account or room was looked at, exports, and
+              changes such as switching a game off or deleting an account. It records the owner’s actions, not player content. Deleted after
+              <b>365 days</b>.
+            </li>
+            <li>
               <b>Game play</b> — answers, votes, drawings and nicknames pass through Supabase’s real-time service between the phones and the big
               screen. We don’t save them in our database.
             </li>
@@ -99,6 +104,10 @@ export default function PrivacyPage() {
             <b>The site owner</b> is the only person with access to the admin panel. Through it, the owner can see the list of host accounts
             (email, sign-in method, sign-up and last sign-in dates, number of rooms created), game starts (totals and daily counts), suggestion
             totals for the last 7 days by AI service, and admin sign-in attempts. The admin panel does <b>not</b> show passwords, player nicknames, game answers or drawings.
+          </p>
+          <p>
+            The owner can look up a room by its code to see the room record (who hosted it, when it was created and closed). Live game play is
+            not stored, so it can’t be looked up. Every account lookup, room lookup, export and change is recorded in the audit log above.
           </p>
           <p>
             <b>Service providers</b> that run the app for us: Google (sign-in), Supabase (database, sign-in and real-time) and Vercel (hosting,
@@ -128,8 +137,9 @@ export default function PrivacyPage() {
 
         <Section title="Deleting your data">
           <p>
-            Hosts can ask us to delete their account and rooms at any time by emailing us. We remove them within 30 days. Players can remove
-            their nickname by clearing their browser data.
+            Hosts can ask us to delete their account and rooms at any time by emailing us. We remove them within 30 days. On request we can also
+            send a host a copy of their account record and room list before anything is deleted. Players can remove their nickname by clearing
+            their browser data.
           </p>
         </Section>
 

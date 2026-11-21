@@ -153,6 +153,17 @@ function HostRoom({
   const [toast, setToast] = useState<string | null>(null);
   const [optionsByGame, setOptionsByGame] = useState<Record<string, unknown>>({});
   const [startingGameId, setStartingGameId] = useState<string | null>(null);
+  // Games the owner has switched off (kill switches). Missing or failed = everything on.
+  const [gamesOff, setGamesOff] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    fetch("/api/flags")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { games?: Record<string, boolean> } | null) => {
+        if (!j?.games) return;
+        setGamesOff(new Set(Object.entries(j.games).filter(([, on]) => on === false).map(([id]) => id)));
+      })
+      .catch(() => {});
+  }, []);
   const [endingParty, setEndingParty] = useState(false);
   const [takeoverBusy, setTakeoverBusy] = useState(false);
   const online = state.players.filter((p) => p.connected);
@@ -427,7 +438,7 @@ function HostRoom({
           ) : (
             <GameTable>
               {games.map((g, i) => (
-                <GameTile key={g.id} game={g} index={i} onSelect={() => setSelected(g.id)} disabled={!getGameModule(g.id)} />
+                <GameTile key={g.id} game={g} index={i} onSelect={() => setSelected(g.id)} disabled={!getGameModule(g.id) || gamesOff.has(g.id)} />
               ))}
             </GameTable>
           )}

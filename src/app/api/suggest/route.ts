@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/env";
 import { logEvent } from "@/lib/admin/events";
+import { approvedChorTopic, approvedEmojiPuzzles } from "@/lib/admin/bank";
+import { flagMap } from "@/lib/admin/flags";
 import { findOwnRoom } from "@/lib/rooms";
 import { getUser } from "@/lib/supabase/server";
 import { fallbackFor } from "@/lib/suggest/fallbacks";
@@ -106,6 +108,13 @@ export async function POST(req: Request) {
   const playerCount = kind === "next-game" && typeof context.playerCount === "number" ? context.playerCount : 4;
   const emojiLevel = (kind === "emoji-puzzle" && typeof context.level === "string" ? context.level : "family") as Level;
 
+  // Kill switches: "suggest" stops all model calls; "llm:<name>" skips one provider.
+  const flags = await flagMap();
+  if (flags["suggest"] === false) {
+    void logEvent("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "switched_off" });
+    return ok((await bankFallback(kind, context)) ?? fallbackNow(), true);
+  }
+
   const prompt = buildPrompt(kind, context);
   const accept = (raw: unknown) => {
     const validated = validateGeminiPayload(kind, raw, contextCount, playerCount, emojiLevel);
@@ -113,14 +122,38 @@ export async function POST(req: Request) {
   };
 
   try {
-    const result = await runDeduped(inflightKey(kind, { ...context, roomCode }), () => runChain(kind, prompt, accept));
+    const result = await runDeduped(inflightKey(kind, { ...context, roomCode }), () =>
+      runChain(kind, prompt, accept, { allow: (name) => flags[`llm:${name}`] !== false }),
+    );
     if (result) {
       void logEvent("suggest", { suggest_kind: kind, provider: result.provider, fallback: false, ms: result.ms });
       return ok(result.data, false);
     }
   } catch {
-    /* fall through to the built-in content */
+    void logEvent("api_error", { route: "suggest", status: 500 });
+  }
+
+  // Approved, human-reviewed content comes before the fixed built-in lists.
+  const banked = await bankFallback(kind, context);
+  if (banked) {
+    void logEvent("suggest", { suggest_kind: kind, provider: "bank", fallback: true, ms: 0, reason: "all_providers_failed" });
+    return ok(banked, true);
   }
   void logEvent("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "all_providers_failed" });
   return ok(fallbackNow(), true);
+}
+
+/** Approved review-bank content for this kind, or null when there isn't enough of it. */
+async function bankFallback(kind: SuggestKind, context: Record<string, unknown>): Promise<unknown | null> {
+  const avoid = Array.isArray(context.avoid) ? (context.avoid as string[]) : [];
+  if (kind === "emoji-puzzle") {
+    const level = (typeof context.level === "string" ? context.level : "family") as Level;
+    const count = typeof context.count === "number" ? context.count : 10;
+    return approvedEmojiPuzzles(level, count, avoid);
+  }
+  if (kind === "chor-kaun-topic") {
+    const exclude = Array.isArray(context.excludeTopicIds) ? (context.excludeTopicIds as string[]) : [];
+    return approvedChorTopic(avoid, exclude);
+  }
+  return null;
 }
