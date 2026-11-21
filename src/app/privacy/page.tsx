@@ -157,6 +157,16 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="Credits">
+          <p>
+            Movie data from{" "}
+            <a href="https://www.themoviedb.org/" className="inline-flex min-h-11 items-center font-semibold underline decoration-2 underline-offset-4" rel="noopener noreferrer" target="_blank">
+              TMDB
+            </a>
+            . This product uses the TMDB API but is not endorsed or certified by TMDB. Movie titles in some puzzles and Chor Kaun topics come from TMDB; no information about you is sent to TMDB.
+          </p>
+        </Section>
+
         <Section title="Changes">
           <p>If we change this policy, we’ll update this page and the date at the top.</p>
         </Section>

@@ -4,7 +4,8 @@ import type { Level } from "@/lib/types";
 const SEXUAL = /\b(?:sex|sexual|nude|naked|porn|porno|explicit|erotic|orgasm|fetish|hentai|xxx|molest|rape|grope)\b/i;
 const ALCOHOL = /\b(?:alcohol|alcoholic|beer|wine|vodka|whiskey|whisky|rum|gin|tequila|brandy|champagne|intoxicated|hangover|chug(?:ging)?|drunk(?:en)?|booze|liver\s*damage)\b/i;
 const DRUGS = /\b(?:cocaine|heroin|meth|marijuana|cannabis|opioid|narcotic|overdose|stoned|joint|bong|snort(?:ing)?)\b/i;
-const DRUGS_LOOSE = /\b(?:drug|drugs|weed|high)\b/i;
+// "high" only in its drug sense ("get high", "high on"), so "a temple high in the Himalayas" is fine.
+const DRUGS_LOOSE = /\b(?:drug|drugs|weed)\b|\b(?:get|gets|getting|got|stay|feel|feeling)\s+high\b|\bhigh\s+on\b/i;
 const SECRETS_MONEY = /\b(?:pin\s*code|password|passcode|otp|one[- ]time|credit\s*card|debit\s*card|bank\s*account|account\s*number|ifsc|upi\s*pin|cvv|ssn)\b/i;
 const HARM_VIOLENCE = /\b(?:suicide|self[- ]harm|kill\s+yourself|murder|stab(?:bing)?|shoot(?:ing)?|gun\s*to)\b/i;
 const PIN_KISS_NEIGHBOR =

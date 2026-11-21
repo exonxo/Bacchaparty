@@ -1,9 +1,12 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/service";
+import { runTopup, topupDue } from "@/lib/suggest/topup";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// The purge takes a second; the weekly library top-up that follows it needs up to about 50 seconds.
+export const maxDuration = 60;
 
 const noStore = { "cache-control": "no-store" };
 
@@ -13,6 +16,9 @@ const noStore = { "cache-control": "no-store" };
  *
  * Vercel sends `Authorization: Bearer <CRON_SECRET>` when the CRON_SECRET variable is set. If it
  * isn't set, this route refuses every request: it never runs unauthenticated.
+ *
+ * After a successful purge it also runs the weekly library top-up when one is due (see topup.ts).
+ * That reuses this cron instead of adding a new entry to vercel.json.
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET?.trim();
@@ -32,7 +38,16 @@ export async function GET(req: Request) {
     // Don't echo the database message: it can name internal tables.
     return NextResponse.json({ ok: false, error: "purge_failed" }, { status: 500, headers: noStore });
   }
-  return NextResponse.json({ ok: true, removed: data, at: new Date().toISOString() }, { headers: noStore });
+  let topup: Record<string, unknown> | null = null;
+  try {
+    if (await topupDue()) {
+      const r = await runTopup("cron", 45_000);
+      topup = { ok: r.ok, done: r.done, made: r.made, kept: r.kept, rejected: r.rejected, stored: r.stored, skipped: r.skipped ?? null };
+    }
+  } catch {
+    topup = { ok: false, error: "topup_failed" };
+  }
+  return NextResponse.json({ ok: true, removed: data, topup, at: new Date().toISOString() }, { headers: noStore });
 }
 
 /** Constant-time comparison. Hashing first gives equal-length inputs, so length isn't leaked either. */

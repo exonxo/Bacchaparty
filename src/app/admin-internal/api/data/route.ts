@@ -3,6 +3,7 @@ import { adminConfig } from "@/lib/admin/config";
 import { auditOrThrow, AuditUnavailable } from "@/lib/admin/audit";
 import { adminHeaders, adminSession, clientIp } from "@/lib/admin/session";
 import * as q from "@/lib/admin/queries";
+import { isLibraryKind } from "@/lib/suggest/library";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,8 @@ export async function GET(req: Request) {
   if (view === "room" && !/^[A-Z]{4}$/.test(code)) return json({ error: "bad_code" }, 400);
   if (view === "user" && !/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "bad_id" }, 400);
   if (view === "find" && !(url.searchParams.get("email") ?? "").includes("@")) return json({ error: "bad_email" }, 400);
+  const kind = url.searchParams.get("kind") ?? "";
+  if (view === "library_items" && !isLibraryKind(kind)) return json({ error: "bad_kind" }, 400);
 
   try {
     if (SENSITIVE.has(view)) {
@@ -77,6 +80,8 @@ export async function GET(req: Request) {
         return json(await q.content());
       case "library":
         return json(await q.library());
+      case "library_items":
+        return json(await q.libraryItems(kind, page));
       case "library_csv": {
         const out = await q.libraryCsv();
         const day = new Date().toISOString().slice(0, 10);

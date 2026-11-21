@@ -15,6 +15,7 @@ export async function callOpenAICompat(opts: {
   extraHeaders?: Record<string, string>;
   /** Provider-specific request fields (for example a reasoning-effort setting). */
   extraBody?: Record<string, unknown>;
+  temperature?: number;
 }): Promise<unknown | null> {
   const body: Record<string, unknown> = {
     model: opts.model,
@@ -22,7 +23,7 @@ export async function callOpenAICompat(opts: {
       { role: "system", content: "You write short, family-friendly party game content. Reply with JSON only." },
       { role: "user", content: opts.prompt },
     ],
-    temperature: 1.1,
+    temperature: opts.temperature ?? 1.1,
     max_tokens: 1800,
   };
   if (opts.jsonMode) body.response_format = { type: "json_object" };

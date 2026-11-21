@@ -40,6 +40,7 @@ export const ACTIONS = [
   "content.review",
   "library.generate",
   "library.set_active",
+  "library.topup",
   "user.disable",
   "user.enable",
   "user.delete",

@@ -1,4 +1,11 @@
-import { validateGeminiPayload } from "../suggest/validate";
+import { screenEmojiPuzzles, validateGeminiPayload } from "../suggest/validate";
+import { categoryForTheme, cleanTheme } from "../suggest/theme";
+import { isMovieTheme, languagesForTheme, tmdbConfigured } from "../suggest/tmdb";
+import { libraryTexts, movieChorTopic, movieItems, moviePuzzles, pickMovies } from "../suggest/movies";
+import { normText, type LibraryItem } from "../suggest/library";
+import { runTopup } from "../suggest/topup";
+import type { EmojiPuzzle } from "@/content/emoji-picture";
+import type { Level } from "@/lib/types";
 import { buildPrompt } from "../suggest/prompts";
 import { runChain } from "../suggest/chain";
 import { getServiceClient } from "../supabase/service";
@@ -27,7 +34,7 @@ export interface ActionResult {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BAN_FOREVER = "876000h"; // about 100 years: effectively a disable, reversible with user.enable
 
-const fail = (status: number, error: string): ActionResult => ({ status, body: { ok: false, error } });
+const fail = (status: number, error: string, extra: Record<string, unknown> = {}): ActionResult => ({ status, body: { ok: false, error, ...extra } });
 const ok = (body: Record<string, unknown> = {}): ActionResult => ({ status: 200, body: { ok: true, ...body } });
 
 function db() {
@@ -50,6 +57,9 @@ export async function runAction(action: AdminAction, body: Record<string, unknow
         return await contentReview(body, ctx);
       case "library.generate":
         return await libraryGenerate(body, ctx);
+      case "library.topup":
+        await auditOrThrow({ actor: ctx.actor, action: "library.topup", target: null, details: {}, ip: ctx.ip });
+        return ok({ result: await runTopup("admin", 45_000) });
       case "library.set_active":
         return await librarySetActive(body, ctx);
       case "user.disable":
@@ -84,21 +94,45 @@ async function flagSet(body: Record<string, unknown>, ctx: ActionContext): Promi
 async function contentGenerate(body: Record<string, unknown>, ctx: ActionContext): Promise<ActionResult> {
   const count = Math.min(10, Math.max(3, Math.round(Number(body.count) || 10)));
   const level = body.level === "kids" || body.level === "adults" ? body.level : "family";
+  if (typeof body.theme !== "string" || !body.theme.trim()) return fail(400, "theme_required");
+  const theme = cleanTheme(body.theme);
+  if (!theme) return fail(400, "bad_theme");
   const flags = await flagMap();
   const allow = (name: string) => flags[`llm:${name}`] !== false;
-  await auditOrThrow({ actor: ctx.actor, action: "content.generate", target: "emoji-picture", details: { count, level }, ip: ctx.ip });
+  await auditOrThrow({ actor: ctx.actor, action: "content.generate", target: "emoji-picture", details: { count, level, theme }, ip: ctx.ip });
 
-  const prompt = buildPrompt("emoji-puzzle", { level, count, avoid: [] });
-  const result = await runChain("emoji-puzzle", prompt, (raw) => validateGeminiPayload("emoji-puzzle", raw, count, 4, level), { allow });
-  if (!result) return fail(503, "no_provider_answered");
-  const items = (result.data as { answer: string; level: "kids" | "family" | "adults" }[]).map((p) => ({
-    key: p.answer,
-    level: p.level,
-    data: p,
-    source: `llm:${result.provider}`,
-  }));
+  if (isMovieTheme(theme) && tmdbConfigured()) {
+    const movies = await pickMovies(languagesForTheme(theme), count, await libraryTexts("emoji-puzzle"), true);
+    if (!movies.length) return fail(503, "tmdb_unavailable");
+    const r = await moviePuzzles(movies, { allow, temperature: ADMIN_TEMPERATURE, deadline: Date.now() + 40_000 });
+    const provider = Object.keys(r.providers)[0] ?? "none";
+    const items = r.puzzles.map((p) => ({ key: p.answer, level: p.level, data: { ...p, theme }, source: `tmdb:${provider}` }));
+    const stored = items.length ? await insertPending("emoji-picture", items) : 0;
+    const counts = { theme, source: "tmdb", made: r.stats.made, kept: items.length, rejected: r.stats.rejected, reasons: r.stats.reasons };
+    if (!items.length) return fail(503, "no_provider_answered", counts);
+    return ok({ provider: `TMDB + ${provider}`, ...counts, generated: items.length, stored });
+  }
+  const category = categoryForTheme(theme);
+  const stats = { made: 0, rejected: 0, reasons: {} as Record<string, number> };
+  const prompt = buildPrompt("emoji-puzzle", { level, count, avoid: [], theme, category });
+  const result = await runChain("emoji-puzzle", prompt, (raw) => screenInto(stats, raw, level, category, count), { allow, temperature: ADMIN_TEMPERATURE });
+  if (!result) return fail(503, "no_provider_answered", stats);
+  const kept = result.data as EmojiPuzzle[];
+  const items = kept.map((p) => ({ key: p.answer, level: p.level, data: { ...p, theme }, source: `llm:${result.provider}` }));
   const stored = await insertPending("emoji-picture", items);
-  return ok({ provider: result.provider, generated: items.length, stored });
+  return ok({ provider: result.provider, theme, made: stats.made, kept: kept.length, rejected: stats.rejected, reasons: stats.reasons, generated: kept.length, stored });
+}
+
+/** Admin generation asks for steadier output than the games do. */
+const ADMIN_TEMPERATURE = 0.7;
+
+/** Screens one AI reply of emoji puzzles, adding to the running counts. Returns the kept puzzles, or null if none. */
+function screenInto(stats: { made: number; rejected: number; reasons: Record<string, number> }, raw: unknown, level: Level, category: string | undefined, limit: number) {
+  const r = screenEmojiPuzzles(raw, { level, category, limit });
+  stats.made += r.made;
+  stats.rejected += r.rejected;
+  for (const [k, v] of Object.entries(r.reasons)) stats.reasons[k] = (stats.reasons[k] ?? 0) + (v ?? 0);
+  return r.kept.length ? r.kept : null;
 }
 
 /** Largest "Generate more" batch per kind. Emoji puzzles come 10 per AI call; topics and dares one per call. */
@@ -113,16 +147,23 @@ async function libraryGenerate(body: Record<string, unknown>, ctx: ActionContext
   if (!isLibraryKind(kind)) return fail(400, "bad_kind");
   const count = body.count;
   if (typeof count !== "number" || !Number.isInteger(count) || count < 1 || count > LIBRARY_BATCH_MAX[kind]) return fail(400, "bad_count");
-  const level = body.level === "kids" || body.level === "adults" ? body.level : "family";
+  if (typeof body.theme !== "string" || !body.theme.trim()) return fail(400, "theme_required");
+  const theme = cleanTheme(body.theme);
+  if (!theme) return fail(400, "bad_theme");
+  const level: Level = body.level === "kids" || body.level === "adults" ? body.level : "family";
   const audience = body.audience === "mixed" ? "mixed" : "family";
   const flags = await flagMap();
   if (flags["suggest"] === false) return fail(409, "suggest_switched_off");
   const allow = (name: string) => flags[`llm:${name}`] !== false;
-  await auditOrThrow({ actor: ctx.actor, action: "library.generate", target: kind, details: { count, level, audience }, ip: ctx.ip });
+  const useTmdb = isMovieTheme(theme) && tmdbConfigured() && kind !== "dare";
+  await auditOrThrow({ actor: ctx.actor, action: "library.generate", target: kind, details: { count, level, audience, theme, tmdb: useTmdb }, ip: ctx.ip });
+  if (useTmdb) return movieGenerate(kind, count, theme, allow);
 
+  const category = kind === "emoji-puzzle" ? categoryForTheme(theme) : undefined;
+  const stats = { made: 0, rejected: 0, reasons: {} as Record<string, number> };
   const made: string[] = [];
   const providers: Record<string, number> = {};
-  let generated = 0;
+  let kept = 0;
   let stored = 0;
   let calls = 0;
   let failed = 0;
@@ -131,8 +172,22 @@ async function libraryGenerate(body: Record<string, unknown>, ctx: ActionContext
     calls++;
     const n = kind === "emoji-puzzle" ? Math.min(10, Math.max(3, remaining)) : 1;
     const context: Record<string, unknown> =
-      kind === "emoji-puzzle" ? { level, count: n, avoid: made.slice(-40) } : kind === "dare" ? { audience, avoid: made.slice(-40) } : { excludeTopicIds: [], avoid: made.slice(-40) };
-    const result = await runChain(kind, buildPrompt(kind, context), (raw) => validateGeminiPayload(kind, raw, n, 4, level), { allow });
+      kind === "emoji-puzzle"
+        ? { level, count: n, avoid: made.slice(-40), theme, category }
+        : kind === "dare"
+          ? { audience, avoid: made.slice(-40), theme }
+          : { excludeTopicIds: [], avoid: made.slice(-40), theme };
+    const accept = (raw: unknown): unknown | null => {
+      if (kind === "emoji-puzzle") return screenInto(stats, raw, level, category, remaining);
+      stats.made += 1;
+      const v = validateGeminiPayload(kind, raw);
+      if (v == null) {
+        stats.rejected += 1;
+        stats.reasons.invalid = (stats.reasons.invalid ?? 0) + 1;
+      }
+      return v;
+    };
+    const result = await runChain(kind, buildPrompt(kind, context), accept, { allow, temperature: ADMIN_TEMPERATURE });
     if (!result) {
       failed++;
       if (failed >= 2) break;
@@ -143,12 +198,43 @@ async function libraryGenerate(body: Record<string, unknown>, ctx: ActionContext
     if (saved == null) return fail(503, "library_unavailable");
     providers[result.provider] = (providers[result.provider] ?? 0) + 1;
     made.push(...items.map((i) => i.key));
-    generated += items.length;
+    kept += items.length;
     stored += saved;
     remaining -= Math.max(1, items.length);
   }
-  if (!generated) return fail(503, "no_provider_answered");
-  return ok({ kind, generated, stored, duplicates: generated - stored, calls, providers });
+  const summary = { kind, theme, made: stats.made, kept, rejected: stats.rejected, reasons: stats.reasons, stored, duplicates: kept - stored, calls, providers };
+  if (!kept) return fail(503, "no_provider_answered", summary);
+  return ok({ ...summary, generated: kept });
+}
+
+/** Movie themes: titles come from TMDB. Emoji puzzles get AI emoji for those titles; Chor Kaun topics use no AI. */
+async function movieGenerate(kind: string, count: number, theme: string, allow: (name: string) => boolean): Promise<ActionResult> {
+  const langs = languagesForTheme(theme);
+  if (kind === "emoji-puzzle") {
+    const movies = await pickMovies(langs, count, await libraryTexts("emoji-puzzle"), true);
+    if (!movies.length) return fail(503, "tmdb_unavailable", { kind, theme, source: "tmdb", made: 0, kept: 0, rejected: 0 });
+    const r = await moviePuzzles(movies, { allow, temperature: ADMIN_TEMPERATURE, deadline: Date.now() + 40_000 });
+    const items = movieItems(r.puzzles, theme);
+    const stored = items.length ? await saveToLibrary("emoji-puzzle", items, "admin:tmdb:llm") : 0;
+    if (stored == null) return fail(503, "library_unavailable");
+    const summary = { kind, theme, source: "tmdb", movies: movies.length, made: r.stats.made, kept: items.length, rejected: r.stats.rejected, reasons: r.stats.reasons, stored, duplicates: items.length - stored, calls: r.calls, providers: r.providers };
+    if (!items.length) return fail(503, "no_provider_answered", summary);
+    return ok({ ...summary, generated: items.length });
+  }
+  const used = await libraryTexts("chor-kaun-topic");
+  const items: LibraryItem[] = [];
+  for (let i = 0; i < count; i++) {
+    const topic = await movieChorTopic(langs, used, true);
+    if (!topic) break;
+    used.add(normText(String(topic.label)));
+    items.push({ category: "any", key: String(topic.label), data: topic, theme });
+  }
+  const stored = items.length ? await saveToLibrary("chor-kaun-topic", items, "admin:tmdb") : 0;
+  if (stored == null) return fail(503, "library_unavailable");
+  const rejected = count - items.length;
+  const summary = { kind, theme, source: "tmdb", made: count, kept: items.length, rejected, reasons: rejected ? { no_new_topic: rejected } : {}, stored, duplicates: items.length - stored, calls: 0, providers: {} };
+  if (!items.length) return fail(503, "tmdb_unavailable", summary);
+  return ok({ ...summary, generated: items.length });
 }
 
 async function librarySetActive(body: Record<string, unknown>, ctx: ActionContext): Promise<ActionResult> {

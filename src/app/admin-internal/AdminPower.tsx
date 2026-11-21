@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
+import { THEME_CHIPS, THEME_MAX, cleanTheme } from "@/lib/suggest/theme";
 
 /**
  * Power-admin views: account lookup and actions, content review, kill switches, funnel, quota,
@@ -35,6 +36,40 @@ const danger = "rounded border-2 border-[#c23a22] bg-[#c23a22] px-3 py-1 text-sm
 function Msg({ text, bad }: { text: string | null; bad?: boolean }) {
   if (!text) return null;
   return <p role="status" className={`text-sm font-bold ${bad ? "text-[#c23a22]" : "text-[#2f7d4f]"}`}>{text}</p>;
+}
+
+/** Required topic for anything the AI makes from the admin panel: free text plus quick picks. */
+function ThemePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const bad = value.trim() !== "" && !cleanTheme(value);
+  return (
+    <div className="w-full space-y-1">
+      <label className="block text-sm">
+        <span className="font-bold">Theme (required)</span>
+        <input className={input} value={value} maxLength={THEME_MAX} placeholder="e.g. Bollywood movies" onChange={(e) => onChange(e.target.value)} />
+      </label>
+      <div className="flex flex-wrap gap-1">
+        {THEME_CHIPS.map((c) => (
+          <button key={c.label} type="button" className={`${button} ${value === c.label ? "bg-[#f2b632]" : ""}`} onClick={() => onChange(c.label)}>{c.label}</button>
+        ))}
+      </div>
+      {bad && <p className="text-xs text-[#c23a22]">Use 3–{THEME_MAX} letters, numbers and spaces, naming a topic only.</p>}
+    </div>
+  );
+}
+
+const REASON_TEXT: Record<string, string> = {
+  emojis: "emoji missing or not only emoji", answer: "answer missing or too long", hint: "hint missing or gives the answer away",
+  category: "off theme", level: "wrong level", unsafe: "unsafe", shape: "unreadable", duplicate: "repeated", invalid: "unusable",
+  not_from_list: "not one of the movies", no_new_topic: "no new topic left", extra: "more than asked",
+};
+
+/** "Made 10 · kept 7 · rejected 3 (off theme 2, no answer 1)". */
+function madeKeptText(r: Record<string, unknown>): string {
+  const reasons = Object.entries((r.reasons as Record<string, number>) ?? {})
+    .filter(([, n]) => n > 0)
+    .map(([k, n]) => `${REASON_TEXT[k] ?? k} ${n}`)
+    .join(", ");
+  return `Made ${r.made ?? 0} · kept ${r.kept ?? 0} · rejected ${r.rejected ?? 0}${reasons ? ` (${reasons})` : ""}`;
 }
 
 /* ---------------- Account lookup and actions ---------------- */
@@ -173,7 +208,7 @@ interface PendingItem {
   level: string;
   source: string;
   created_at: string;
-  data: { answer?: string; hint?: string; emojis?: string; category?: string; alt?: string[] };
+  data: { answer?: string; hint?: string; emojis?: string; category?: string; alt?: string[]; theme?: string };
 }
 
 export function ContentPanel() {
@@ -182,6 +217,7 @@ export function ContentPanel() {
   const [msg, setMsg] = useState<string | null>(null);
   const [count, setCount] = useState(10);
   const [level, setLevel] = useState("family");
+  const [theme, setTheme] = useState("");
 
   const load = () =>
     view<{ pending: PendingItem[]; approved: number; rejected: number }>("content")
@@ -193,8 +229,8 @@ export function ContentPanel() {
 
   const generate = async () => {
     setMsg("Asking the AI services…");
-    const r = await act("content.generate", { count, level });
-    setMsg(r.ok ? `Generated ${r.generated} via ${r.provider}; ${r.stored} new in the queue.` : `Not generated: ${r.error}`);
+    const r = await act("content.generate", { count, level, theme });
+    setMsg(r.ok ? `${madeKeptText(r)} via ${r.provider}; ${r.stored} new in the queue.` : `Not generated: ${r.error}${r.made != null ? ` · ${madeKeptText(r)}` : ""}`);
     load();
   };
 
@@ -206,13 +242,14 @@ export function ContentPanel() {
         Approved: {data?.approved ?? "—"} · Rejected: {data?.rejected ?? "—"} · Waiting: {data?.pending.length ?? "—"}
       </p>
       <div className={`${box} flex flex-wrap items-end gap-2`}>
+        <ThemePicker value={theme} onChange={setTheme} />
         <label className="text-sm">Count<select className={input} value={count} onChange={(e) => setCount(Number(e.target.value))}>
           {[3, 5, 10].map((n) => <option key={n} value={n}>{n}</option>)}
         </select></label>
         <label className="text-sm">Level<select className={input} value={level} onChange={(e) => setLevel(e.target.value)}>
           <option value="kids">kids</option><option value="family">family</option><option value="adults">adults</option>
         </select></label>
-        <button className={button} onClick={generate}>Generate emoji puzzles</button>
+        <button className={button} onClick={generate} disabled={!cleanTheme(theme)}>Generate emoji puzzles</button>
       </div>
       <Msg text={msg} />
       {err && <p className="text-sm text-[#c23a22]">{err}</p>}
@@ -233,7 +270,7 @@ function PendingRow({ item, onDone }: { item: PendingItem; onDone: () => void })
   };
   return (
     <div className={`${box} space-y-2 text-sm`}>
-      <p className="text-xs text-[#6b6258]">{item.game_id} · {item.level} · from {item.source}</p>
+      <p className="text-xs text-[#6b6258]">{item.game_id} · {item.level} · from {item.source}{item.data.theme ? ` · theme: ${item.data.theme}` : ""}</p>
       <p className="text-2xl">{item.data.emojis}</p>
       <label className="block"><span className="font-bold">Answer</span><input className={input} value={answer} onChange={(e) => setAnswer(e.target.value)} /></label>
       <label className="block"><span className="font-bold">Hint</span><input className={input} value={hint} onChange={(e) => setHint(e.target.value)} /></label>
@@ -273,7 +310,9 @@ export function LibraryPanel() {
   const [kind, setKind] = useState("emoji-puzzle");
   const [count, setCount] = useState(10);
   const [level, setLevel] = useState("family");
+  const [theme, setTheme] = useState("");
   const [busy, setBusy] = useState(false);
+  const [listKey, setListKey] = useState(0);
   const max = LIBRARY_KINDS.find((k) => k.kind === kind)?.max ?? 5;
 
   const load = () =>
@@ -290,14 +329,15 @@ export function LibraryPanel() {
   const generate = async () => {
     setBusy(true);
     setMsg({ text: "Asking the AI services… this can take up to a minute.", bad: false });
-    const r = await act("library.generate", { kind, count: Math.min(count, max), level, audience: "family" });
+    const r = await act("library.generate", { kind, count: Math.min(count, max), level, audience: "family", theme });
     setBusy(false);
     setMsg(
       r.ok
-        ? { text: `Made ${r.generated}; ${r.stored} new in the library, ${r.duplicates} already there.`, bad: false }
-        : { text: `Not generated: ${r.error}`, bad: true },
+        ? { text: `${madeKeptText(r)}. ${r.stored} new in the library, ${r.duplicates} already there. Rejected items were not saved.`, bad: false }
+        : { text: `Not generated: ${r.error}${r.made != null ? ` · ${madeKeptText(r)}` : ""}`, bad: true },
     );
     load();
+    setListKey((k) => k + 1);
   };
 
   return (
@@ -329,6 +369,7 @@ export function LibraryPanel() {
         </table>
       )}
       <div className={`${box} flex flex-wrap items-end gap-2`}>
+        <ThemePicker value={theme} onChange={setTheme} />
         <label className="text-sm">Game<select className={input} value={kind} onChange={(e) => setKind(e.target.value)}>
           {LIBRARY_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
         </select></label>
@@ -339,10 +380,129 @@ export function LibraryPanel() {
             <option value="kids">kids</option><option value="family">family</option><option value="adults">adults</option>
           </select></label>
         )}
-        <button className={button} onClick={generate} disabled={busy}>Generate more</button>
+        <button className={button} onClick={generate} disabled={busy || !cleanTheme(theme)}>Generate more</button>
         <a className={button} href={`${base()}/api/data?view=library_csv`} download>Download CSV</a>
       </div>
       {msg && <Msg text={msg.text} bad={msg.bad} />}
+      <TopupBox onRan={() => {
+        load();
+        setListKey((k) => k + 1);
+      }} />
+      <LibraryItems key={`${kind}-${listKey}`} kind={kind} onChanged={load} />
+    </div>
+  );
+}
+
+interface TopupInfo {
+  ranAt: string;
+  ok: boolean;
+  detail: { trigger?: string; done?: boolean; made?: number; kept?: number; rejected?: number; stored?: number; skipped?: string;
+    emoji?: { movies?: number; kept?: number }; chor?: { movie?: number; ai?: number }; dare?: { kept?: number } };
+}
+
+function topupText(t: TopupInfo | null): string {
+  if (!t) return "No top-up has run yet.";
+  const d = t.detail;
+  const when = new Date(t.ranAt).toLocaleString();
+  if (d.skipped) return `Last top-up ${when} (${d.trigger ?? "?"}): skipped, ${d.skipped}.`;
+  return `Last top-up ${when} (${d.trigger === "admin" ? "button" : "weekly"}): made ${d.made ?? 0} · kept ${d.kept ?? 0} · rejected ${d.rejected ?? 0} · ${d.stored ?? 0} new in the library ` +
+    `(emoji ${d.emoji?.kept ?? 0} from ${d.emoji?.movies ?? 0} movies, Chor Kaun ${d.chor?.movie ?? 0} movie + ${d.chor?.ai ?? 0} AI, dares ${d.dare?.kept ?? 0})${d.done ? "" : " · not finished: tries again tonight"}.`;
+}
+
+/** Weekly automatic top-up: last run, and a button to run it now. */
+function TopupBox({ onRan }: { onRan: () => void }) {
+  const [t, setT] = useState<TopupInfo | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
+  const load = () => view<{ lastTopup: TopupInfo | null }>("health").then((h) => setT(h.lastTopup ?? null)).catch(() => setT(null));
+  useEffect(() => {
+    load();
+  }, []);
+  const run = async () => {
+    setBusy(true);
+    setMsg({ text: "Topping up… this takes up to a minute.", bad: false });
+    const r = await act("library.topup");
+    setBusy(false);
+    const res = r.result as { ok?: boolean; skipped?: string } | undefined;
+    setMsg(r.ok && res?.ok ? { text: "Top-up finished.", bad: false } : { text: `Top-up did not run: ${res?.skipped ?? r.error ?? "failed"}`, bad: true });
+    load();
+    onRan();
+  };
+  return (
+    <div className={`${box} space-y-2 text-sm`}>
+      <p className="font-bold">Weekly top-up</p>
+      <p>Once a week, after the nightly clean-up, the library adds about 40 popular Indian movie puzzles (titles from TMDB, emoji from the AI), a few Chor Kaun topics (about a third movie titles) and a couple of dares. Only items that pass the checks are saved.</p>
+      <p>{t === undefined ? "Loading…" : topupText(t)}</p>
+      <button className={button} onClick={run} disabled={busy}>Run top-up now</button>
+      {msg && <Msg text={msg.text} bad={msg.bad} />}
+    </div>
+  );
+}
+
+interface LibraryEntry {
+  id: number;
+  category: string;
+  theme?: string | null;
+  text_key: string;
+  source: string;
+  active: boolean;
+  served_count: number;
+  created_at: string;
+  data: { emojis?: string; answer?: string; hint?: string; label?: string; words?: string[]; text?: string };
+}
+
+/** Newest items of one game, with a switch to stop serving any one of them. */
+function LibraryItems({ kind, onChanged }: { kind: string; onChanged: () => void }) {
+  const [page, setPage] = useState(0);
+  const [d, setD] = useState<{ total: number; pageSize: number; items: LibraryEntry[] } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const load = () =>
+    view<{ total: number; pageSize: number; items: LibraryEntry[] }>("library_items", `&kind=${encodeURIComponent(kind)}&page=${page}`)
+      .then((r) => {
+        setD(r);
+        setErr(null);
+      })
+      .catch(() => setErr("Could not load the items."));
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, page]);
+  const toggle = async (item: LibraryEntry) => {
+    const r = await act("library.set_active", { id: item.id, active: !item.active });
+    if (!r.ok) setErr(`Not changed: ${r.error}`);
+    load();
+    onChanged();
+  };
+  const label = LIBRARY_KINDS.find((k) => k.kind === kind)?.label ?? kind;
+  return (
+    <div className="space-y-2">
+      <h3 className="font-bold">{label}: newest first ({d?.total ?? "—"})</h3>
+      <p className="text-xs text-[#6b6258]">Deactivated items stay in the library and the CSV but are never served. You can switch them back on.</p>
+      {err && <p className="text-sm text-[#c23a22]">{err}</p>}
+      {d?.items.map((item) => (
+        <div key={item.id} className={`${box} flex items-start justify-between gap-3 text-sm ${item.active ? "" : "opacity-60"}`}>
+          <div className="min-w-0 space-y-1">
+            {kind === "emoji-puzzle" && (
+              <p><span className="text-2xl">{item.data.emojis}</span> <b>{item.data.answer}</b>{item.data.hint ? ` · ${item.data.hint}` : ""}</p>
+            )}
+            {kind === "chor-kaun-topic" && (
+              <p><b>{item.data.label}</b>: {(item.data.words ?? []).join(", ")}</p>
+            )}
+            {kind === "dare" && <p>{item.data.text}</p>}
+            <p className="text-xs text-[#6b6258]">
+              #{item.id} · {item.category}{item.theme ? ` · theme: ${item.theme}` : ""} · {item.source} · served {item.served_count}× · {new Date(item.created_at).toLocaleDateString()}{item.active ? "" : " · off"}
+            </p>
+          </div>
+          <button className={item.active ? danger : button} onClick={() => toggle(item)}>{item.active ? "Deactivate" : "Reactivate"}</button>
+        </div>
+      ))}
+      {d && d.items.length === 0 && <p className="text-sm">No items yet for this game.</p>}
+      {d && d.total > d.pageSize && (
+        <div className="flex gap-2">
+          <button className={button} disabled={page === 0} onClick={() => setPage(page - 1)}>Newer</button>
+          <button className={button} disabled={(page + 1) * d.pageSize >= d.total} onClick={() => setPage(page + 1)}>Older</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -442,7 +602,7 @@ export function QuotaPanel() {
 }
 
 export function HealthPanel() {
-  const [h, setH] = useState<{ lastPurge: { ranAt: string; ok: boolean; detail: Record<string, unknown> } | null; suggestionsLastHour: number; fallbacksLastHour: number; errorsLastHour: number } | null>(null);
+  const [h, setH] = useState<{ lastPurge: { ranAt: string; ok: boolean; detail: Record<string, unknown> } | null; lastTopup?: TopupInfo | null; suggestionsLastHour: number; fallbacksLastHour: number; errorsLastHour: number } | null>(null);
   const [err, setErr] = useState(false);
   const load = () => view<typeof h>("health").then(setH).catch(() => setErr(true));
   useEffect(() => {
@@ -458,6 +618,10 @@ export function HealthPanel() {
         <p className="font-bold">Nightly purge</p>
         <p>{h.lastPurge ? `${new Date(h.lastPurge.ranAt).toLocaleString()} · ${h.lastPurge.ok ? "succeeded" : "failed"}` : "Has not run yet (or the cron isn't scheduled)."}</p>
         {h.lastPurge?.ok && <p className="text-xs">Removed (counts): {Object.entries(h.lastPurge.detail).map(([k, v]) => `${k} ${String(v)}`).join(", ")}</p>}
+      </div>
+      <div className={`${box} text-sm`}>
+        <p className="font-bold">Library top-up</p>
+        <p>{topupText(h.lastTopup ?? null)}</p>
       </div>
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className={box}><div className="text-xs">AI calls, last hour</div><div className="text-2xl font-extrabold">{h.suggestionsLastHour}</div></div>
