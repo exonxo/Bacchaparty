@@ -169,3 +169,43 @@ export async function findUser(email: string): Promise<string | null> {
   if (error) throw error;
   return (data as string | null) ?? null;
 }
+
+/** Content library counts per game, kind and category (0010). Counted in the database. */
+export async function library() {
+  const { data, error } = await db().rpc("admin_library_counts");
+  if (error) throw error;
+  const c = (data ?? {}) as { total?: number; active?: number; servedTotal?: number; viewers30d?: number; rows?: unknown[] };
+  return { total: c.total ?? 0, active: c.active ?? 0, servedTotal: c.servedTotal ?? 0, viewers30d: c.viewers30d ?? 0, rows: c.rows ?? [] };
+}
+
+const CSV_COLUMNS = ["id", "game_id", "kind", "category", "lang", "text_key", "source", "active", "served_count", "last_served_at", "created_at", "data"] as const;
+export const LIBRARY_CSV_MAX_ROWS = 20_000;
+
+/** Quotes a CSV cell, and defuses cells a spreadsheet would run as a formula. */
+export function csvCell(v: unknown): string {
+  let s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+/**
+ * The whole library as CSV, oldest first, in pages of 1000 (the API's page limit), up to 20,000 rows.
+ * Leaves out which account an item was made for: the export carries no personal data.
+ */
+export async function libraryCsv(): Promise<{ csv: string; rows: number; truncated: boolean }> {
+  const lines = [CSV_COLUMNS.join(",")];
+  let rows = 0;
+  for (let from = 0; from < LIBRARY_CSV_MAX_ROWS; from += 1000) {
+    const { data, error } = await db()
+      .from("content_library")
+      .select(CSV_COLUMNS.join(", "))
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    if (error) throw error;
+    const page = (data ?? []) as unknown as Record<string, unknown>[];
+    for (const r of page) lines.push(CSV_COLUMNS.map((c) => csvCell(r[c])).join(","));
+    rows += page.length;
+    if (page.length < 1000) return { csv: lines.join("\r\n") + "\r\n", rows, truncated: false };
+  }
+  return { csv: lines.join("\r\n") + "\r\n", rows, truncated: true };
+}

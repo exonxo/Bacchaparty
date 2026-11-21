@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/env";
 import { logLater } from "@/lib/admin/events";
 import { approvedChorTopic, approvedEmojiPuzzles } from "@/lib/admin/bank";
@@ -8,6 +8,7 @@ import { getUser } from "@/lib/supabase/server";
 import { fallbackFor } from "@/lib/suggest/fallbacks";
 import { runChain } from "@/lib/suggest/chain";
 import { buildPrompt } from "@/lib/suggest/prompts";
+import { isLibraryKind, itemsFrom, pickFromLibrary, saveToLibrary, type Viewer } from "@/lib/suggest/library";
 import { cleanAvoid, notRepeated } from "@/lib/suggest/avoid";
 import { checkRateLimit, inflightKey, rateLimitKey, runDeduped } from "@/lib/suggest/rate-limit";
 import { SUGGEST_KINDS, type SuggestKind } from "@/lib/suggest/types";
@@ -108,11 +109,25 @@ export async function POST(req: Request) {
   const playerCount = kind === "next-game" && typeof context.playerCount === "number" ? context.playerCount : 4;
   const emojiLevel = (kind === "emoji-puzzle" && typeof context.level === "string" ? context.level : "family") as Level;
 
-  // Kill switches: "suggest" stops all model calls; "llm:<name>" skips one provider.
+  // Kill switches: "suggest" stops all model calls and the content library; "library" skips the
+  // library only; "llm:<name>" skips one provider.
   const flags = await flagMap();
   if (flags["suggest"] === false) {
     logLater("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "switched_off" });
     return ok((await bankFallback(kind, context)) ?? fallbackNow(), true);
+  }
+
+  // The content library comes first: something already made that this host hasn't been shown in
+  // 30 days. Keyed by the host's account id. The AI services are asked only when nothing is left.
+  const viewer: Viewer = { userId: user.id };
+  const useLibrary = isLibraryKind(kind) && flags["library"] !== false;
+  if (useLibrary) {
+    const t0 = Date.now();
+    const fromLibrary = await pickFromLibrary(kind, context, viewer);
+    if (fromLibrary != null) {
+      logLater("suggest", { suggest_kind: kind, provider: "library", fallback: false, ms: Date.now() - t0 });
+      return ok(fromLibrary, false);
+    }
   }
 
   const prompt = buildPrompt(kind, context);
@@ -127,10 +142,29 @@ export async function POST(req: Request) {
     );
     if (result) {
       logLater("suggest", { suggest_kind: kind, provider: result.provider, fallback: false, ms: result.ms });
+      if (useLibrary && isLibraryKind(kind)) {
+        // Keep it for other hosts, and record it as shown to this one. After the response, so the game doesn't wait.
+        const items = itemsFrom(kind, result.data, context);
+        const save = () => saveToLibrary(kind, items, `llm:${result.provider}`, viewer).then(() => undefined);
+        try {
+          after(save);
+        } catch {
+          void save();
+        }
+      }
       return ok(result.data, false);
     }
   } catch {
     logLater("api_error", { route: "suggest", status: 500 });
+  }
+
+  // No AI answer: a smaller set from the library (at least 3 emoji puzzles) beats the fixed lists.
+  if (useLibrary && isLibraryKind(kind) && kind === "emoji-puzzle") {
+    const partial = await pickFromLibrary(kind, context, viewer, { min: 3 });
+    if (partial != null) {
+      logLater("suggest", { suggest_kind: kind, provider: "library", fallback: true, ms: 0, reason: "all_providers_failed" });
+      return ok(partial, true);
+    }
   }
 
   // Approved, human-reviewed content comes before the fixed built-in lists.

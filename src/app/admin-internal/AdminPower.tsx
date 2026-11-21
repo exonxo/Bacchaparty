@@ -246,6 +246,107 @@ function PendingRow({ item, onDone }: { item: PendingItem; onDone: () => void })
   );
 }
 
+/* ---------------- Content library ---------------- */
+
+interface LibraryRow {
+  game_id: string;
+  kind: string;
+  category: string;
+  lang: string;
+  total: number;
+  active: number;
+  added7d: number;
+  served: number;
+  from_admin: number;
+}
+
+const LIBRARY_KINDS: { kind: string; label: string; max: number }[] = [
+  { kind: "emoji-puzzle", label: "Emoji Picture puzzles", max: 50 },
+  { kind: "chor-kaun-topic", label: "Chor Kaun topics", max: 5 },
+  { kind: "dare", label: "Dares", max: 5 },
+];
+
+export function LibraryPanel() {
+  const [data, setData] = useState<{ total: number; active: number; servedTotal: number; viewers30d: number; rows: LibraryRow[] } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
+  const [kind, setKind] = useState("emoji-puzzle");
+  const [count, setCount] = useState(10);
+  const [level, setLevel] = useState("family");
+  const [busy, setBusy] = useState(false);
+  const max = LIBRARY_KINDS.find((k) => k.kind === kind)?.max ?? 5;
+
+  const load = () =>
+    view<{ total: number; active: number; servedTotal: number; viewers30d: number; rows: LibraryRow[] }>("library")
+      .then((d) => {
+        setData(d);
+        setErr(null);
+      })
+      .catch((e: Error) => setErr(e.message === "database_not_configured" ? "Database not connected." : "Could not load the library (has 0010 been run?)."));
+  useEffect(() => {
+    load();
+  }, []);
+
+  const generate = async () => {
+    setBusy(true);
+    setMsg({ text: "Asking the AI services… this can take up to a minute.", bad: false });
+    const r = await act("library.generate", { kind, count: Math.min(count, max), level, audience: "family" });
+    setBusy(false);
+    setMsg(
+      r.ok
+        ? { text: `Made ${r.generated}; ${r.stored} new in the library, ${r.duplicates} already there.`, bad: false }
+        : { text: `Not generated: ${r.error}`, bad: true },
+    );
+    load();
+  };
+
+  return (
+    <div className="mt-6 space-y-4">
+      <h2 className="font-extrabold">Content library</h2>
+      <p className="text-sm">
+        Everything the AI makes is kept here and served again to other hosts. A host isn&apos;t shown the same item again for 30 days.
+        The AI is asked only when the library has nothing new for that host.
+      </p>
+      <p className="text-sm">
+        Items: {data?.total ?? "—"} · Switched on: {data?.active ?? "—"} · Times served: {data?.servedTotal ?? "—"} · Hosts served (30 days): {data?.viewers30d ?? "—"}
+      </p>
+      {err && <p className="text-sm text-[#c23a22]">{err}</p>}
+      {data && (
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr><th>Game</th><th>Kind</th><th>Category</th><th>Items</th><th>On</th><th>Added (7 days)</th><th>Served</th><th>From admin</th></tr>
+          </thead>
+          <tbody>
+            {data.rows.map((r) => (
+              <tr key={`${r.game_id}-${r.kind}-${r.category}-${r.lang}`} className="border-t border-[#1e1a17]/20">
+                <td>{r.game_id}</td><td>{r.kind}</td><td>{r.category}</td>
+                <td className="tabular-nums">{r.total}</td><td className="tabular-nums">{r.active}</td><td className="tabular-nums">{r.added7d}</td>
+                <td className="tabular-nums">{r.served}</td><td className="tabular-nums">{r.from_admin}</td>
+              </tr>
+            ))}
+            {data.rows.length === 0 && <tr><td colSpan={8}>The library is empty. It fills up as hosts play, or use Generate more.</td></tr>}
+          </tbody>
+        </table>
+      )}
+      <div className={`${box} flex flex-wrap items-end gap-2`}>
+        <label className="text-sm">Game<select className={input} value={kind} onChange={(e) => setKind(e.target.value)}>
+          {LIBRARY_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
+        </select></label>
+        <label className="text-sm">How many (max {max})<input className={input} type="number" min={1} max={max} value={Math.min(count, max)}
+          onChange={(e) => setCount(Math.max(1, Math.min(max, Math.round(Number(e.target.value) || 1))))} /></label>
+        {kind === "emoji-puzzle" && (
+          <label className="text-sm">Level<select className={input} value={level} onChange={(e) => setLevel(e.target.value)}>
+            <option value="kids">kids</option><option value="family">family</option><option value="adults">adults</option>
+          </select></label>
+        )}
+        <button className={button} onClick={generate} disabled={busy}>Generate more</button>
+        <a className={button} href={`${base()}/api/data?view=library_csv`} download>Download CSV</a>
+      </div>
+      {msg && <Msg text={msg.text} bad={msg.bad} />}
+    </div>
+  );
+}
+
 /* ---------------- Kill switches ---------------- */
 
 export function FlagsPanel() {
@@ -263,7 +364,7 @@ export function FlagsPanel() {
   return (
     <div className="mt-6 space-y-3">
       <h2 className="font-extrabold">Switches</h2>
-      <p className="text-sm">Switching a game off hides it from hosts. Switching a provider off stops calls to it. Switching &quot;suggest&quot; off stops all AI calls; approved and built-in content still works.</p>
+      <p className="text-sm">Switching a game off hides it from hosts. Switching a provider off stops calls to it. Switching &quot;suggest&quot; off stops all AI calls and the content library; approved and built-in content still works. Switching &quot;library&quot; off stops serving and saving library items (the AI is asked every time).</p>
       <Msg text={msg} />
       <ul className="space-y-2">
         {flags?.map((f) => (

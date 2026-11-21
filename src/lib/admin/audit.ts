@@ -38,6 +38,8 @@ export const ACTIONS = [
   "flag.set",
   "content.generate",
   "content.review",
+  "library.generate",
+  "library.set_active",
   "user.disable",
   "user.enable",
   "user.delete",

@@ -5,15 +5,16 @@ import { getServiceClient } from "../supabase/service";
  * Kill switches. A flag with no row is ON. Keys:
  *   game:<id>        hide a game from the host's list
  *   llm:<provider>   stop calling a provider (gemini, groq, openrouter, cloudflare)
- *   suggest          stop all AI suggestions (built-in and approved content still work)
+ *   suggest          stop all AI suggestions, the content library included (built-in and approved content still work)
+ *   library          stop serving and saving the content library (the AI services are asked every time)
  *
  * Each server instance caches the table for 30 seconds, so a change can take up to that long.
  */
 
-export const LLM_PROVIDERS = ["gemini", "groq", "openrouter", "cloudflare"] as const;
+export const LLM_PROVIDERS = ["groq", "gemini", "openrouter", "cloudflare"] as const;
 
 export function knownFlags(): string[] {
-  return ["suggest", ...LLM_PROVIDERS.map((p) => `llm:${p}`), ...GAMES.map((g) => `game:${g.id}`)];
+  return ["suggest", "library", ...LLM_PROVIDERS.map((p) => `llm:${p}`), ...GAMES.map((g) => `game:${g.id}`)];
 }
 
 const TTL_MS = 30_000;
