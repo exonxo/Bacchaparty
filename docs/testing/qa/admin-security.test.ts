@@ -1,10 +1,11 @@
-// QA rounds 4-6: admin panel security building blocks (ADM-3, ADM-4, ADM-6..10, ADM-15).
+// QA rounds 4-8: admin panel security building blocks (ADM-3, ADM-4, ADM-6..10, ADM-15).
 // Run from the repo root:  npx -y tsx docs/testing/qa/admin-security.test.ts
 import assert from "node:assert/strict";
 import { adminConfig, isCompleteScryptHash } from "../../../src/lib/admin/config";
 import { hashPassword, signToken, totpAt, verifyPassword, verifyToken, verifyTotp, randomSecretBase32, base32Decode } from "../../../src/lib/admin/crypto";
-import { clientIp, clearedCookie, newSessionToken, sameOrigin, sessionCookie } from "../../../src/lib/admin/session";
-import { isLocked, recordAttempt, MAX_FAILS } from "../../../src/lib/admin/throttle";
+import { adminSession, clientIp, clearedCookie, COOKIE, newSessionToken, sameOrigin, sessionCookie } from "../../../src/lib/admin/session";
+import { beginAttempt, isLocked, recordAttempt, MAX_FAILS } from "../../../src/lib/admin/throttle";
+import { revokeSession } from "../../../src/lib/admin/revoked";
 
 let passed = 0;
 const lines: string[] = [];
@@ -164,6 +165,59 @@ const req = (headers: Record<string, string> = {}, url = "https://example.test/x
     const cfg = { path: "p", username: "u", passwordHash: "", totpSecret: "", sessionSecret: SECRET };
     const t = newSessionToken(cfg);
     assert.equal(verifyToken(t, SECRET)?.user, "u");
+  });
+
+  // --- Round 8: logout revocation and the atomic lockout (no database: the in-memory paths) ---
+  const cfg8 = { path: "p".repeat(24), username: "owner", passwordHash: "", totpSecret: "", sessionSecret: SECRET };
+  const withCookie = (t: string) => req({ cookie: `${COOKIE}=${t}` });
+
+  await check("ADM-14b", "a logged-out session token is refused even though its signature and expiry are fine", async () => {
+    const t = newSessionToken(cfg8);
+    const s = await adminSession(withCookie(t), cfg8);
+    assert.ok(s, "fresh token accepted");
+    const other = newSessionToken(cfg8);
+    await revokeSession(s!.sid, s!.exp);
+    assert.equal(await adminSession(withCookie(t), cfg8), null, "revoked token refused");
+    assert.ok(await adminSession(withCookie(other), cfg8), "a different session is unaffected");
+  });
+
+  await check("ADM-14c", "every session token gets its own random id", () => {
+    const a = verifyToken(newSessionToken(cfg8), SECRET)?.sid, b = verifyToken(newSessionToken(cfg8), SECRET)?.sid;
+    assert.equal(typeof a, "string");
+    assert.ok((a as string).length >= 16 && a !== b);
+  });
+
+  await check("ADM-14d", "an old-style token without a session id is refused (it could not be logged out)", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const legacy = signToken({ sub: "admin", user: "owner", iat: now, exp: now + 3600 }, SECRET);
+    assert.ok(verifyToken(legacy, SECRET), "signature is valid");
+    assert.equal(await adminSession(withCookie(legacy), cfg8), null);
+  });
+
+  await check("ADM-7e", "parallel attempts from one IP: exactly 5 get through, the rest are locked (no race)", async () => {
+    const ip = `10.3.0.${Math.floor(Math.random() * 200) + 1}`;
+    const attempts = await Promise.all(Array.from({ length: 12 }, () => beginAttempt(ip)));
+    assert.equal(attempts.filter((a) => !a.locked).length, MAX_FAILS);
+    await Promise.all(attempts.filter((a) => !a.locked).map((a) => a.finish(false, "bad_credentials")));
+    assert.equal((await beginAttempt(ip)).locked, true);
+  });
+
+  await check("ADM-7f", "a successful attempt frees its reserved slot", async () => {
+    const ip = `10.4.0.${Math.floor(Math.random() * 200) + 1}`;
+    for (let i = 0; i < MAX_FAILS - 1; i++) await (await beginAttempt(ip)).finish(false, "bad_totp");
+    const ok = await beginAttempt(ip);
+    assert.equal(ok.locked, false);
+    await ok.finish(true, "ok");
+    const next = await beginAttempt(ip);
+    assert.equal(next.locked, false, "the success did not count as a failure");
+    await next.finish(false, "bad_totp");
+    assert.equal((await beginAttempt(ip)).locked, true, "now 5 failures: locked");
+  });
+
+  await check("ADM-7g", "an attempt that never finishes still counts as a failure", async () => {
+    const ip = `10.5.0.${Math.floor(Math.random() * 200) + 1}`;
+    for (let i = 0; i < MAX_FAILS; i++) await beginAttempt(ip); // no finish(): request died mid-way
+    assert.equal((await beginAttempt(ip)).locked, true);
   });
 
   lines.push(`\n${passed} passed, ${lines.length - passed} failed`);

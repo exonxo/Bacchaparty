@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { adminConfig } from "@/lib/admin/config";
 import { ACTIONS, type AdminAction } from "@/lib/admin/audit";
 import { runAction } from "@/lib/admin/actions";
-import { adminActor, adminHeaders, clientIp, hasAdminSession, sameOrigin } from "@/lib/admin/session";
+import { adminHeaders, adminSession, clientIp, sameOrigin } from "@/lib/admin/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const cfg = adminConfig();
   if (!cfg) return new NextResponse(null, { status: 404 });
-  if (!hasAdminSession(req, cfg)) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401, headers: adminHeaders });
+  const session = await adminSession(req, cfg);
+  if (!session) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401, headers: adminHeaders });
   if (!sameOrigin(req) || !(req.headers.get("content-type") ?? "").includes("application/json")) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403, headers: adminHeaders });
   }
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
   }
 
   const result = await runAction(action as AdminAction, body, {
-    actor: adminActor(req, cfg) ?? "owner",
+    actor: session.user,
     ip: clientIp(req),
     totpSecret: cfg.totpSecret,
   });

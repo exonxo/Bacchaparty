@@ -55,6 +55,8 @@ Notes from the test run, all fixed in the tests (not the product): the SQL harne
 
 ## Known and not fixed
 
+Round 8 worked through all seven items below. See `ROUND-8.md` for what was fixed and what was left as a design.
+
 - The live room channel (`room:CODE`) is public. Snapshots are signed, not encrypted. Fixing this needs private channels with a database access design, so it is a larger change.
 - Logout does not revoke the session token. The token lasts up to 2 hours. A revocation timestamp in the database would fix it.
 - The sign-in lockout check and the failure record are not atomic (low risk).
@@ -72,6 +74,6 @@ Notes from the test run, all fixed in the tests (not the product): the SQL harne
 
 ## Before merging
 
-1. Review `0007_power_admin.sql` and `0008_review_followups.sql`, then run them in order in the Supabase SQL editor.
+1. Review `0007_power_admin.sql`, `0008_review_followups.sql` and (round 8) `0009_session_revocation_and_atomic_lockout.sql`, then run them in that order in the Supabase SQL editor.
 2. Optional: set `QUOTA_GEMINI_DAILY`, `QUOTA_GROQ_DAILY`, `QUOTA_OPENROUTER_DAILY`, `QUOTA_CLOUDFLARE_DAILY` in Vercel, using each provider's own limit.
 3. Check one disabled account against the sign-in flow with a throwaway account.

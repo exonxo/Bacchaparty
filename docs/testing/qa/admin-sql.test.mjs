@@ -1,4 +1,4 @@
-// QA rounds 5-6: the admin SQL (migrations 0004, 0005 and 0006) against an in-process Postgres.
+// QA rounds 5-8: the admin SQL (migrations 0004, 0005 and 0006) against an in-process Postgres.
 // This simulates the parts of Supabase the migrations rely on (auth.users, the anon /
 // authenticated / service_role roles). It does NOT replace testing on the real project.
 // Run from the repo root after: npm i --no-save @electric-sql/pglite   (or pass PGLITE_DIR)
@@ -25,6 +25,11 @@ await db.exec(`
   create role anon nologin;
   create role authenticated nologin;
   create role service_role nologin bypassrls;
+  -- Supabase's default privileges: every new table, sequence and function in public is granted to
+  -- the public roles. Simulated so a missing revoke in a migration shows up here.
+  alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+  alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+  alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
   create schema auth;
   create table auth.users (
     id uuid primary key default gen_random_uuid(),
@@ -124,8 +129,14 @@ for (const fn of ["admin_overview()", "admin_game_stats()", "admin_llm_stats()"]
   const r = await asRole("service_role", `select ${fn} as v`);
   check("ADM-SQL-2", `service_role can call ${fn}`, r.ok, r.error);
 }
-const rls = await scalar(`select relrowsecurity from pg_class where relname in ('app_events') and relnamespace = 'public'::regnamespace`);
-check("ADM-SQL-3", "app_events has row-level security on", rls?.relrowsecurity === true);
+const rls = (await db.query(`select relname, relrowsecurity from pg_class where relnamespace = 'public'::regnamespace and relname in ('app_events', 'admin_login_log', 'host_room_counts')`)).rows;
+check("ADM-SQL-3", "app_events, admin_login_log and host_room_counts all have row-level security on", rls.length === 3 && rls.every((r) => r.relrowsecurity === true), JSON.stringify(rls));
+// Every admin function is closed to the public roles, including any added later (by name).
+const openFns = (await db.query(`
+  select p.proname, r.rolname from pg_proc p cross join (values ('anon'), ('authenticated')) r(rolname)
+  where p.pronamespace = 'public'::regnamespace and (p.proname like 'admin\\_%' or p.proname in ('purge_old_data', 'bump_host_room_count'))
+    and has_function_privilege(r.rolname, p.oid, 'execute')`)).rows;
+check("ADM-SQL-4", "no admin function is executable by anon or authenticated (checked by name pattern)", openFns.length === 0, JSON.stringify(openFns));
 
 // Overview
 const ov = (await asRole("service_role", "select admin_overview() as v")).rows[0].v;
@@ -136,18 +147,32 @@ check("DATA-1c", "rooms and hosts are counted", ov.rooms_total === 20 && ov.host
 
 // Users: search and paging
 const page1 = (await asRole("service_role", "select * from admin_users(null, 50, 0)")).rows;
-check("DATA-1d", "users page returns 30 rows with email, provider and room count", page1.length === 30 && page1[0].email && page1[0].rooms_hosted >= 0, `rows ${page1.length}`);
+const newest = page1[0];
+check("DATA-1d", "users page returns 30 rows, newest first, with email, provider and room count", page1.length === 30 && newest.email === "host4@example.test" && newest.provider === "google" && Number(newest.rooms_hosted) === 0 && page1.every((r, i) => i === 0 || r.signed_up <= page1[i - 1].signed_up), JSON.stringify({ rows: page1.length, newest: newest?.email }));
 const found = (await asRole("service_role", "select * from admin_users('host7@', 50, 0)")).rows;
 check("DATA-1e", "email search finds the one match", found.length === 1 && found[0].email === "host7@example.test", JSON.stringify(found));
-const pageLimit = (await asRole("service_role", "select * from admin_users(null, 99999, 0)")).rows;
-check("DATA-1f", "page size is capped at 200", pageLimit.length === 30, `rows ${pageLimit.length}`);
+// The page-size cap (200) is tested at the end, with more than 200 accounts.
 
 // Games: must count past 1000 rows, and not include the 45-day-old events in the 30-day total
 const gs = (await asRole("service_role", "select admin_game_stats() as v")).rows[0].v;
 check("DATA-3", "games counted past the 1000-row API page (1500 in 30 days)", gs.totalSample === 1500, `total ${gs.totalSample}`);
 const perGame = Object.values(gs.byGame).reduce((a, g) => a + g.d30, 0);
 check("DATA-3b", "per-game totals add up to the total", perGame === gs.totalSample, `${perGame} vs ${gs.totalSample}`);
-check("DATA-3c", "old events (45 days) are excluded from the 30-day window", gs.totalSample < 1700);
+// Each game on its own: 500 each in 30 days (the 200 old Puno starts excluded), and the 7-day figure
+// matches a direct count for that game.
+const d7 = Object.fromEntries((await db.query(`select detail ->> 'game' g, count(*)::int n from public.app_events
+  where kind = 'game_started' and created_at >= now() - interval '7 days' group by 1`)).rows.map((r) => [r.g, r.n]));
+const perGameOk = ["puno", "housie", "chor-kaun"].every((g) => gs.byGame[g]?.d30 === 500 && gs.byGame[g]?.d7 === d7[g] && d7[g] > 0);
+check("DATA-3f", "each game is counted on its own: 500 per game in 30 days, 7-day counts match a direct count", perGameOk && Object.keys(gs.byGame).length === 3, JSON.stringify({ byGame: gs.byGame, d7 }));
+// The 200 events from 45 days ago exist, yet the total is exactly the 1500 inside the window.
+const oldRows = (await scalar("select count(*)::int c from public.app_events where kind = 'game_started' and created_at < now() - interval '30 days'")).c;
+check("DATA-3c", "the 45-day-old events (200, plus 5 at 200 days) exist but are excluded from the 30-day total", oldRows === 205 && gs.totalSample === 1500, JSON.stringify({ oldRows, total: gs.totalSample }));
+// byDay covers the last 14 days: its counts add up to the rows in that window, and no day is older.
+const in14 = (await scalar("select count(*)::int c from public.app_events where kind = 'game_started' and created_at >= now() - interval '14 days'")).c;
+const dayTotal = Object.values(gs.byDay).reduce((a, n) => a + Number(n), 0);
+const oldest = Object.keys(gs.byDay).sort()[0];
+const cutoff = new Date(Date.now() - 15 * 86_400_000).toISOString().slice(0, 10);
+check("DATA-3e", "per-day counts add up to the 14-day window and no day is older than 14 days", in14 > 0 && dayTotal === in14 && oldest >= cutoff, JSON.stringify({ dayTotal, in14, oldest }));
 check("DATA-3d", "per-day counts are keyed by UTC date", Object.keys(gs.byDay).every((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)) && Object.keys(gs.byDay).length > 0);
 
 // LLM stats
@@ -156,8 +181,14 @@ check("DATA-4", "suggestion total counts the last 7 days (150)", ls.total === 15
 check("DATA-4b", "fallback rate is 23% (35 of 150)", ls.fallbackRate === 23, `got ${ls.fallbackRate}`);
 check("DATA-4c", "per-provider counts and fallbacks match", ls.providers.groq.count === 100 && ls.providers.groq.fallback === 10 && ls.providers.gemini.fallback === 25, JSON.stringify(ls.providers));
 check("DATA-4d", "average latency is per provider", ls.providers.groq.avgMs === 360 && ls.providers.gemini.avgMs === 400, JSON.stringify(ls.providers));
-const emptyLlm = await scalar(`select admin_llm_stats() as v from (select 1) x`);
-check("DATA-4e", "no suggestions gives 0% rather than an error", emptyLlm.v.total >= 0);
+// Really empty: remove every suggestion inside a transaction, read the stats, then roll back.
+await db.exec("begin");
+await db.exec("delete from public.app_events where kind = 'suggest'");
+const emptyLlm = await asRole("service_role", "select admin_llm_stats() as v");
+await db.exec("rollback");
+check("DATA-4e", "no suggestions gives total 0 and 0% rather than an error", emptyLlm.ok && emptyLlm.rows[0].v.total === 0 && emptyLlm.rows[0].v.fallbackRate === 0, JSON.stringify(emptyLlm.ok ? emptyLlm.rows[0].v : emptyLlm.error));
+const stillThere = (await scalar("select count(*)::int c from public.app_events where kind = 'suggest'")).c;
+check("DATA-4f", "the rollback restored the 150 suggestions", stillThere === 150, `rows ${stillThere}`);
 
 // Retention
 const before = { rooms: (await scalar("select count(*)::int c from public.rooms")).c, logins: (await scalar("select count(*)::int c from public.admin_login_log")).c };
@@ -186,7 +217,8 @@ for (const role of ["anon", "authenticated"]) {
   const r = await asRole(role, "select count(*) from public.host_room_counts");
   check("CNT-6", `${role} cannot read host_room_counts`, !r.ok && /permission denied/i.test(r.error), r.ok ? "read succeeded" : r.error);
   const f = await asRole(role, "select public.bump_host_room_count()");
-  check("CNT-7", `${role} cannot call the trigger function`, !f.ok, f.ok ? "call succeeded" : "");
+  // "permission denied", not "trigger functions can only be called as triggers": the privilege is what stops it.
+  check("CNT-7", `${role} has no execute privilege on the trigger function`, !f.ok && /permission denied/i.test(f.error), f.ok ? "call succeeded" : f.error);
 }
 await db.exec(`delete from auth.users where email = 'host2@example.test'`);
 const gone = (await scalar("select count(*)::int c from public.host_room_counts")).c;
@@ -204,6 +236,20 @@ const bad = await asRole("service_role", "select admin_llm_stats() as v");
 check("SAFE-1", "malformed fallback/ms values don't make the view fail", bad.ok, bad.error);
 const lb = bad.ok ? bad.rows[0].v : null;
 check("SAFE-2", "malformed rows are still counted, as not-fallback and 0 ms", lb && lb.total === 154 && lb.providers.groq.count === 103 && lb.providers.groq.fallback === 11 && lb.providers.unknown?.count === 1, JSON.stringify(lb && { total: lb.total, groq: lb.providers.groq, unknown: lb.providers.unknown }));
+
+// Page-size cap with more than 200 accounts (the earlier seed had only 30, which could not show it).
+await db.exec(`
+  insert into auth.users (email, created_at)
+  select 'bulk' || g || '@example.test', now() - interval '60 days' - (g || ' minutes')::interval from generate_series(1, 230) g;
+`);
+const total = (await scalar("select count(*)::int c from auth.users")).c;
+const capped = (await asRole("service_role", "select * from admin_users(null, 99999, 0)")).rows;
+check("DATA-1f", `page size is capped at 200 (${total} accounts exist)`, total === 259 && capped.length === 200, JSON.stringify({ total, rows: capped.length }));
+const rest = (await asRole("service_role", "select * from admin_users(null, 200, 200)")).rows;
+const seen = new Set([...capped, ...rest].map((r) => r.email));
+check("DATA-1g", "the second page holds the remaining 59 accounts, with no repeats", rest.length === 59 && seen.size === 259, JSON.stringify({ rest: rest.length, distinct: seen.size }));
+const tiny = (await asRole("service_role", "select * from admin_users(null, 0, -5)")).rows;
+check("DATA-1h", "a page size below 1 and a negative offset are clamped (1 row from the start)", tiny.length === 1 && tiny[0].email === capped[0].email, JSON.stringify({ rows: tiny.length }));
 
 console.log(results.join("\n"));
 const failed = results.filter((r) => r.startsWith("FAIL")).length;

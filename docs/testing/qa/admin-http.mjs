@@ -1,4 +1,4 @@
-// QA round 4: the hidden admin panel over HTTP (ADM-1, 2, 5, 6, 7, 8, 9, 10, 11, 14).
+// QA rounds 4 and 8: the hidden admin panel over HTTP (ADM-1, 2, 5, 6, 7, 8, 9, 10, 11, 14).
 // Start a server with the admin variables set, then run this against it:
 //   BASE=http://localhost:3100 ADMIN_PATH=... ADMIN_USERNAME=... ADMIN_PASSWORD=... ADMIN_TOTP_SECRET=... \
 //     node docs/testing/qa/admin-http.mjs
@@ -114,6 +114,11 @@ function totpNow(secret) {
   // ADM-14: logout clears the cookie.
   const out = await api.post(`/${SECRET_PATH}/api/logout`, { headers: { origin: BASE, host: new URL(BASE).host } });
   check('ADM-14', 'logout clears the session cookie', out.status() === 200 && /Max-Age=0/.test(out.headers()['set-cookie'] || ''));
+  // ADM-14b: the token itself is revoked, so a copy of the old cookie no longer works.
+  const anon2 = await request.newContext({ baseURL: BASE });
+  const replay = await anon2.get(`/${SECRET_PATH}/api/data?view=me`, { headers: { cookie } });
+  await anon2.dispose();
+  check('ADM-14b', 'the logged-out cookie, replayed, is refused (401)', replay.status() === 401, `status ${replay.status()}`);
 
   // ADM-7: five failures from one IP lock it out, even for the correct password.
   const lockIp = fakeIp();

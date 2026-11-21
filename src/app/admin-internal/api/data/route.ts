@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminConfig } from "@/lib/admin/config";
 import { auditOrThrow, AuditUnavailable } from "@/lib/admin/audit";
-import { adminActor, adminHeaders, clientIp, hasAdminSession } from "@/lib/admin/session";
+import { adminHeaders, adminSession, clientIp } from "@/lib/admin/session";
 import * as q from "@/lib/admin/queries";
 
 export const runtime = "nodejs";
@@ -16,7 +16,8 @@ const SENSITIVE = new Set(["users", "user", "room", "find"]);
 export async function GET(req: Request) {
   const cfg = adminConfig();
   if (!cfg) return new NextResponse(null, { status: 404 });
-  if (!hasAdminSession(req, cfg)) return json({ error: "unauthorized" }, 401);
+  const session = await adminSession(req, cfg);
+  if (!session) return json({ error: "unauthorized" }, 401);
 
   const url = new URL(req.url);
   const view = url.searchParams.get("view") ?? "overview";
@@ -32,7 +33,7 @@ export async function GET(req: Request) {
 
   try {
     if (SENSITIVE.has(view)) {
-      const actor = adminActor(req, cfg) ?? "owner";
+      const actor = session.user;
       const target = view === "room" ? `room:${code}` : view === "user" ? `user:${id}` : view === "find" ? "lookup" : null;
       await auditOrThrow({ actor, action: `view.${view}`, target, details: { query: view === "users" ? search : undefined, page }, ip: clientIp(req) });
     }
