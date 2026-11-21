@@ -85,7 +85,9 @@ function totpNow(secret) {
   const flagWrite = await call({ action: "flag.set", key: "suggest", enabled: false });
   const flagBody = await flagWrite.json();
   check("FAIL-1", "a flag change is refused when the audit log can't be written", flagWrite.status() === 503 && flagBody.error === "audit_unavailable", JSON.stringify(flagBody));
-  const review = await call({ action: "content.review", id: 1, decision: "approve", edits: { answer: "Test" } });
+  const badReviewId = await call({ action: "content.review", id: 1, decision: "approve", edits: { answer: "Test" } });
+  check("VAL-3", "a review with a whole-number id is refused (content ids are uuids)", badReviewId.status() === 400 && (await badReviewId.json()).error === "bad_id");
+  const review = await call({ action: "content.review", id: "00000000-0000-4000-8000-000000000001", decision: "approve", edits: { answer: "Test" } });
   const reviewBody = await review.json();
   check("FAIL-2", "content review is refused when the audit log can't be written", review.status() === 503, JSON.stringify(reviewBody));
   const badFlag = await call({ action: "flag.set", key: "not-a-flag", enabled: false });
