@@ -1,4 +1,4 @@
-import { AudioLines, Clapperboard, Crown, Dices, Ghost, Gamepad2, Layers, MicVocal, Palette, Puzzle, Ticket, Trophy, VenetianMask, Zap, type LucideIcon } from "lucide-react";
+import { AudioLines, Milk, Clapperboard, Crown, Dices, Ghost, Gamepad2, Layers, MicVocal, Palette, Puzzle, Ticket, Trophy, VenetianMask, Zap, type LucideIcon } from "lucide-react";
 
 const ICONS: Record<string, LucideIcon> = {
   charades: Clapperboard,
@@ -14,6 +14,7 @@ const ICONS: Record<string, LucideIcon> = {
   "ludo-yatra": Dices,
   "jaldi-bolo": Zap,
   puno: Layers,
+  "spin-bottle": Milk,
 };
 
 export function GameIcon({ id, className = "", strokeWidth = 2 }: { id: string; className?: string; strokeWidth?: number }) {

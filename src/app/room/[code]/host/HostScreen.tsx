@@ -25,9 +25,9 @@ import { useWakeLock } from "@/lib/wakeLock";
 import { useOnChange } from "@/lib/roomAudio";
 
 /** Games that need people to see/hear each other — remote players need a video call. */
-const NEEDS_CALL = new Set(["charades", "antakshari", "sound-guru", "raja-mantri", "chor-kaun", "odd-word-out"]);
+const NEEDS_CALL = new Set(["charades", "antakshari", "sound-guru", "raja-mantri", "chor-kaun", "odd-word-out", "spin-bottle"]);
 /** Redesigned games first, then the rest. */
-const ORDER = ["chor-kaun", "housie", "emoji-picture", "charades", "antakshari", "draw-guess", "kaun-banega-champion", "raja-mantri", "odd-word-out", "ludo-yatra", "sound-guru", "jaldi-bolo", "puno"];
+const ORDER = ["chor-kaun", "housie", "emoji-picture", "charades", "antakshari", "draw-guess", "kaun-banega-champion", "raja-mantri", "odd-word-out", "ludo-yatra", "sound-guru", "jaldi-bolo", "puno", "spin-bottle"];
 
 function useInvite(code: string) {
   const [url, setUrl] = useState("");

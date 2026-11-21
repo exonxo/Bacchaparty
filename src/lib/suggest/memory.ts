@@ -1,5 +1,6 @@
 "use client";
 import type { SuggestKind } from "./types";
+import { bottleKeys, type BottleBatch } from "./bottle";
 
 /**
  * What this device has already been shown, per kind. Sent with each suggestion request so the
@@ -38,6 +39,9 @@ export function keysOf(kind: SuggestKind, data: unknown): string[] {
   if (kind === "chor-kaun-topic" && data && typeof data === "object") {
     const label = (data as { label?: unknown }).label;
     return typeof label === "string" ? [label] : [];
+  }
+  if (kind === "bottle-prompts" && data && typeof data === "object") {
+    return bottleKeys(data as BottleBatch);
   }
   if (kind === "emoji-puzzle" && Array.isArray(data)) {
     return data.map((p) => (p as { answer?: unknown }).answer).filter((a): a is string => typeof a === "string");

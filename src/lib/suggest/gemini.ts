@@ -49,8 +49,20 @@ const DARE_SCHEMA: JsonSchema = {
   required: ["text"],
 };
 
+const BOTTLE_SCHEMA: JsonSchema = {
+  type: "object",
+  properties: {
+    truths: { type: "array", items: { type: "string" } },
+    dares: { type: "array", items: { type: "string" } },
+    social: { type: "array", items: { type: "string" } },
+  },
+  required: ["truths", "dares"],
+};
+
 function schemaFor(kind: SuggestKind): JsonSchema {
   switch (kind) {
+    case "bottle-prompts":
+      return BOTTLE_SCHEMA;
     case "emoji-puzzle":
       return EMOJI_SCHEMA;
     case "next-game":

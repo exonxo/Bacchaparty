@@ -10,7 +10,7 @@ function validateClientPayload(kind: SuggestKind, data: unknown, context: Record
   const count = kind === "emoji-puzzle" && typeof context.count === "number" ? context.count : 10;
   const playerCount = kind === "next-game" && typeof context.playerCount === "number" ? context.playerCount : 4;
   const level = (kind === "emoji-puzzle" && typeof context.level === "string" ? context.level : "family") as Level;
-  return validateGeminiPayload(kind, data, count, playerCount, level);
+  return validateGeminiPayload(kind, data, count, playerCount, level, context.tone);
 }
 
 export async function requestSuggest<T>(

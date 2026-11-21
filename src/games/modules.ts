@@ -12,11 +12,12 @@ import oddWordOut from "./odd-word-out";
 import puno from "./puno";
 import rajaMantri from "./raja-mantri";
 import soundGuru from "./sound-guru";
+import spinBottle from "./spin-bottle";
 
 import { isPlayable } from "./playable";
 
 /** Every game module (client-side only), keyed by id. Playability is listed in playable.ts. */
-const ALL: GameModule[] = [charades, antakshari, soundGuru, emojiPicture, drawGuess, chorKaun, rajaMantri, oddWordOut, kbc, housie, ludoYatra, jaldiBolo, puno];
+const ALL: GameModule[] = [charades, antakshari, soundGuru, emojiPicture, drawGuess, chorKaun, rajaMantri, oddWordOut, kbc, housie, ludoYatra, jaldiBolo, puno, spinBottle];
 
 const MODULES: Record<string, GameModule> = Object.fromEntries(ALL.filter((m) => isPlayable(m.id)).map((m) => [m.id, m]));
 
