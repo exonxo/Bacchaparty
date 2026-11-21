@@ -1,5 +1,7 @@
 import { GAMES } from "@/games/catalog";
 import type { SuggestKind } from "./types";
+import { isBottleTone } from "@/content/spin-bottle";
+import { buildBottlePrompt } from "./bottle";
 
 /**
  * Prompt text shared by every LLM provider. Kept in one place so the providers
@@ -29,6 +31,7 @@ const SHAPES: Record<SuggestKind, string> = {
   "emoji-puzzle": `{"puzzles": [{"emojis": "2-6 emoji", "decode": "which emoji means what", "category": "Movie|Food|Place|Festival|Phrase|Cartoon|Sport|Song", "answer": "the single correct answer", "alt": ["other accepted answers"], "hint": "short hint without the answer", "level": "kids|family|adults"}]}`,
   "next-game": `{"gameId": "one of the ids below", "reason": "one friendly sentence"}`,
   dare: `{"text": "one short dare or icebreaker"}`,
+  "bottle-prompts": `{"truths": ["..."], "dares": ["..."], "social": ["..."]}`,
 };
 
 /** A random theme for variety. Chosen on the server, so the model can't be steered by the browser. */
@@ -65,6 +68,8 @@ function themeLine(theme: string): string {
 }
 
 export function buildPrompt(kind: SuggestKind, context: Record<string, unknown>): string {
+  // Spin the Bottle has its own prompt with tone rules and handwritten examples.
+  if (kind === "bottle-prompts") return buildBottlePrompt(isBottleTone(context.tone) ? context.tone : "family", Array.isArray(context.avoid) ? (context.avoid as string[]) : []);
   const avoid = Array.isArray(context.avoid) ? (context.avoid as string[]) : [];
   const fixedTheme = typeof context.theme === "string" && context.theme ? context.theme : null;
   const theme = fixedTheme ?? pickTheme(kind);

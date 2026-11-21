@@ -26,6 +26,7 @@ import { botMoves as oddWordBot } from "@/games/odd-word-out/bot";
 import { botMoves as punoBot } from "@/games/puno/bot";
 import { botMoves as rajaBot } from "@/games/raja-mantri/bot";
 import { botMoves as soundGuruBot } from "@/games/sound-guru/bot";
+import { botMoves as spinBottleBot } from "@/games/spin-bottle/bot";
 
 /** Games whose bot logic lives next to the game. */
 const GAME_BOTS: Record<string, (raw: unknown, view: unknown, bots: string[]) => BotAction[]> = {
@@ -39,6 +40,7 @@ const GAME_BOTS: Record<string, (raw: unknown, view: unknown, bots: string[]) =>
   puno: punoBot,
   "raja-mantri": rajaBot,
   "sound-guru": soundGuruBot,
+  "spin-bottle": spinBottleBot,
 };
 
 export interface BotAction {

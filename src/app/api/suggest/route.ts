@@ -15,6 +15,7 @@ import { SUGGEST_KINDS, type SuggestKind } from "@/lib/suggest/types";
 import { validateGeminiPayload } from "@/lib/suggest/validate";
 import type { Level } from "@/lib/types";
 import { GAMES } from "@/games/catalog";
+import { isBottleTone } from "@/content/spin-bottle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +52,8 @@ function cleanContext(kind: SuggestKind, raw: Record<string, unknown>): Record<s
     }
     case "dare":
       return { audience: raw.audience === "mixed" ? "mixed" : "family", avoid };
+    case "bottle-prompts":
+      return { tone: isBottleTone(raw.tone) ? raw.tone : "family", avoid };
     default:
       return {};
   }
@@ -132,7 +135,7 @@ export async function POST(req: Request) {
 
   const prompt = buildPrompt(kind, context);
   const accept = (raw: unknown) => {
-    const validated = validateGeminiPayload(kind, raw, contextCount, playerCount, emojiLevel);
+    const validated = validateGeminiPayload(kind, raw, contextCount, playerCount, emojiLevel, context.tone);
     return validated == null ? null : notRepeated(kind, validated, avoid);
   };
 

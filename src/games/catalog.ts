@@ -332,9 +332,35 @@ export const GAMES: GameInfo[] = [
     scoring: "Winner is first out. Final order is by fewest cards left in hand.",
     familyTip: "Turn on Test mode on the host phone to fill the table with three friendly bots while you learn the rules.",
   },
+  {
+    id: "spin-bottle",
+    quickTip: "If the bottle stops at you: Sach or Himmat? Flip the card or pass anytime.",
+    inShort: ["Spin the bottle from your phone.", "Whoever it stops at picks Sach (truth) or Himmat (dare).", "Don't like the card? Flip it for the other side, or pass — always free."],
+    name: "Spin the Bottle",
+    emoji: "🍾",
+    tagline: "Sach ya Himmat — the bottle decides.",
+    category: "Party",
+    ages: "6+ (mood-based)",
+    players: "3–20",
+    minPlayers: 3,
+    maxPlayers: 20,
+    duration: "15–45 min",
+    color: "#2f6f5e",
+    description:
+      "Truth or dare with a spinning bottle on the big screen. The host picks a mood — Bacche, Parivaar, College Gang or Office Party — and fresh prompts are written for that crowd. Every card has two sides, so if one doesn't feel right, flip it. Passing is always free: no points, no judging.",
+    howToPlay: [
+      "The host picks a mood in the lobby. It stays the same for the whole game.",
+      "Whoever holds the bottle taps 'Bottle ghumao!' on their phone. Everyone gets picked once before anyone is picked again.",
+      "The person it stops at chooses Sach (truth) or Himmat (dare) on their phone. The card shows on the TV.",
+      "Don't like it? Tap 'Palat do' to flip to the other side of the card. Still no? Tap 'Pass' — totally fine.",
+      "After the card, that person holds the bottle and spins next. Anyone can send emoji reactions, and anyone can report a card that isn't okay.",
+    ],
+    scoring: "No points. This one is just for laughs.",
+    familyTip: "Kids in the room? Pick the Bacche or Parivaar mood. The adult moods never include drinking, touching or sexual prompts, and rare social dares can be switched off on each phone.",
+  },
 ];
 
-export const CATEGORIES = ["Acting & Guessing", "Bluffing", "Quiz", "Board & Luck", "Music"] as const;
+export const CATEGORIES = ["Acting & Guessing", "Bluffing", "Quiz", "Board & Luck", "Music", "Party"] as const;
 
 export function getGameInfo(id: string): GameInfo | undefined {
   return GAMES.find((g) => g.id === id);

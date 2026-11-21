@@ -101,7 +101,7 @@ export interface GameInfo {
   name: string;
   emoji: string;
   tagline: string;
-  category: "Acting & Guessing" | "Bluffing" | "Quiz" | "Board & Luck" | "Music";
+  category: "Acting & Guessing" | "Bluffing" | "Quiz" | "Board & Luck" | "Music" | "Party";
   ages: string;
   players: string;
   minPlayers: number;

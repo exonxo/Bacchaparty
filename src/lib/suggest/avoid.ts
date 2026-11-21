@@ -1,4 +1,5 @@
 import type { SuggestKind } from "./types";
+import { freshBottleBatch, type BottleBatch } from "./bottle";
 
 /** Short, single-line strings only: the memory list goes into a prompt, so keep it small and plain. */
 export function cleanAvoid(v: unknown): string[] {
@@ -20,6 +21,9 @@ export function notRepeated(kind: SuggestKind, data: unknown, avoid: string[]): 
   if (kind === "emoji-puzzle" && Array.isArray(data)) {
     const fresh = data.filter((p) => !seen.has(String((p as { answer: string }).answer).toLowerCase()));
     return fresh.length >= 3 ? fresh : null;
+  }
+  if (kind === "bottle-prompts" && data && typeof data === "object") {
+    return freshBottleBatch(data as BottleBatch, avoid);
   }
   if (kind === "chor-kaun-topic" && data && typeof data === "object") {
     return seen.has(String((data as { label: string }).label).toLowerCase()) ? null : data;

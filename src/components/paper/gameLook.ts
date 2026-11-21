@@ -25,6 +25,7 @@ export const GAME_LOOK: Record<string, GameLook> = {
   "kaun-banega-champion": { color: "#23407a", on: CREAM, shape: "ladder" },
   "ludo-yatra": { color: "#f6e7c1", on: INK, shape: "board" },
   "jaldi-bolo": { color: "#cfe0f5", on: INK, shape: "notebook" },
+  "spin-bottle": { color: "#2f6f5e", on: CREAM, shape: "card" },
 };
 
 export function gameLook(id: string): GameLook {

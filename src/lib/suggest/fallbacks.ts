@@ -2,6 +2,8 @@ import { CHOR_TOPICS, type ChorTopic } from "@/content/chor-kaun";
 import { EMOJI_PUZZLES, type EmojiPuzzle } from "@/content/emoji-picture";
 import { GAMES } from "@/games/catalog";
 import type { Level } from "@/lib/types";
+import { isBottleTone } from "@/content/spin-bottle";
+import { fallbackBottleBatch } from "./bottle";
 import { pick, randomId, shuffle } from "@/lib/util";
 import type { DareResult, NextGameResult, SuggestKind } from "./types";
 
@@ -98,6 +100,8 @@ export function fallbackFor(kind: SuggestKind, context: Record<string, unknown>)
       );
     case "dare":
       return fallbackDare();
+    case "bottle-prompts":
+      return fallbackBottleBatch(isBottleTone(context.tone) ? context.tone : "family");
     default:
       return null;
   }
