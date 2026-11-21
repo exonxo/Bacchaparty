@@ -168,7 +168,7 @@ function AccountDetail({ id, detail, onChanged }: { id: string; detail: Record<s
 /* ---------------- Content review ---------------- */
 
 interface PendingItem {
-  id: number;
+  id: string; // uuid
   game_id: string;
   level: string;
   source: string;

@@ -165,8 +165,9 @@ async function librarySetActive(body: Record<string, unknown>, ctx: ActionContex
 const EDITABLE = ["answer", "hint", "emojis", "category"] as const;
 
 async function contentReview(body: Record<string, unknown>, ctx: ActionContext): Promise<ActionResult> {
-  const id = Number(body.id);
-  if (!Number.isInteger(id) || id < 1) return fail(400, "bad_id");
+  // content_items.id is a uuid (0001_init.sql). Anything else is refused before the database is asked.
+  const id = typeof body.id === "string" ? body.id.trim().toLowerCase() : "";
+  if (!UUID.test(id)) return fail(400, "bad_id");
   const decision = body.decision;
   if (decision !== "approve" && decision !== "reject") return fail(400, "bad_decision");
 
