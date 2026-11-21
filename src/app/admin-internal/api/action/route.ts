@@ -6,6 +6,8 @@ import { adminHeaders, adminSession, clientIp, sameOrigin } from "@/lib/admin/se
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// "Generate more" makes up to 5 AI calls of at most 8 seconds each.
+export const maxDuration = 60;
 
 /** Write actions (flags, content review, user disable/enable/delete). Session, origin and JSON are all required. */
 export async function POST(req: Request) {

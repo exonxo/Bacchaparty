@@ -5,6 +5,7 @@ import { getServiceClient } from "../supabase/service";
 import { AuditUnavailable, auditOrThrow, DESTRUCTIVE, type AdminAction } from "./audit";
 import { verifyTotp } from "./crypto";
 import { insertPending } from "./bank";
+import { isLibraryKind, itemsFrom, saveToLibrary, type LibraryKind } from "../suggest/library";
 import { flagMap, invalidateFlags, knownFlags } from "./flags";
 
 /**
@@ -47,6 +48,10 @@ export async function runAction(action: AdminAction, body: Record<string, unknow
         return await contentGenerate(body, ctx);
       case "content.review":
         return await contentReview(body, ctx);
+      case "library.generate":
+        return await libraryGenerate(body, ctx);
+      case "library.set_active":
+        return await librarySetActive(body, ctx);
       case "user.disable":
         return await userBan(body, ctx, BAN_FOREVER, "user.disable");
       case "user.enable":
@@ -94,6 +99,67 @@ async function contentGenerate(body: Record<string, unknown>, ctx: ActionContext
   }));
   const stored = await insertPending("emoji-picture", items);
   return ok({ provider: result.provider, generated: items.length, stored });
+}
+
+/** Largest "Generate more" batch per kind. Emoji puzzles come 10 per AI call; topics and dares one per call. */
+export const LIBRARY_BATCH_MAX: Record<LibraryKind, number> = { "emoji-puzzle": 50, "chor-kaun-topic": 5, dare: 5 };
+
+/**
+ * "Generate more": asks the AI services for a batch and adds it to the content library. Duplicates
+ * (by normalised text) are skipped by the database. At most 5 AI calls per request.
+ */
+async function libraryGenerate(body: Record<string, unknown>, ctx: ActionContext): Promise<ActionResult> {
+  const kind = String(body.kind ?? "");
+  if (!isLibraryKind(kind)) return fail(400, "bad_kind");
+  const count = body.count;
+  if (typeof count !== "number" || !Number.isInteger(count) || count < 1 || count > LIBRARY_BATCH_MAX[kind]) return fail(400, "bad_count");
+  const level = body.level === "kids" || body.level === "adults" ? body.level : "family";
+  const audience = body.audience === "mixed" ? "mixed" : "family";
+  const flags = await flagMap();
+  if (flags["suggest"] === false) return fail(409, "suggest_switched_off");
+  const allow = (name: string) => flags[`llm:${name}`] !== false;
+  await auditOrThrow({ actor: ctx.actor, action: "library.generate", target: kind, details: { count, level, audience }, ip: ctx.ip });
+
+  const made: string[] = [];
+  const providers: Record<string, number> = {};
+  let generated = 0;
+  let stored = 0;
+  let calls = 0;
+  let failed = 0;
+  let remaining = count;
+  while (remaining > 0 && calls < 5) {
+    calls++;
+    const n = kind === "emoji-puzzle" ? Math.min(10, Math.max(3, remaining)) : 1;
+    const context: Record<string, unknown> =
+      kind === "emoji-puzzle" ? { level, count: n, avoid: made.slice(-40) } : kind === "dare" ? { audience, avoid: made.slice(-40) } : { excludeTopicIds: [], avoid: made.slice(-40) };
+    const result = await runChain(kind, buildPrompt(kind, context), (raw) => validateGeminiPayload(kind, raw, n, 4, level), { allow });
+    if (!result) {
+      failed++;
+      if (failed >= 2) break;
+      continue;
+    }
+    const items = itemsFrom(kind, result.data, context).slice(0, remaining);
+    const saved = await saveToLibrary(kind, items, `admin:llm:${result.provider}`);
+    if (saved == null) return fail(503, "library_unavailable");
+    providers[result.provider] = (providers[result.provider] ?? 0) + 1;
+    made.push(...items.map((i) => i.key));
+    generated += items.length;
+    stored += saved;
+    remaining -= Math.max(1, items.length);
+  }
+  if (!generated) return fail(503, "no_provider_answered");
+  return ok({ kind, generated, stored, duplicates: generated - stored, calls, providers });
+}
+
+async function librarySetActive(body: Record<string, unknown>, ctx: ActionContext): Promise<ActionResult> {
+  const id = Number(body.id);
+  if (!Number.isInteger(id) || id < 1) return fail(400, "bad_id");
+  if (typeof body.active !== "boolean") return fail(400, "active_required");
+  await auditOrThrow({ actor: ctx.actor, action: "library.set_active", target: `library:${id}`, details: { active: body.active }, ip: ctx.ip });
+  const { data, error } = await db().from("content_library").update({ active: body.active }).eq("id", id).select("id");
+  if (error) return fail(500, "update_failed");
+  if (!data?.length) return fail(404, "not_found");
+  return ok({ id, active: body.active });
 }
 
 const EDITABLE = ["answer", "hint", "emojis", "category"] as const;

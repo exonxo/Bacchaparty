@@ -75,6 +75,13 @@ export default function PrivacyPage() {
               long it took. Not linked to a person or a room. Deleted after <b>180 days</b>.
             </li>
             <li>
+              <b>Content library</b> — topics, puzzles and dares the AI services made are kept and shown to other hosts, so we ask the AI less
+              often. For each host account we record which library items were shown and when (by account ID, not email), so the same item
+              isn’t shown to that host again within 30 days. Those records are removed after <b>30 days</b> (the next time that host gets a
+              suggestion) or when the account is deleted. The library also notes which account’s game an item was first made for; that link
+              is cleared when the account is deleted.
+            </li>
+            <li>
               <b>Admin sign-in attempts</b> — only for the site owner’s admin panel: the IP address, whether the sign-in worked, and the time.
               Deleted after <b>90 days</b>.
             </li>
@@ -114,8 +121,8 @@ export default function PrivacyPage() {
             logs and scheduled clean-up).
           </p>
           <p>
-            <b>AI services.</b> When a host taps a ✨ suggestion button, the request goes to the first available of: Google Gemini, Groq,
-            OpenRouter or Cloudflare Workers AI. The request contains only game settings (such as the number of players) and the short list of
+            <b>AI services.</b> When a host taps a ✨ suggestion button, the app first looks in the content library; only if nothing new is there does the request go to
+            the first available of: Groq, Google Gemini, OpenRouter or Cloudflare Workers AI. The request contains only game settings (such as the number of players) and the short list of
             topics or puzzles the device has already been shown. It never contains names, emails, room codes or other personal details. These
             services process requests under their own terms, and some free plans may keep requests to improve their services.
           </p>

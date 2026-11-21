@@ -11,6 +11,8 @@ const json = (body: unknown, status = 200) => NextResponse.json(body, { status, 
 
 /** Views that show personal data. Each one is written to the audit log before the data is read. */
 const SENSITIVE = new Set(["users", "user", "room", "find"]);
+/** Bulk exports. Not personal data, but audited first like the sensitive views. */
+const EXPORTS = new Set(["library_csv"]);
 
 /** One endpoint, several views. Every view requires a valid admin session. */
 export async function GET(req: Request) {
@@ -36,6 +38,9 @@ export async function GET(req: Request) {
       const actor = session.user;
       const target = view === "room" ? `room:${code}` : view === "user" ? `user:${id}` : view === "find" ? "lookup" : null;
       await auditOrThrow({ actor, action: `view.${view}`, target, details: { query: view === "users" ? search : undefined, page }, ip: clientIp(req) });
+    }
+    if (EXPORTS.has(view)) {
+      await auditOrThrow({ actor: session.user, action: `export.${view}`, target: null, details: {}, ip: clientIp(req) });
     }
     switch (view) {
       case "me":
@@ -70,6 +75,22 @@ export async function GET(req: Request) {
         return json(await q.flags());
       case "content":
         return json(await q.content());
+      case "library":
+        return json(await q.library());
+      case "library_csv": {
+        const out = await q.libraryCsv();
+        const day = new Date().toISOString().slice(0, 10);
+        return new NextResponse(out.csv, {
+          status: 200,
+          headers: {
+            ...adminHeaders,
+            "content-type": "text/csv; charset=utf-8",
+            "content-disposition": `attachment; filename="bawaal-content-library-${day}.csv"`,
+            "x-library-rows": String(out.rows),
+            "x-library-truncated": out.truncated ? "1" : "0",
+          },
+        });
+      }
       case "funnel":
         return json(await q.funnel());
       case "quota":

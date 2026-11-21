@@ -25,24 +25,34 @@ export interface Provider {
 
 const env = (k: string) => process.env[k]?.trim() || undefined;
 
+export const GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b";
+// The previous free default was withdrawn by OpenRouter. OPENROUTER_MODEL overrides this.
+export const OPENROUTER_DEFAULT_MODEL = "openai/gpt-oss-120b";
+
 const PROVIDERS: Provider[] = [
+  // Groq first: fast and cheap. GROQ_MODEL overrides the model. The default is a current production
+  // model on Groq (https://console.groq.com/docs/models); the reasoning setting is sent only to the
+  // reasoning models that accept it.
+  {
+    name: "groq",
+    configured: () => !!env("GROQ_API_KEY"),
+    call: (_kind, prompt, signal) => {
+      const model = env("GROQ_MODEL") ?? GROQ_DEFAULT_MODEL;
+      return callOpenAICompat({
+        url: "https://api.groq.com/openai/v1/chat/completions",
+        apiKey: env("GROQ_API_KEY")!,
+        model,
+        prompt,
+        signal,
+        jsonMode: true,
+        extraBody: model.includes("gpt-oss") ? { reasoning_effort: "low" } : undefined,
+      });
+    },
+  },
   {
     name: "gemini",
     configured: () => !!env("GEMINI_API_KEY"),
     call: (kind, prompt, signal) => callGemini(env("GEMINI_API_KEY")!, kind, prompt, signal),
-  },
-  {
-    name: "groq",
-    configured: () => !!env("GROQ_API_KEY"),
-    call: (_kind, prompt, signal) =>
-      callOpenAICompat({
-        url: "https://api.groq.com/openai/v1/chat/completions",
-        apiKey: env("GROQ_API_KEY")!,
-        model: env("GROQ_MODEL") ?? "llama-3.3-70b-versatile",
-        prompt,
-        signal,
-        jsonMode: true,
-      }),
   },
   {
     name: "openrouter",
@@ -51,11 +61,12 @@ const PROVIDERS: Provider[] = [
       callOpenAICompat({
         url: "https://openrouter.ai/api/v1/chat/completions",
         apiKey: env("OPENROUTER_API_KEY")!,
-        model: env("OPENROUTER_MODEL") ?? "meta-llama/llama-3.3-70b-instruct:free",
+        model: env("OPENROUTER_MODEL") ?? OPENROUTER_DEFAULT_MODEL,
         prompt,
         signal,
         jsonMode: false,
         extraHeaders: { "X-Title": "BAWAAL" },
+        extraBody: (env("OPENROUTER_MODEL") ?? OPENROUTER_DEFAULT_MODEL).includes("gpt-oss") ? { reasoning: { effort: "low" } } : undefined,
       }),
   },
   {
