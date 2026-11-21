@@ -90,7 +90,7 @@ export default function PrivacyPage() {
             <li>
               <b>On your device</b> — on the host’s device: the current game and the room’s signing key (so a refresh doesn’t lose them; cleared
               the next time the site opens after a day), the mute setting, and a short list of recently shown topics or puzzles so new suggestions don’t repeat. On players’
-              phones: the nickname, avatar, player ID and the small settings described above. It stays on that device.
+              phones: the nickname, avatar, player ID, a key pair used to encrypt private messages in the room, and the small settings described above. It stays on that device.
             </li>
             <li>
               <b>Hosting logs</b> — Vercel, which hosts the site, keeps standard technical logs such as IP address, browser and pages requested, for
@@ -128,6 +128,13 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="Cookies">
+          <p>
+            BAWAAL uses no tracking or advertising cookies. The only cookies are the ones needed to run it: a sign-in session cookie that
+            keeps a host signed in (set by our login provider, Supabase), and, for the site owner only, a cookie for the admin panel.
+          </p>
+        </Section>
+
         <Section title="Children">
           <p>
             BAWAAL is made for families, and children often play as guests. Players under 13 should join with a parent or guardian present.
@@ -137,8 +144,8 @@ export default function PrivacyPage() {
 
         <Section title="Deleting your data">
           <p>
-            Hosts can ask us to delete their account and rooms at any time by emailing us. We remove them within 30 days. On request we can also
-            send a host a copy of their account record and room list before anything is deleted. Players can remove their nickname by clearing
+            Hosts can ask us to delete their account and rooms at any time by emailing us. The owner then deletes them from the admin panel,
+            within 30 days. On request we can first send the host a copy of their account record and room list. Players can remove their nickname by clearing
             their browser data.
           </p>
         </Section>

@@ -30,11 +30,12 @@ export async function POST(req: Request) {
   const user = await getUser();
   if (!user) return NextResponse.json({ ok: false, error: "auth_required" }, { status: 401, headers: noStore });
 
+  // Checked before the database lookup, so a flood of requests never reaches the database.
+  // A host can start a game a few times; a loop of requests is not a real party.
+  if (!checkRateLimit(`track:${user.id}`)) return NextResponse.json({ ok: false, error: "slow_down" }, { status: 429, headers: noStore });
   const own = await findOwnRoom(roomCode, user.id);
   if (!own) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403, headers: noStore });
 
-  // A host can start a game a few times; a loop of requests is not a real party.
-  if (!checkRateLimit(`track:${user.id}`)) return NextResponse.json({ ok: false, error: "slow_down" }, { status: 429, headers: noStore });
 
   await logEvent("game_started", { game });
   return NextResponse.json({ ok: true }, { headers: noStore });

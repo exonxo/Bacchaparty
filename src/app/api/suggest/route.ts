@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/env";
-import { logEvent } from "@/lib/admin/events";
+import { logLater } from "@/lib/admin/events";
 import { approvedChorTopic, approvedEmojiPuzzles } from "@/lib/admin/bank";
 import { flagMap } from "@/lib/admin/flags";
 import { findOwnRoom } from "@/lib/rooms";
@@ -100,7 +100,7 @@ export async function POST(req: Request) {
   const fallbackNow = () => fallbackFor(kind, { kind, ...context });
   const ip = clientIp(req);
   if (!checkRateLimit(rateLimitKey(ip, roomCode))) {
-    void logEvent("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "rate_limited" });
+    logLater("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "rate_limited" });
     return ok(fallbackNow(), true);
   }
 
@@ -111,7 +111,7 @@ export async function POST(req: Request) {
   // Kill switches: "suggest" stops all model calls; "llm:<name>" skips one provider.
   const flags = await flagMap();
   if (flags["suggest"] === false) {
-    void logEvent("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "switched_off" });
+    logLater("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "switched_off" });
     return ok((await bankFallback(kind, context)) ?? fallbackNow(), true);
   }
 
@@ -126,20 +126,20 @@ export async function POST(req: Request) {
       runChain(kind, prompt, accept, { allow: (name) => flags[`llm:${name}`] !== false }),
     );
     if (result) {
-      void logEvent("suggest", { suggest_kind: kind, provider: result.provider, fallback: false, ms: result.ms });
+      logLater("suggest", { suggest_kind: kind, provider: result.provider, fallback: false, ms: result.ms });
       return ok(result.data, false);
     }
   } catch {
-    void logEvent("api_error", { route: "suggest", status: 500 });
+    logLater("api_error", { route: "suggest", status: 500 });
   }
 
   // Approved, human-reviewed content comes before the fixed built-in lists.
   const banked = await bankFallback(kind, context);
   if (banked) {
-    void logEvent("suggest", { suggest_kind: kind, provider: "bank", fallback: true, ms: 0, reason: "all_providers_failed" });
+    logLater("suggest", { suggest_kind: kind, provider: "bank", fallback: true, ms: 0, reason: "all_providers_failed" });
     return ok(banked, true);
   }
-  void logEvent("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "all_providers_failed" });
+  logLater("suggest", { suggest_kind: kind, provider: "none", fallback: true, ms: 0, reason: "all_providers_failed" });
   return ok(fallbackNow(), true);
 }
 

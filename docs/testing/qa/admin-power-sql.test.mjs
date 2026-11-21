@@ -1,7 +1,7 @@
-// QA round 6: power-admin SQL (migrations 0004 to 0007) against an in-process Postgres.
+// QA round 6 and 7: power-admin SQL (migrations 0004 to 0008) against an in-process Postgres.
 // Simulates the parts of Supabase the migrations rely on (auth.users, anon / authenticated /
 // service_role). Not a substitute for testing on the real project.
-// Run after: npm i -D @electric-sql/pglite   (or set PGLITE_DIR to the package folder)
+// Run after: npm i --no-save @electric-sql/pglite   (or set PGLITE_DIR to the package folder)
 //   node docs/testing/qa/admin-power-sql.test.mjs
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -10,7 +10,7 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..",
 const pglite = await import(
   process.env.PGLITE_DIR ? path.join(process.env.PGLITE_DIR, "dist/index.js") : "@electric-sql/pglite"
 ).catch(() => {
-  console.log("Install the test database first: npm i -D @electric-sql/pglite (or set PGLITE_DIR).");
+  console.log("Install the test database first: npm i --no-save @electric-sql/pglite (or set PGLITE_DIR).");
   process.exit(2);
 });
 const { PGlite } = pglite;
@@ -58,18 +58,24 @@ await db.exec(`
     created_at timestamptz not null default now()
   );
   alter table public.content_items enable row level security;
+  -- Supabase grants broad table privileges to the public roles by default, TRUNCATE included.
+  -- Simulate that here, so the revoke in 0008 is really tested.
+  grant truncate on public.rooms, public.content_items to anon, authenticated;
   grant usage on schema public, auth to anon, authenticated, service_role;
   grant select, insert, update, delete on all tables in schema public to service_role;
   grant select on auth.users to service_role;
 `);
-for (const f of ["0004_admin_and_events.sql", "0005_admin_stats_and_retention.sql", "0006_lasting_room_counts_and_safe_stats.sql", "0007_power_admin.sql"]) {
+let migrationsOk = true;
+for (const f of ["0004_admin_and_events.sql", "0005_admin_stats_and_retention.sql", "0006_lasting_room_counts_and_safe_stats.sql", "0007_power_admin.sql", "0008_review_followups.sql"]) {
   try {
     await db.exec(migration(f));
+    check("MIG", `migration ${f} applies cleanly`, true);
   } catch (e) {
+    migrationsOk = false;
     check("MIG", `migration ${f} applies cleanly`, false, e.message.split("\n")[0]);
   }
 }
-check("MIG", "migrations 0004 to 0007 apply cleanly", true);
+check("MIG", "migrations 0004 to 0008 all apply cleanly", migrationsOk);
 
 // --- Seed ---------------------------------------------------------------------------------------
 await execAll(`
@@ -141,6 +147,13 @@ for (const fn of newFns.filter((f) => !f.startsWith("purge_old_data"))) {
   check("ACC-3", `service_role can call ${fn}`, r.ok, r.error);
 }
 const rls = await db.query(`select relname, relrowsecurity from pg_class where relnamespace = 'public'::regnamespace and relname in ('admin_audit','feature_flags','cron_runs','content_items')`);
+for (const role of ["anon", "authenticated"]) {
+  const t1 = await asRole(role, "truncate public.content_items");
+  const t2 = await asRole(role, "truncate public.rooms");
+  check("TRU-1", `${role} cannot truncate the review bank or rooms after 0008`, !t1.ok && !t2.ok && /permission denied/i.test(t1.error ?? "") && /permission denied/i.test(t2.error ?? ""), `${t1.error ?? "truncated"} / ${t2.error ?? "truncated"}`);
+  const sel = await asRole(role, "select count(*) from public.app_events");
+  check("TRU-2", `${role} cannot read app_events (no privilege at all)`, !sel.ok && /permission denied/i.test(sel.error ?? ""), sel.ok ? "read succeeded" : sel.error);
+}
 check("ACC-4", "new tables have row-level security on", rls.rows.length === 4 && rls.rows.every((r) => r.relrowsecurity === true), JSON.stringify(rls.rows));
 
 // --- Audit, flags, cron_runs, content -----------------------------------------------------------

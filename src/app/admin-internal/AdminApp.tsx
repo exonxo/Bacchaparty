@@ -156,7 +156,7 @@ function Overview({ onAuthLost }: { onAuthLost: () => void }) {
       <Stat label="Users" value={String(data.users_total ?? 0)} />
       <Stat label="Signups, 7 days" value={String(data.users_7d ?? 0)} />
       <Stat label="Signups, 30 days" value={String(data.users_30d ?? 0)} />
-      <Stat label="Active logins, 7 days" value={String(data.last_signin_7d ?? 0)} />
+      <Stat label="Accounts signed in, 7 days" value={String(data.last_signin_7d ?? 0)} />
       <Stat label="Rooms (all time)" value={String(data.rooms_total ?? 0)} />
       <Stat label="Rooms, 7 days" value={String(data.rooms_7d ?? 0)} />
       <Stat label="Hosts (made a room)" value={String(data.hosts_total ?? 0)} />
@@ -266,7 +266,7 @@ function Games({ onAuthLost }: { onAuthLost: () => void }) {
         </table>
       </div>
       <div>
-        <h2 className="mb-2 font-extrabold">Last 14 days</h2>
+        <h2 className="mb-2 font-extrabold">Last 14 days (UTC dates)</h2>
         <ul className="space-y-1 text-sm">
           {days.map(([d, n]) => (
             <li key={d} className="flex items-center gap-2">

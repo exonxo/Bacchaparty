@@ -1,7 +1,7 @@
 // QA rounds 5-6: the admin SQL (migrations 0004, 0005 and 0006) against an in-process Postgres.
 // This simulates the parts of Supabase the migrations rely on (auth.users, the anon /
 // authenticated / service_role roles). It does NOT replace testing on the real project.
-// Run from the repo root after: npm i -D @electric-sql/pglite   (or pass PGLITE_DIR)
+// Run from the repo root after: npm i --no-save @electric-sql/pglite   (or pass PGLITE_DIR)
 //   node docs/testing/qa/admin-sql.test.mjs
 import { readFileSync } from "node:fs";
 import path from "node:path";

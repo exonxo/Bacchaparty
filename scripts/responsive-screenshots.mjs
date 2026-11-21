@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Capture key pages at 393, 768, 1280, 1920 widths; fail on horizontal overflow.
- * Screenshots → /opt/cursor/artifacts only (never commit).
+ * Screenshots → test-artifacts/responsive (git-ignored; never commit).
  */
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";

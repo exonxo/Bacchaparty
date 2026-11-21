@@ -1,6 +1,6 @@
 # Round 6: power admin (items 1 to 8)
 
-Migration: `supabase/migrations/0007_power_admin.sql`. It is NOT applied yet. Review it, then run it in the Supabase SQL editor after 0006. (Round 6 of the migration history already used the name 0006 for the lasting room counts, so this one is 0007.)
+Migrations: `supabase/migrations/0007_power_admin.sql`, then `supabase/migrations/0008_review_followups.sql` (round 7 follow-ups). NEITHER is applied yet. Review both, then run them in order in the Supabase SQL editor after 0006. (Round 6 of the migration history already used the name 0006 for the lasting room counts, so this one is 0007.)
 
 ## What was built
 
@@ -29,14 +29,39 @@ Also changed: the suggestion route honours the switches, uses approved content b
 
 | Check | Result |
 |---|---|
-| `admin-power-sql.test.mjs` (migrations 0004 to 0007 in an in-process Postgres) | 40 of 40 pass |
+| `admin-power-sql.test.mjs` (migrations 0004 to 0008 in an in-process Postgres, plus TRUNCATE and app_events privilege checks for 0008) | 49 of 49 pass |
 | `llm-chain.test.ts` (adds LLM-13: a switched-off provider is never called) | 13 of 13 pass |
 | `admin-power-http.mjs` (session and origin gates, step-up, fail-closed writes, validation, headers, public flags) | 18 of 18 pass, local server |
 | `admin-http.mjs` (existing hidden-panel checks) | 26 of 26 pass, local server |
 | `admin-ui.mjs` (browser sign-in) | 5 of 5 pass, local server |
+| `admin-security.test.ts` (password hash, token, lockout, config) | 16 of 16 pass |
 | `npm run lint`, `tsc`, `next build` | pass |
 
-Notes from the test run, all fixed in the tests (not the product): the SQL harness ran several seed statements in one call and silently dropped some, so each now runs on its own; the funnel expectation was wrong (3 accounts come back after 7 days, not 27); and one access check called the destructive purge before the retention checks.
+The local runs used a throwaway admin configuration generated for the run. Nothing was run against the live site.
+
+Notes from the test run, all fixed in the tests (not the product): the SQL harness ran several seed statements in one call and silently dropped some, so each now runs on its own; the funnel expectation was wrong (3 accounts come back after 7 days, not 27); and one access check called the destructive purge before the retention checks. The migration check now reports each file, instead of always passing.
+
+## Round 7: review follow-ups
+
+- **0008 (database).** Removes TRUNCATE from `anon` and `authenticated` on every public table. Supabase grants it by default and row-level security does not cover it. Removes all privileges on the admin and event tables from those roles. `content_items` is read-only for them. The account list gets a tie-break on `id`, so pages can't repeat or skip accounts with the same sign-up time.
+- **Password hash.** A truncated hash is refused both at sign-in and at startup. Startup logs the problem without the value.
+- **Middleware.** Encoded admin paths no longer get past the not-found rewrite.
+- **Logging.** Route logging runs after the response (`after()`), not unawaited. The track route checks the rate limit before the room lookup.
+- **Keepalive.** Refuses to run when `CRON_SECRET` is missing.
+- **Lockout.** Memory for failed attempts is bounded.
+- **Live room presence.** The host's presence id uses a hash of the user id, not the raw id.
+- **Setup script.** `scripts/admin-setup.mjs password --stdin` keeps the password off the command line.
+- **Cleanup.** Unused starter images removed.
+
+## Known and not fixed
+
+- The live room channel (`room:CODE`) is public. Snapshots are signed, not encrypted. Fixing this needs private channels with a database access design, so it is a larger change.
+- Logout does not revoke the session token. The token lasts up to 2 hours. A revocation timestamp in the database would fix it.
+- The sign-in lockout check and the failure record are not atomic (low risk).
+- The track route still loads the user before the rate limit check.
+- The `admin_login` event kind is defined but never written.
+- Some SQL checks are weak: the cap test uses 30 accounts, and some per-game checks are not isolated.
+- The layout sweep script lives outside the repo, so its check can't be reproduced from here.
 
 ## Not verified here
 
@@ -47,6 +72,6 @@ Notes from the test run, all fixed in the tests (not the product): the SQL harne
 
 ## Before merging
 
-1. Review `0007_power_admin.sql` and run it in the Supabase SQL editor.
+1. Review `0007_power_admin.sql` and `0008_review_followups.sql`, then run them in order in the Supabase SQL editor.
 2. Optional: set `QUOTA_GEMINI_DAILY`, `QUOTA_GROQ_DAILY`, `QUOTA_OPENROUTER_DAILY`, `QUOTA_CLOUDFLARE_DAILY` in Vercel, using each provider's own limit.
 3. Check one disabled account against the sign-in flow with a throwaway account.

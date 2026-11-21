@@ -13,14 +13,30 @@ import { adminHeaders } from "@/lib/admin/headers";
 
 const SESSION_PATHS = /^\/(host(\/|$)|room\/[A-Z]{4}\/host|auth(\/|$)|login$)/;
 
+/** Decodes percent-escapes so "%2F" or "%61" can't hide a protected path from the checks below. */
+function decoded(pathname: string): string {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return pathname;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const secret = adminPathOrNull();
+  const plain = decoded(pathname);
+  const protectedPrefixes = ["/admin-internal", ...(secret ? [`/${secret}`] : [])];
+  const touchesAdmin = (p: string) => protectedPrefixes.some((pre) => p === pre || p.startsWith(`${pre}/`));
 
+  // Any encoded spelling of an admin path is treated as not found, whatever Next would decode it to.
+  if (pathname !== plain && touchesAdmin(plain)) {
+    return NextResponse.rewrite(new URL("/__not-found__", request.url));
+  }
   if (pathname === "/admin-internal" || pathname.startsWith("/admin-internal/")) {
     return NextResponse.rewrite(new URL("/__not-found__", request.url));
   }
 
-  const secret = adminPathOrNull();
   if (secret && (pathname === `/${secret}` || pathname.startsWith(`/${secret}/`))) {
     const url = request.nextUrl.clone();
     url.pathname = `/admin-internal${pathname.slice(secret.length + 1)}`;

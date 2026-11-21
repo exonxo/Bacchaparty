@@ -21,6 +21,13 @@ export const SESSION_SECONDS = 2 * 60 * 60;
 
 let warned = false;
 
+/** "scrypt$N$r$p$salt$hash" with a salt of at least 8 bytes and a 64-byte hash. A truncated value is refused. */
+export function isCompleteScryptHash(v: string): boolean {
+  const parts = v.split("$");
+  if (parts.length !== 6 || parts[0] !== "scrypt") return false;
+  return Buffer.from(parts[4] ?? "", "base64").length >= 8 && Buffer.from(parts[5] ?? "", "base64").length === 64;
+}
+
 export function adminConfig(): AdminConfig | null {
   const path = (process.env.ADMIN_PATH ?? "").trim().replace(/^\/+|\/+$/g, "");
   if (!path) return null; // not configured: the panel does not exist
@@ -33,7 +40,7 @@ export function adminConfig(): AdminConfig | null {
   const problems: string[] = [];
   if (!/^[A-Za-z0-9_-]{24,128}$/.test(path)) problems.push("ADMIN_PATH must be 24-128 letters, digits, - or _");
   if (username.length < 3) problems.push("ADMIN_USERNAME is missing or too short");
-  if (!passwordHash.startsWith("scrypt$")) problems.push("ADMIN_PASSWORD_HASH is missing (run scripts/admin-setup.mjs)");
+  if (!isCompleteScryptHash(passwordHash)) problems.push("ADMIN_PASSWORD_HASH is missing or incomplete (run scripts/admin-setup.mjs password)");
   if (!/^[A-Z2-7]{16,}$/i.test(totpSecret)) problems.push("ADMIN_TOTP_SECRET is missing (run scripts/admin-setup.mjs)");
   if (sessionSecret.length < 32) problems.push("ADMIN_SESSION_SECRET must be 32+ characters");
 

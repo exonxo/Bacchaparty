@@ -1,7 +1,7 @@
 # Bacchaparty QA testing report
 
 **Branch tested:** `claude/peaceful-fermi-o078sd` (local commit at QA time)  
-**Environment:** Local demo mode (`npm run dev`, no Supabase env) — host + 4 mobile players (393×852) in one Chromium context (BroadcastChannel sync). Spot checks on production **https://bacchaparty.vercel.app/join** (wrong code only; no room spam).  
+**Environment:** Local demo mode (`npm run dev`, no Supabase env) — host + 4 mobile players (393×852) in one Chromium context (BroadcastChannel sync). Spot checks on production **https://bacchaparty.vercel.app/join** (this address now serves BAWAAL at https://playbawaal.vercel.app) (wrong code only; no room spam).  
 **Tools:** `scripts/qa-games.mjs`, `scripts/qa-e2e.mjs` (Playwright 1.49).  
 **Host OAuth:** Not tested (requires Google sign-in); production host flow not exercised.
 

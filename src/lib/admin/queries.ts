@@ -40,10 +40,13 @@ export async function llm() {
   const { data, error } = await db().rpc("admin_llm_stats");
   if (error) throw error;
   const stats = data as { total: number; fallbackRate: number; providers: Record<string, { count: number; fallback: number; avgMs: number }> };
+  // "none" and "bank" are not AI providers: they are what the app served when no AI answered.
+  const LABEL: Record<string, string> = { none: "no AI answered (built-in list)", bank: "approved review bank" };
+  const providers = Object.fromEntries(Object.entries(stats.providers ?? {}).map(([k, v]) => [LABEL[k] ?? k, v]));
   return {
     total: stats.total ?? 0,
     fallbackRate: stats.fallbackRate ?? 0,
-    providers: stats.providers ?? {},
+    providers,
     // Which providers this server instance has configured or is cooling down. No keys are returned.
     live: providerStatus(),
   };

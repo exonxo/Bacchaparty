@@ -2,6 +2,7 @@
 // Same environment as admin-http.mjs: BASE, ADMIN_PATH, ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_TOTP_SECRET.
 import pw from 'playwright';
 import crypto from 'node:crypto';
+import { mkdirSync } from 'node:fs';
 const { chromium } = pw;
 // Use CHROMIUM_PATH to point at a local browser build; otherwise Playwright's own download is used.
 const launchOpts = process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH, args: ["--no-sandbox"] } : {};
@@ -58,7 +59,9 @@ function totpNow(secret) {
   await page.getByText(/Database not connected|Could not load|No users/).first().waitFor({ timeout: 15000 });
   pass('DATA-0', 'without a database the panel says so instead of crashing', true);
 
-  await page.screenshot({ path: '/tmp/claude-0/emoji/admin-ui.png' });
+  // Screenshots are never committed: they go to the git-ignored test-artifacts folder.
+  mkdirSync('test-artifacts', { recursive: true });
+  await page.screenshot({ path: 'test-artifacts/admin-ui.png' });
   await page.getByRole('button', { name: 'Log out' }).click();
   await page.getByRole('heading', { name: 'Admin login' }).waitFor({ timeout: 15000 });
   pass('ADM-14b', 'log out returns to the login form', true);

@@ -1,7 +1,7 @@
 // QA rounds 4-6: admin panel security building blocks (ADM-3, ADM-4, ADM-6..10, ADM-15).
 // Run from the repo root:  npx -y tsx docs/testing/qa/admin-security.test.ts
 import assert from "node:assert/strict";
-import { adminConfig } from "../../../src/lib/admin/config";
+import { adminConfig, isCompleteScryptHash } from "../../../src/lib/admin/config";
 import { hashPassword, signToken, totpAt, verifyPassword, verifyToken, verifyTotp, randomSecretBase32, base32Decode } from "../../../src/lib/admin/crypto";
 import { clientIp, clearedCookie, newSessionToken, sameOrigin, sessionCookie } from "../../../src/lib/admin/session";
 import { isLocked, recordAttempt, MAX_FAILS } from "../../../src/lib/admin/throttle";
@@ -22,6 +22,8 @@ const SECRET = "x".repeat(40);
 const req = (headers: Record<string, string> = {}, url = "https://example.test/x") => new Request(url, { headers });
 
 (async () => {
+  // A real hash for the config fixtures (the old fake value was too short to be a real hash).
+  const VALID_HASH = await hashPassword("correct horse battery");
   await check("ADM-15a", "TOTP matches the RFC 6238 SHA-1 test vector (T=59 → 287082)", () => {
     const secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"; // base32 of "12345678901234567890"
     assert.equal(totpAt(secret, 59_000), "287082");
@@ -91,6 +93,15 @@ const req = (headers: Record<string, string> = {}, url = "https://example.test/x
     assert.equal(sameOrigin(req({ origin: "not a url", host: "example.test" })), false);
   });
 
+  await check("ADM-6b", "a truncated password hash never matches and is refused by the config check", async () => {
+    const truncated = VALID_HASH.slice(0, VALID_HASH.lastIndexOf("$") + 1);
+    assert.equal(await verifyPassword("anything", truncated), false, "truncated hash must not verify");
+    assert.equal(await verifyPassword("", truncated), false, "empty password must not verify against a truncated hash");
+    assert.equal(isCompleteScryptHash(truncated), false);
+    assert.equal(isCompleteScryptHash("scrypt$16384$8$1$aaaa$bbbb"), false);
+    assert.equal(isCompleteScryptHash(VALID_HASH), true);
+  });
+
   await check("ADM-3", "admin is off without ADMIN_PATH", () => {
     const saved = { ...process.env };
     delete process.env.ADMIN_PATH;
@@ -102,7 +113,7 @@ const req = (headers: Record<string, string> = {}, url = "https://example.test/x
     const saved = { ...process.env };
     process.env.ADMIN_PATH = "short";
     process.env.ADMIN_USERNAME = "owner";
-    process.env.ADMIN_PASSWORD_HASH = "scrypt$16384$8$1$aaaa$bbbb";
+    process.env.ADMIN_PASSWORD_HASH = VALID_HASH;
     process.env.ADMIN_TOTP_SECRET = randomSecretBase32();
     process.env.ADMIN_SESSION_SECRET = SECRET;
     assert.equal(adminConfig(), null);

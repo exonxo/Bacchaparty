@@ -31,13 +31,18 @@ export async function isLocked(ip: string, now = Date.now()): Promise<boolean> {
     }
   }
   const recent = (memory.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
-  memory.set(ip, recent);
+  if (recent.length) memory.set(ip, recent);
+  else memory.delete(ip);
   return recent.length >= MAX_FAILS;
 }
 
 /** Records one attempt. Only the outcome and the reason are stored, never the username or password. */
 export async function recordAttempt(ip: string, ok: boolean, reason: string, now = Date.now()): Promise<void> {
   if (!ok) memory.set(ip, [...(memory.get(ip) ?? []), now].slice(-20));
+  if (memory.size > 5000) {
+    // Bound the in-memory fallback: drop entries that are no longer inside the window.
+    for (const [k, times] of memory) if (!times.some((t) => now - t < WINDOW_MS)) memory.delete(k);
+  }
   const db = getServiceClient();
   if (!db) return;
   try {
