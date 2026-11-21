@@ -34,7 +34,7 @@ export function AdminApp() {
   return (
     <div className="mx-auto max-w-5xl p-4">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-extrabold">Bacchaparty admin</h1>
+        <h1 className="text-xl font-extrabold">BAWAAL admin</h1>
         <button
           className="rounded border-2 border-[#1e1a17] px-3 py-1 text-sm font-bold"
           onClick={async () => {

@@ -53,7 +53,7 @@ switch (cmd) {
     console.log(`ADMIN_TOTP_SECRET=${secret}`);
     console.log(
       `Add to your authenticator app (manual entry, time-based, 6 digits):\n` +
-        `otpauth://totp/Bacchaparty%20Admin?secret=${secret}&issuer=Bacchaparty`,
+        `otpauth://totp/BAWAAL%20Admin?secret=${secret}&issuer=BAWAAL`,
     );
     break;
   }

@@ -55,7 +55,7 @@ const PROVIDERS: Provider[] = [
         prompt,
         signal,
         jsonMode: false,
-        extraHeaders: { "X-Title": "Bacchaparty" },
+        extraHeaders: { "X-Title": "BAWAAL" },
       }),
   },
   {

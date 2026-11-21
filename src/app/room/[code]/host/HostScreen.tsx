@@ -210,10 +210,10 @@ function HostRoom({
     }
   }
   async function share() {
-    const text = `Bacchaparty khelein? Room code ${code}`;
+    const text = `Chalo, BAWAAL karein! Room code ${code}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "Bacchaparty", text, url });
+        await navigator.share({ title: "BAWAAL", text, url });
         return;
       }
     } catch {
@@ -358,7 +358,7 @@ function HostRoom({
               </span>
             ))}
           </div>
-          <p className="mt-4 text-p-body text-muted">Share the invite, or tell everyone to open bacchaparty and type this code.</p>
+          <p className="mt-4 text-p-body text-muted">Share the invite, or tell everyone to open playbawaal.vercel.app and type this code.</p>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <PaperButton size="lg" onClick={share}>
               <Share2 className="h-5 w-5" /> Invite bhejo

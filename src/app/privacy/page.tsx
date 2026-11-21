@@ -3,11 +3,11 @@ import Link from "next/link";
 import { Header } from "@/components/Header";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Bacchaparty",
-  description: "What Bacchaparty collects, why, and what we do with it.",
+  title: "Privacy Policy — BAWAAL",
+  description: "What BAWAAL collects, why, and what we do with it.",
 };
 
-const CONTACT = "proloykarmakar25@gmail.com";
+const CONTACT = "uxproloy@gmail.com";
 const UPDATED = "11 November 2026";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -27,7 +27,7 @@ export default function PrivacyPage() {
         <h1 className="mt-4 text-p-show font-extrabold">Privacy Policy</h1>
         <p className="mt-2 text-muted">Last updated: {UPDATED}</p>
         <p className="mt-6 text-lg leading-relaxed">
-          Bacchaparty is a set of party games you play on a big screen with everyone joining from their phones. We collect as little as we can.
+          BAWAAL is a set of party games you play on a big screen with everyone joining from their phones. We collect as little as we can.
           Here’s exactly what that means.
         </p>
 
@@ -75,7 +75,7 @@ export default function PrivacyPage() {
 
         <Section title="Children">
           <p>
-            Bacchaparty is made for families, and children often play as guests. Players under 13 should join with a parent or guardian
+            BAWAAL is made for families, and children often play as guests. Players under 13 should join with a parent or guardian
             present. Guests only enter a nickname, so please encourage kids to use a nickname rather than their full name.
           </p>
         </Section>
@@ -103,7 +103,7 @@ export default function PrivacyPage() {
 
         <p className="mt-12">
           <Link href="/" className="-ml-2 inline-flex min-h-11 items-center rounded-cut px-2 font-semibold text-muted hover:text-ink">
-            ← Back to Bacchaparty
+            ← Back to BAWAAL
           </Link>
         </p>
       </article>

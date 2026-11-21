@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Header } from "@/components/Header";
 import { GamesPageClient } from "./GamesPageClient";
 
-export const metadata: Metadata = { title: "All games — Bacchaparty" };
+export const metadata: Metadata = { title: "All games — BAWAAL" };
 
 export default function GamesPage() {
   return (

@@ -53,7 +53,7 @@ export function buildPrompt(kind: SuggestKind, context: Record<string, unknown>)
   switch (kind) {
     case "chor-kaun-topic":
       parts.push(
-        "You are helping an Indian family party game app (Bacchaparty). Create ONE new Chor Kaun topic pack for spotting the impostor.",
+        "You are helping an Indian family party game app (BAWAAL). Create ONE new Chor Kaun topic pack for spotting the impostor.",
         `Theme for this pack: ${theme}.`,
         `Avoid topic ids: ${JSON.stringify(context.excludeTopicIds ?? [])}.`,
         avoidBlock(avoid),

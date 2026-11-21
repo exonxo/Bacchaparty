@@ -1,4 +1,8 @@
-# Bacchaparty 🪅
+# BAWAAL 🎉
+
+**Ghar mein sab hain? Toh BAWAAL karo!**
+
+▶️ Play now: [playbawaal.vercel.app](https://playbawaal.vercel.app)
 
 Desi party games for the whole family. Put the **big screen** on a TV or laptop and everyone joins from their **phones** with a 4-letter room code. No app to install, and players don't need an account. Only the host signs in with Google.
 
@@ -61,8 +65,8 @@ npm run dev            # demo mode, no setup needed
    - Under **Authorized redirect URIs**, add `https://YOUR-PROJECT.supabase.co/auth/v1/callback`.
    - On the **OAuth consent screen**, add your app name and support email.
 4. Go to **Authentication → URL Configuration**:
-   - Set **Site URL** to your Vercel URL, e.g. `https://bacchaparty.vercel.app`.
-   - Under **Redirect URLs**, add `https://bacchaparty.vercel.app/auth/callback`, `http://localhost:3000/auth/callback`, and `https://*-YOUR-TEAM.vercel.app/auth/callback` if you want preview deploys to work.
+   - Set **Site URL** to your Vercel URL, e.g. `https://your-app.vercel.app`.
+   - Under **Redirect URLs**, add `https://your-app.vercel.app/auth/callback`, `http://localhost:3000/auth/callback`, and `https://*-YOUR-TEAM.vercel.app/auth/callback` if you want preview deploys to work.
 5. Go to **Project Settings → API** and copy the URL and the `anon` key into `.env.local` (see `.env.example`).
 6. Make sure **Realtime** allows public channels. This is the default; check **Realtime → Settings** if phones can't connect.
 
@@ -92,3 +96,13 @@ Content currently ships in `src/content/`. The plan is a weekly server job (for 
 4. waits for a quick review in an admin page before games read them.
 
 Games never call the LLM live during play, which keeps them fast, cheap and kid-safe.
+
+## Contributing
+
+BAWAAL is open source and contributions are very welcome! 🙌
+
+- **Play and test:** try a game at [playbawaal.vercel.app](https://playbawaal.vercel.app) with family or friends and [open an issue](https://github.com/exonxo/playbawaal/issues) for any bug or idea.
+- **Send a PR:** fork the repo, create a branch, run `npm install` and `npm run dev`, and open a pull request. Please run `npm run lint` and `npm run build` first.
+- **New game ideas:** each game lives in `src/games/<id>/`; copy an existing one to get started.
+
+Made by Proloy Karmakar, Product Designer. Questions: uxproloy@gmail.com
