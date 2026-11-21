@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/service";
 
@@ -15,7 +16,7 @@ const noStore = { "cache-control": "no-store" };
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET?.trim();
-  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!secret || !tokenMatches(req.headers.get("authorization"), `Bearer ${secret}`)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401, headers: noStore });
   }
   const db = getServiceClient();
@@ -27,4 +28,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "purge_failed" }, { status: 500, headers: noStore });
   }
   return NextResponse.json({ ok: true, removed: data, at: new Date().toISOString() }, { headers: noStore });
+}
+
+/** Constant-time comparison. Hashing first gives equal-length inputs, so length isn't leaked either. */
+function tokenMatches(given: string | null, expected: string): boolean {
+  if (!given) return false;
+  const a = createHash("sha256").update(given).digest();
+  const b = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(a, b);
 }

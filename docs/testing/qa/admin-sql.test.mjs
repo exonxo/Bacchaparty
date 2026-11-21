@@ -1,4 +1,4 @@
-// QA round 5: the admin SQL (migrations 0004 and 0005) against an in-process Postgres.
+// QA rounds 5-6: the admin SQL (migrations 0004, 0005 and 0006) against an in-process Postgres.
 // This simulates the parts of Supabase the migrations rely on (auth.users, the anon /
 // authenticated / service_role roles). It does NOT replace testing on the real project.
 // Run from the repo root after: npm i -D @electric-sql/pglite   (or pass PGLITE_DIR)
@@ -47,6 +47,7 @@ await db.exec(`
 `);
 await db.exec(migration("0004_admin_and_events.sql"));
 await db.exec(migration("0005_admin_stats_and_retention.sql"));
+await db.exec(migration("0006_lasting_room_counts_and_safe_stats.sql"));
 
 // --- Seed ------------------------------------------------------------------------------------
 // 30 hosts: 20 google, 10 email; the first 3 signed up 40+ days ago.
@@ -168,6 +169,41 @@ const after = { rooms: (await scalar("select count(*)::int c from public.rooms")
 check("RET-4", "recent rooms and login attempts are kept", after.rooms === before.rooms - 8 && after.logins === before.logins - 4, JSON.stringify({ before, after }));
 const hosts = (await scalar("select count(*)::int c from auth.users")).c;
 check("RET-5", "host accounts are never removed by the purge", hosts === 30);
+
+// Lasting room counts (0006): totals don't shrink when old rooms are purged.
+const ov2 = (await asRole("service_role", "select admin_overview() as v")).rows[0].v;
+check("CNT-1", "rooms_total stays 20 after the purge removed 8 rooms", ov2.rooms_total === 20, JSON.stringify({ rooms_total: ov2.rooms_total }));
+check("CNT-2", "hosts_total stays 1 after the purge", ov2.hosts_total === 1, JSON.stringify({ hosts_total: ov2.hosts_total }));
+check("CNT-3", "rooms_active and rooms_7d count only the rooms still kept (12)", ov2.rooms_active === 12 && ov2.rooms_7d === 12, JSON.stringify({ a: ov2.rooms_active, d7: ov2.rooms_7d }));
+// The seeded rooms all belong to the first host by email order.
+const roomHost = (await scalar("select email from auth.users order by email limit 1")).email;
+const host1 = (await asRole("service_role", "select * from admin_users(null, 200, 0)")).rows.find((r) => r.email === roomHost);
+check("CNT-4", "a host's room count is lasting (20, not 12)", Number(host1?.rooms_hosted) === 20, JSON.stringify({ rooms_hosted: host1?.rooms_hosted }));
+await db.exec(`insert into public.rooms (code, host_id) select 'N1', id from auth.users where email = 'host2@example.test'`);
+const host2 = (await asRole("service_role", "select * from admin_users('host2@', 50, 0)")).rows.find((r) => r.email === "host2@example.test");
+check("CNT-5", "creating a room bumps that host's counter", Number(host2?.rooms_hosted) === 1, JSON.stringify({ rooms_hosted: host2?.rooms_hosted }));
+for (const role of ["anon", "authenticated"]) {
+  const r = await asRole(role, "select count(*) from public.host_room_counts");
+  check("CNT-6", `${role} cannot read host_room_counts`, !r.ok && /permission denied/i.test(r.error), r.ok ? "read succeeded" : r.error);
+  const f = await asRole(role, "select public.bump_host_room_count()");
+  check("CNT-7", `${role} cannot call the trigger function`, !f.ok, f.ok ? "call succeeded" : "");
+}
+await db.exec(`delete from auth.users where email = 'host2@example.test'`);
+const gone = (await scalar("select count(*)::int c from public.host_room_counts")).c;
+check("CNT-8", "a deleted account's counter is removed with it", gone === 1, `rows ${gone}`);
+
+// Malformed suggestion events (0006) don't break the view.
+await db.exec(`
+  insert into public.app_events (kind, detail) values
+    ('suggest', '{"provider":"groq","fallback":"maybe","ms":"fast"}'),
+    ('suggest', '{"provider":"groq","fallback":{"x":1},"ms":[1,2]}'),
+    ('suggest', '{"provider":"groq","fallback":"true","ms":"120"}'),
+    ('suggest', '{}');
+`);
+const bad = await asRole("service_role", "select admin_llm_stats() as v");
+check("SAFE-1", "malformed fallback/ms values don't make the view fail", bad.ok, bad.error);
+const lb = bad.ok ? bad.rows[0].v : null;
+check("SAFE-2", "malformed rows are still counted, as not-fallback and 0 ms", lb && lb.total === 154 && lb.providers.groq.count === 103 && lb.providers.groq.fallback === 11 && lb.providers.unknown?.count === 1, JSON.stringify(lb && { total: lb.total, groq: lb.providers.groq, unknown: lb.providers.unknown }));
 
 console.log(results.join("\n"));
 const failed = results.filter((r) => r.startsWith("FAIL")).length;

@@ -16,15 +16,18 @@ export async function isLocked(ip: string, now = Date.now()): Promise<boolean> {
   if (db) {
     try {
       const since = new Date(now - WINDOW_MS).toISOString();
-      const { count } = await db
+      const { count, error } = await db
         .from("admin_login_log")
         .select("id", { count: "exact", head: true })
         .eq("ip", ip)
         .eq("ok", false)
         .gte("created_at", since);
-      return (count ?? 0) >= MAX_FAILS;
+      // Supabase reports query errors in `error` instead of throwing. Treat a failed or empty
+      // answer like an unreachable database and use the in-memory count below, so a database
+      // problem never switches the lockout off.
+      if (!error && typeof count === "number") return count >= MAX_FAILS;
     } catch {
-      // Database unreachable: fall back to memory rather than locking the owner out.
+      // Database unreachable: fall back to the in-memory count rather than skipping the lockout.
     }
   }
   const recent = (memory.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);

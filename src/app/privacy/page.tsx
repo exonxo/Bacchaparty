@@ -38,7 +38,8 @@ export default function PrivacyPage() {
             Google password, and we don’t read your contacts, Drive or Gmail.
           </p>
           <p>
-            We also record when you first signed in, when you last signed in, and how many rooms you have created.
+            We also record when you first signed in, when you last signed in, and a running count of how many rooms you have created
+            (with the dates of your first and latest room). The count stays with your account after the rooms themselves are deleted.
           </p>
         </Section>
 
@@ -48,19 +49,22 @@ export default function PrivacyPage() {
             the nickname and avatar while the game runs.
           </p>
           <p>
-            Your phone keeps the nickname and a random player ID in the browser’s local storage, so you can rejoin if the page reloads. Clearing
-            your browser data removes them.
+            Your phone keeps your nickname, avatar and a random player ID in the browser’s storage, so you can rejoin if the page reloads. It
+            also remembers small settings: whether you have already seen a game’s “how to play” tip, the Housie auto-mark setting, and which
+            results card you closed (until you close the tab). Clearing your browser data removes them.
           </p>
         </Section>
 
         <Section title="What we store, why, and for how long">
           <ul className="list-disc space-y-2 pl-6">
             <li>
-              <b>Host account</b> — name, email, Google account ID, sign-up and last sign-in times. To run your account. Kept until you ask us to
-              delete it.
+              <b>Host account</b> — name, email, Google account ID, sign-up and last sign-in times, and a running count of rooms created. To run
+              your account. Kept until you ask us to delete it.
             </li>
             <li>
-              <b>Party rooms</b> — room code, the host, and when the room was created and closed. To run the party. Deleted after <b>7 days</b>.
+              <b>Party rooms</b> — room code, the host, a security key (the host’s screen signs game updates with it, so players’ phones can
+              ignore fake ones), and when the room was created and closed. To run the party. Deleted after <b>7 days</b>; only the running count
+              on the host’s account is kept.
             </li>
             <li>
               <b>Game starts</b> — which game was started and when. Not linked to a person, a room or a nickname. To see which games are played.
@@ -79,8 +83,9 @@ export default function PrivacyPage() {
               screen. We don’t save them in our database.
             </li>
             <li>
-              <b>On your device</b> — the host’s current game (so a refresh doesn’t lose it), the mute setting, and a short list of recently shown
-              topics or puzzles so new suggestions don’t repeat. It stays on that device.
+              <b>On your device</b> — on the host’s device: the current game and the room’s signing key (so a refresh doesn’t lose them; cleared
+              the next time the site opens after a day), the mute setting, and a short list of recently shown topics or puzzles so new suggestions don’t repeat. On players’
+              phones: the nickname, avatar, player ID and the small settings described above. It stays on that device.
             </li>
             <li>
               <b>Hosting logs</b> — Vercel, which hosts the site, keeps standard technical logs such as IP address, browser and pages requested, for
@@ -92,8 +97,8 @@ export default function PrivacyPage() {
         <Section title="Who can see your data">
           <p>
             <b>The site owner</b> is the only person with access to the admin panel. Through it, the owner can see the list of host accounts
-            (email, sign-in method, sign-up and last sign-in dates, number of rooms created), totals and daily counts of game starts and
-            suggestions, and admin sign-in attempts. The admin panel does <b>not</b> show passwords, player nicknames, game answers or drawings.
+            (email, sign-in method, sign-up and last sign-in dates, number of rooms created), game starts (totals and daily counts), suggestion
+            totals for the last 7 days by AI service, and admin sign-in attempts. The admin panel does <b>not</b> show passwords, player nicknames, game answers or drawings.
           </p>
           <p>
             <b>Service providers</b> that run the app for us: Google (sign-in), Supabase (database, sign-in and real-time) and Vercel (hosting,

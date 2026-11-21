@@ -92,7 +92,7 @@ Screenshots are **not committed** (repository policy). The QA scripts write them
 - `error-emoji-picture.png` — classic-mode host play  
 - `cycle-*.png` — post-game lobby after each cycle  
 
-The run log `docs/testing/e2e-run/game-cycle.json` is kept. The earlier PNGs were removed from the tree in round 5; they remain in git history.
+The run log `game-cycle.json` is written to the same git-ignored `test-artifacts/e2e-run/` folder by `node scripts/qa-games.mjs`. The old committed copy and the earlier PNGs were removed from the tree in rounds 5–6; they remain in git history.
 
 ## Fixes in this PR
 

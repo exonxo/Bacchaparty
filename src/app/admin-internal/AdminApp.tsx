@@ -152,7 +152,7 @@ function Overview({ onAuthLost }: { onAuthLost: () => void }) {
       <Stat label="Active logins, 7 days" value={String(data.last_signin_7d ?? 0)} />
       <Stat label="Rooms (all time)" value={String(data.rooms_total ?? 0)} />
       <Stat label="Rooms, 7 days" value={String(data.rooms_7d ?? 0)} />
-      <Stat label="Hosts" value={String(data.hosts_total ?? 0)} />
+      <Stat label="Hosts (made a room)" value={String(data.hosts_total ?? 0)} />
       <Stat label="Sign-in methods" value={Object.entries(providers).map(([k, v]) => `${k} ${v}`).join(", ") || "—"} />
     </div>
   );

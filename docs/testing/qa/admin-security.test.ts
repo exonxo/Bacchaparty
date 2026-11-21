@@ -1,4 +1,4 @@
-// QA round 4: admin panel security building blocks (ADM-3, ADM-4, ADM-6..10, ADM-15).
+// QA rounds 4-6: admin panel security building blocks (ADM-3, ADM-4, ADM-6..10, ADM-15).
 // Run from the repo root:  npx -y tsx docs/testing/qa/admin-security.test.ts
 import assert from "node:assert/strict";
 import { adminConfig } from "../../../src/lib/admin/config";
@@ -125,6 +125,22 @@ const req = (headers: Record<string, string> = {}, url = "https://example.test/x
     for (let i = 0; i < MAX_FAILS; i++) await recordAttempt(ip, false, "bad_totp", t0);
     assert.equal(await isLocked(ip, t0 + 60_000), true);
     assert.equal(await isLocked(ip, t0 + 16 * 60_000), false);
+  });
+
+  await check("ADM-7d", "if the database query fails, the lockout still works from memory", async () => {
+    const saved = { url: process.env.NEXT_PUBLIC_SUPABASE_URL, key: process.env.SUPABASE_SERVICE_ROLE_KEY };
+    // A configured but unreachable database: supabase-js returns an error instead of throwing.
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:9";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-not-a-real-key";
+    try {
+      const ip = `10.2.0.${Math.floor(Math.random() * 200) + 1}`;
+      for (let i = 0; i < MAX_FAILS; i++) await recordAttempt(ip, false, "bad_credentials");
+      assert.equal(await isLocked(ip), true);
+      assert.equal(await isLocked("10.9.9.8"), false);
+    } finally {
+      if (saved.url === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL; else process.env.NEXT_PUBLIC_SUPABASE_URL = saved.url;
+      if (saved.key === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = saved.key;
+    }
   });
 
   await check("ADM-7c", "the throttle reads the proxy-appended IP, not a spoofed first entry", () => {
