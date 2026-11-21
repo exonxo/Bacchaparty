@@ -1,6 +1,7 @@
 "use client";
 
 import { fallbackFor } from "@/lib/suggest/fallbacks";
+import { keysOf, recall, remember } from "@/lib/suggest/memory";
 import type { SuggestApiResponse, SuggestKind } from "@/lib/suggest/types";
 import type { Level } from "@/lib/types";
 import { validateGeminiPayload } from "@/lib/suggest/validate";
@@ -17,24 +18,27 @@ export async function requestSuggest<T>(
   context: Record<string, unknown>,
   roomCode?: string,
 ): Promise<{ data: T; fallback: boolean }> {
-  const fullContext = { kind, ...context };
+  // The device's own memory goes with the request, so the server can avoid repeats.
+  const withMemory = { ...context, avoid: recall(kind) };
   try {
     const res = await fetch("/api/suggest", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind, context, roomCode }),
+      body: JSON.stringify({ kind, context: withMemory, roomCode }),
       signal: AbortSignal.timeout(9_500),
     });
     const json = (await res.json()) as SuggestApiResponse;
     if (res.ok && json.ok && json.data != null) {
-      const validated = validateClientPayload(kind, json.data, context);
+      const validated = validateClientPayload(kind, json.data, withMemory);
       if (validated != null) {
+        remember(kind, keysOf(kind, validated));
         return { data: validated as T, fallback: !!json.fallback };
       }
     }
   } catch {
     /* use local fallback */
   }
-  const local = fallbackFor(kind, fullContext) as T;
+  const local = fallbackFor(kind, { kind, ...withMemory }) as T;
+  remember(kind, keysOf(kind, local));
   return { data: local, fallback: true };
 }

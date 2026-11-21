@@ -454,6 +454,12 @@ function HostRoom({
                   setStartingGameId(info.id);
                   startGame(info.id, options);
                   setSelected(null);
+                  // Counts the start for the admin panel. Best effort: never blocks the game.
+                  void fetch("/api/track", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ roomCode: code, game: info.id }),
+                  }).catch(() => {});
                 }}
               >
                 <Play className="h-5 w-5" fill="currentColor" /> Shuru karo · {online.length} {online.length === 1 ? "player" : "players"}

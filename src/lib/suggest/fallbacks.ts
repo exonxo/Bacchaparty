@@ -31,9 +31,12 @@ function slugify(label: string): string {
   return base || `topic-${randomId(6)}`;
 }
 
-export function fallbackChorTopic(excludeIds: string[] = []): ChorTopic {
-  const pool = CHOR_TOPICS.filter((t) => !excludeIds.includes(t.id));
-  const source = pool.length ? pick(pool) : pick(CHOR_TOPICS);
+export function fallbackChorTopic(excludeIds: string[] = [], avoid: string[] = []): ChorTopic {
+  const shown = new Set(avoid.map((a) => a.toLowerCase()));
+  const notShown = (t: ChorTopic) => !shown.has(`${t.label} remix`.toLowerCase()) && !shown.has(t.label.toLowerCase());
+  const pool = CHOR_TOPICS.filter((t) => !excludeIds.includes(t.id) && notShown(t));
+  const fresh = pool.length ? pool : CHOR_TOPICS.filter((t) => !excludeIds.includes(t.id));
+  const source = fresh.length ? pick(fresh) : pick(CHOR_TOPICS);
   const words = shuffle([...source.words]).slice(0, Math.min(24, source.words.length));
   return {
     id: `fb-${slugify(source.label)}-${randomId(4)}`,
@@ -43,9 +46,13 @@ export function fallbackChorTopic(excludeIds: string[] = []): ChorTopic {
   };
 }
 
-export function fallbackEmojiPuzzles(level: Level = "family", count = 10): EmojiPuzzle[] {
+export function fallbackEmojiPuzzles(level: Level = "family", count = 10, avoid: string[] = []): EmojiPuzzle[] {
   const levels: Level[] = level === "kids" ? ["kids"] : level === "family" ? ["kids", "family"] : ["family", "adults"];
-  return shuffle(EMOJI_PUZZLES.filter((p) => levels.includes(p.level))).slice(0, count);
+  const shown = new Set(avoid.map((a) => a.toLowerCase()));
+  const pool = EMOJI_PUZZLES.filter((p) => levels.includes(p.level));
+  const fresh = pool.filter((p) => !shown.has(p.answer.toLowerCase()));
+  // If the device has seen most of the pool, fall back to the whole pool rather than returning nothing.
+  return shuffle(fresh.length >= count ? fresh : pool).slice(0, count);
 }
 
 export function fallbackNextGame(playerCount: number, played: string[] = []): NextGameResult {
@@ -74,11 +81,15 @@ export function fallbackDare(): DareResult {
 export function fallbackFor(kind: SuggestKind, context: Record<string, unknown>): unknown {
   switch (kind) {
     case "chor-kaun-topic":
-      return fallbackChorTopic(Array.isArray(context.excludeTopicIds) ? (context.excludeTopicIds as string[]) : []);
+      return fallbackChorTopic(
+        Array.isArray(context.excludeTopicIds) ? (context.excludeTopicIds as string[]) : [],
+        Array.isArray(context.avoid) ? (context.avoid as string[]) : [],
+      );
     case "emoji-puzzle":
       return fallbackEmojiPuzzles(
         (context.level as Level | undefined) ?? "family",
         typeof context.count === "number" ? context.count : 10,
+        Array.isArray(context.avoid) ? (context.avoid as string[]) : [],
       );
     case "next-game":
       return fallbackNextGame(
