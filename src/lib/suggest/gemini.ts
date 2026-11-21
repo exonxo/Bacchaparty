@@ -1,7 +1,6 @@
-import { GAMES } from "@/games/catalog";
 import type { SuggestKind } from "./types";
 
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
+const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-flash-latest";
 
 type JsonSchema = Record<string, unknown>;
 
@@ -17,42 +16,41 @@ const CHOR_TOPIC_SCHEMA: JsonSchema = {
 };
 
 const EMOJI_SCHEMA: JsonSchema = {
-  type: "array",
-  items: {
-    type: "object",
-    properties: {
-      emojis: { type: "string" },
-      category: { type: "string" },
-      answer: { type: "string" },
-      alt: { type: "array", items: { type: "string" } },
-      hint: { type: "string" },
-      level: { type: "string" },
+  type: "object",
+  properties: {
+    puzzles: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          emojis: { type: "string" },
+          category: { type: "string" },
+          answer: { type: "string" },
+          alt: { type: "array", items: { type: "string" } },
+          hint: { type: "string" },
+          level: { type: "string" },
+        },
+        required: ["emojis", "category", "answer", "hint", "level"],
+      },
     },
-    required: ["emojis", "category", "answer", "hint", "level"],
   },
+  required: ["puzzles"],
 };
 
 const NEXT_GAME_SCHEMA: JsonSchema = {
   type: "object",
-  properties: {
-    gameId: { type: "string" },
-    reason: { type: "string" },
-  },
+  properties: { gameId: { type: "string" }, reason: { type: "string" } },
   required: ["gameId", "reason"],
 };
 
 const DARE_SCHEMA: JsonSchema = {
   type: "object",
-  properties: {
-    text: { type: "string" },
-  },
+  properties: { text: { type: "string" } },
   required: ["text"],
 };
 
 function schemaFor(kind: SuggestKind): JsonSchema {
   switch (kind) {
-    case "chor-kaun-topic":
-      return CHOR_TOPIC_SCHEMA;
     case "emoji-puzzle":
       return EMOJI_SCHEMA;
     case "next-game":
@@ -64,66 +62,37 @@ function schemaFor(kind: SuggestKind): JsonSchema {
   }
 }
 
-function promptFor(kind: SuggestKind, context: Record<string, unknown>): string {
-  switch (kind) {
-    case "chor-kaun-topic":
-      return `You are helping an Indian family party game app (BAWAAL). Create ONE new Chor Kaun topic pack for spotting the impostor.
-Return JSON with: id (kebab-case English), label (short English title), emoji (single emoji), words (18-28 distinct short answers Indian families know — places, foods, names, etc.).
-Avoid duplicating these topic ids: ${JSON.stringify(context.excludeTopicIds ?? [])}.
-Keep words family-friendly, no politics, no explicit content.`;
-    case "emoji-puzzle": {
-      const level = context.level ?? "family";
-      const count = context.count ?? 10;
-      return `Create ${count} Emoji Picture puzzles for Indian family parties at "${level}" difficulty.
-Each item: emojis (2-6 emoji string), category (Movie|Food|Place|Festival|Phrase|Cartoon|Sport|Song), answer, optional alt array, hint (short), level (kids|family|adults matching difficulty).
-Mix Bollywood, desi food, festivals, places. Family-safe, fun, no explicit content.`;
-    }
-    case "next-game": {
-      const gameIds = GAMES.map((g) => g.id).join(", ");
-      return `Pick the best next party game for this Indian family app.
-Player count: ${context.playerCount}. Already played this party: ${JSON.stringify(context.gamesPlayed ?? [])}. Mood note: ${context.mood ?? "fun"}.
-You MUST set gameId to exactly one of: ${gameIds}.
-reason: one friendly sentence in English why it fits (mention player count or variety).`;
-    }
-    case "dare":
-      return `One short party dare or icebreaker prompt for a mixed-age Indian family gathering.
-Friendly, inclusive, non-explicit, no alcohol/drugs. Can be silly or wholesome. JSON: { "text": "..." } audience: ${context.audience ?? "family"}.`;
-    default:
-      return "Return empty object.";
-  }
-}
-
-export async function callGemini(apiKey: string, kind: SuggestKind, context: Record<string, unknown>): Promise<unknown | null> {
+/** Gemini's own API. Throws a `ProviderError` with the HTTP status when the call fails. */
+export async function callGemini(apiKey: string, kind: SuggestKind, prompt: string, signal: AbortSignal): Promise<unknown | null> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
   const body = {
-    contents: [{ role: "user", parts: [{ text: promptFor(kind, context) }] }],
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: schemaFor(kind),
+      temperature: 1.1,
       thinkingConfig: { thinkingBudget: 0 },
     },
   };
-
-  const res = await fetch(GEMINI_URL, {
+  const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-goog-api-key": apiKey,
-    },
+    headers: { "Content-Type": "application/json", "X-goog-api-key": apiKey },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(6_000),
+    signal,
   });
-
-  if (res.status === 429) return null;
-  if (!res.ok) return null;
-
-  const json = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
+  if (!res.ok) throw new ProviderHttpError(res.status);
+  const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
   const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) return null;
   try {
     return JSON.parse(text) as unknown;
   } catch {
     return null;
+  }
+}
+
+export class ProviderHttpError extends Error {
+  constructor(public status: number) {
+    super(`provider http ${status}`);
   }
 }

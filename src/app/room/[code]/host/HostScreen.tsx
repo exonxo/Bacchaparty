@@ -326,6 +326,8 @@ function HostRoom({
   const mod = selected ? getGameModule(selected) : null;
   const look = selected ? gameLook(selected) : null;
   const options = selected ? (optionsByGame[selected] ?? mod?.defaultOptions) : undefined;
+  // Players in the room whose phone has dropped off (locked, backgrounded, or a weak connection).
+  const away = state.players.filter((p) => !p.connected && p.id !== me.id);
   const tooFew = info ? online.length < info.minPlayers : false;
   const tooMany = info ? online.length > info.maxPlayers : false;
   const ready = online.length >= 2;
@@ -452,13 +454,25 @@ function HostRoom({
                   setStartingGameId(info.id);
                   startGame(info.id, options);
                   setSelected(null);
+                  // Counts the start for the admin panel. Best effort: never blocks the game.
+                  void fetch("/api/track", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ roomCode: code, game: info.id }),
+                  }).catch(() => {});
                 }}
               >
                 <Play className="h-5 w-5" fill="currentColor" /> Shuru karo · {online.length} {online.length === 1 ? "player" : "players"}
               </BusyPaperButton>
               {(tooFew || tooMany || !mod) && (
                 <p className="mt-2 text-center text-p-note font-semibold text-vermilion">
-                  {!mod ? "Coming soon" : tooFew ? `Needs at least ${info.minPlayers} players` : `Max ${info.maxPlayers} players`}
+                  {!mod
+                    ? "Coming soon"
+                    : tooFew
+                      ? away.length
+                        ? `${online.length} online, ${away.map((p) => p.name).join(", ")} away — unka phone wapas kholne do (lock/background mein connection ruk jaata hai)`
+                        : `Needs at least ${info.minPlayers} players`
+                      : `Max ${info.maxPlayers} players`}
                 </p>
               )}
             </>
